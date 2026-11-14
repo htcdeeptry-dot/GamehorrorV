@@ -8,11 +8,21 @@
       this.breathExhausted = false; this.regenDelay = 0; this.invulnerability = 0; this.talismanCooldown = 0; this.damageFlash = 0; this.stepDistance = 0; this.bobPhase = 0; this.healTimer = 0;
       this.direction = new THREE.Vector3(); this.lookEuler = new THREE.Euler(0, 0, 0, 'YXZ'); this.flashDirection = new THREE.Vector3(0, 0, -1);
       const cfg = G.Config.player.flashlight;
-      const shMapSize = app.settings.shadowQuality === 'high' ? 1024 : 512;
-      this.flashlight = new THREE.SpotLight(0xffe8c0, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay); this.flashlight.castShadow = app.settings.shadowQuality !== 'off'; this.flashlight.shadow.mapSize.set(shMapSize, shMapSize); this.flashlight.shadow.bias = -.0004; this.flashlight.shadow.normalBias = .025; this.flashlight.shadow.autoUpdate = false; this.flashlight.shadow.needsUpdate = true;
+      const qCfg = G.Config.quality[app.settings.quality] || G.Config.quality.medium;
+      const shMapSize = qCfg.flShadowSize || (app.settings.shadowQuality === 'high' ? 1024 : 512);
+      this.flashlight = new THREE.SpotLight(0xffe8c0, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay);
+      this.flashlight.castShadow = app.settings.shadowQuality !== 'off' && qCfg.spotShadows !== false;
+      this.flashlight.shadow.mapSize.set(shMapSize, shMapSize);
+      this.flashlight.shadow.camera.near = .25;
+      this.flashlight.shadow.camera.far = cfg.distance || 30;
+      this.flashlight.shadow.bias = -.0004;
+      this.flashlight.shadow.normalBias = .025;
+      this.flashlight.shadow.autoUpdate = false;
+      this.flashlight.shadow.needsUpdate = true;
+      this.flashlight.visible = true;
       this._flashOffset = new THREE.Vector3(.18, -.15, -.25); this._tmpVec = new THREE.Vector3(); this._lastShadowTime = -1; this._lastShadowPos = new THREE.Vector3(); this._lastShadowYaw = 999; this._lastShadowPitch = 999;
       this.flashTarget = new THREE.Object3D(); this.flashlight.target = this.flashTarget; app.scene.add(this.flashlight, this.flashTarget);
-      this.fillLight = new THREE.PointLight(0xb1b7b9, .14, 3); app.scene.add(this.fillLight);
+      this.fillLight = new THREE.PointLight(0xb1b7b9, .14, 3); this.fillLight.visible = true; app.scene.add(this.fillLight);
       this.hand = new THREE.Group(); this.camera.add(this.hand); app.scene.add(this.camera);
       // Detailed tactical vintage metal flashlight
       const gunmetal = app.textures.material('iron', 0x2b2f32);
@@ -136,7 +146,7 @@
       const c = G.Config.player; this.invulnerability = Math.max(0, this.invulnerability - dt); this.talismanCooldown = Math.max(0, this.talismanCooldown - dt); this.damageFlash = Math.max(0, this.damageFlash - dt * .65); this.regenDelay = Math.max(0, this.regenDelay - dt);
       this.burnTimer = Math.max(0, this.burnTimer - dt); this.burningTalisman.visible = this.burnTimer > 0; this.burningTalisman.scale.set(.65, .65 * Math.min(1, this.burnTimer), .65); this.burningTalisman.rotation.z = this.app.settings.reducedMotion ? 0 : Math.sin(time * 12) * .035; this.burnLight.intensity = this.burnTimer > 0 ? (this.app.settings.reducedFlashes ? .35 : .8) * Math.min(1, this.burnTimer) : 0;
       if (this.healTimer > 0) { this.healTimer -= dt; if (this.healTimer <= 0) { this.data.health = Math.min(100, this.data.health + 45); this.app.toast('Vết thương đã được băng.'); } }
-      this.crouching = this.down('crouch') || (this.world.blocked(this.position.x,this.position.z,c.radius,c.standingHeight)&&!this.world.blocked(this.position.x,this.position.z,c.radius,c.crouchingHeight)); this.running = false;
+      this.crouching = this.down('crouch') || (this.crouching && this.world.blocked(this.position.x,this.position.z,c.radius,c.standingHeight)&&!this.world.blocked(this.position.x,this.position.z,c.radius,c.crouchingHeight)); this.running = false;
       if (this.hiddenSpot) {
         this.holdingBreath = this.down('breath') && this.data.stamina > 0 && !this.breathExhausted;
         if (this.holdingBreath) { this.data.stamina = Math.max(0, this.data.stamina - c.holdBreathDrain * dt); this.regenDelay = 2.4; if (this.data.stamina <= 0) { this.breathExhausted = true; this.holdingBreath = false; this.emitNoise(.9, 'gasp'); this.app.toast(G.UIText.messages.breathEmpty, 'warning'); } }
@@ -175,9 +185,11 @@
       const offset = this._tmpVec.copy(this._flashOffset).applyQuaternion(this.camera.quaternion); this.flashlight.position.copy(this.camera.position).add(offset); this.flashTarget.position.copy(this.flashlight.position).addScaledVector(this.flashDirection, 12);
       const flicker = this.data.battery < 15 && !this.app.settings.reducedFlashes ? .55 + .45 * Math.abs(Math.sin(time * 27) * Math.sin(time * 13)) : 1;
       const lightOn = this.data.flashlightOn && this.data.battery > 0 && !this.hiddenSpot;
-      this.flashlight.intensity = c.flashlight.intensity * flicker; this.flashlight.visible = lightOn; this.hand.visible = !this.hiddenSpot;
-      if (lightOn && this.flashlight.castShadow && (time - this._lastShadowTime > .032 || !dt)) {
-        const moved = this._lastShadowPos.distanceToSquared(this.position) > .0004 || Math.abs(this.yaw - this._lastShadowYaw) > .004 || Math.abs(this.pitch - this._lastShadowPitch) > .004;
+      this.flashlight.intensity = lightOn ? c.flashlight.intensity * flicker : 0; this.flashlight.visible = true; this.hand.visible = !this.hiddenSpot;
+      const qCfg = G.Config.quality[this.app.settings.quality] || G.Config.quality.medium;
+      const flShadowInterval = qCfg.flShadowInterval || .045;
+      if (lightOn && this.flashlight.castShadow && (time - this._lastShadowTime > flShadowInterval || !dt)) {
+        const moved = this._lastShadowPos.distanceToSquared(this.position) > .0006 || Math.abs(this.yaw - this._lastShadowYaw) > .005 || Math.abs(this.pitch - this._lastShadowPitch) > .005;
         if (moved || this._lastShadowTime < 0) {
           this.flashlight.shadow.needsUpdate = true;
           this._lastShadowTime = time;
@@ -196,7 +208,7 @@
       const swayY = reduced ? 0 : Math.abs(Math.sin(this.bobPhase)) * -.008 * Math.min(speed, 1) + Math.sin(time * 1.9) * .0025;
       this.hand.position.set(swayX, swayY, 0);
       this.hand.rotation.set(reduced ? 0 : Math.sin(time * 1.9) * .006, 0, reduced ? 0 : Math.sin(this.bobPhase) * .018 * Math.min(speed, 1));
-      this.fillLight.position.copy(this.camera.position); this.fillLight.visible = !this.hiddenSpot;
+      this.fillLight.position.copy(this.camera.position); this.fillLight.visible = true; this.fillLight.intensity = this.hiddenSpot ? 0 : .14;
     }
     dispose() { document.removeEventListener('mousemove', this.onMouse); document.removeEventListener('keydown', this.onDown); document.removeEventListener('keyup', this.onUp); this.camera.remove(this.hand, this.burningTalisman, this.burnLight); this.app.scene.remove(this.flashlight, this.flashTarget, this.fillLight); if (this.flashlight.shadow.map) this.flashlight.shadow.map.dispose(); if (this.flashBeam) { this.flashBeam.geometry.dispose(); this.flashBeam.material.dispose(); } }
   };

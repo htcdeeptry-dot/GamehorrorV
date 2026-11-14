@@ -34,16 +34,32 @@
     banish() { this.setState('banished'); this.model.visible = false; this.hallucination.visible = false; }
     moveTo(target, speed, dt) {
       if (this.world.isSafe(target)) return 0;
-      this.pathClock -= dt;
-      if (this.pathClock <= 0) { this.path = this.world.findPath(this.position, target); this.pathClock = this.cfg.repathSeconds; }
+      const repath = this.cfg.repathSeconds || (G.Config.world && G.Config.world.navigation && G.Config.world.navigation.repathSeconds) || .7;
+      this.pathClock = Number.isFinite(this.pathClock) ? this.pathClock - dt : 0;
+      if (this.pathClock <= 0 || !this.path.length) {
+        this.path = this.world.findPath(this.position, target);
+        this.pathClock = repath;
+      }
       this.world.openNearbyDoors(this.position);
       if (!this.path.length) return 0;
-      let next = this.path[0]; if (this.position.distanceTo(next) < .22) { this.path.shift(); if (!this.path.length) return 0; next = this.path[0]; }
-      const delta = next.clone().sub(this.position).setY(0), distance = delta.length(); if (!distance) return 0; delta.normalize();
-      const travel = Math.min(speed * dt, distance), candidate = this.position.clone().addScaledVector(delta, travel); if (this.world.isSafe(candidate)) return 0;
-      const before = this.position.clone(); this.world.move(this.position, delta.x * travel, delta.z * travel, .31, 1.7);
-      const angle = Math.atan2(delta.x, delta.z), difference = Math.atan2(Math.sin(angle - this.model.rotation.y), Math.cos(angle - this.model.rotation.y)); this.model.rotation.y += difference * Math.min(1, dt * 6);
-      return before.distanceTo(this.position) / Math.max(.001, dt);
+      let next = this.path[0];
+      if (this.position.distanceToSquared(next) < .0484) {
+        this.path.shift();
+        if (!this.path.length) return 0;
+        next = this.path[0];
+      }
+      const delta = (this._delta || (this._delta = new THREE.Vector3())).copy(next).sub(this.position).setY(0);
+      const distance = delta.length();
+      if (!distance) return 0;
+      delta.multiplyScalar(1 / distance);
+      const travel = Math.min(speed * dt, distance);
+      const candidate = (this._candidate || (this._candidate = new THREE.Vector3())).copy(this.position).addScaledVector(delta, travel);
+      if (this.world.isSafe(candidate)) return 0;
+      const bx = this.position.x, bz = this.position.z;
+      this.world.move(this.position, delta.x * travel, delta.z * travel, .31, 1.7);
+      const angle = Math.atan2(delta.x, delta.z), difference = Math.atan2(Math.sin(angle - this.model.rotation.y), Math.cos(angle - this.model.rotation.y));
+      this.model.rotation.y += difference * Math.min(1, dt * 6);
+      return Math.hypot(this.position.x - bx, this.position.z - bz) / Math.max(.001, dt);
     }
     update(dt, time) {
       const player = this.app.player; this.stateTime += dt; this.attackClock = Math.max(0, this.attackClock - dt); this.stunImmunity = Math.max(0, this.stunImmunity - dt);

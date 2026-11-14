@@ -832,17 +832,17 @@
     postVertex: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
     postFragment: [
       'uniform sampler2D tScene;uniform sampler2D tDepth;uniform mat4 uProjectionInverse;uniform mat4 uCameraWorld;uniform vec3 uCameraPosition;uniform vec4 uHouses[6];uniform float uFog;uniform float uFogSteps;uniform float uThreat;uniform float uTime;uniform float uSanity;uniform float uDamage;uniform float uMotion;varying vec2 vUv;',
-      'float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}',
+      'float hash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}',
       'float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}',
-      'float fogDensity(vec3 p){float height=exp(-max(p.y,0.0)*2.05)*smoothstep(-0.15,0.12,p.y);vec2 drift=vec2(uTime*.07,uTime*-.04);float n=noise(p.xz*.19+drift)*.65+noise(p.xz*.52-drift)*.35;float inside=0.;for(int i=0;i<6;i++){vec2 d=abs(p.xz-uHouses[i].xy)-uHouses[i].zw;inside=max(inside,(1.-smoothstep(-.1,.7,max(d.x,d.y))));}return height*smoothstep(.28,.82,n)*.145*(1.-inside);}',
-      'vec3 groundFog(vec3 color,vec2 uv){float depth=texture2D(tDepth,uv).x;vec4 view=uProjectionInverse*vec4(uv*2.-1.,depth*2.-1.,1.);view/=view.w;vec3 endPoint=(uCameraWorld*view).xyz;vec3 delta=endPoint-uCameraPosition;float distance=min(length(delta),46.);vec3 direction=normalize(delta);if((depth>0.9995&&direction.y>0.06)||(uCameraPosition.y>2.6&&direction.y>0.0))return color;float steps=max(uFogSteps,4.);float stepSize=distance/steps;float jitter=hash(uv+fract(uTime))*stepSize;float transmission=1.;for(int i=0;i<16;i++){if(float(i)>=steps)break;vec3 p=uCameraPosition+direction*(float(i)*stepSize+jitter);if(p.y<3.2){float density=fogDensity(p);transmission*=exp(-density*stepSize);}}return mix(vec3(.021,.036,.042),color,transmission);}',
+      'float fogDensity(vec3 p){float height=exp(-max(p.y,0.0)*2.05)*smoothstep(-0.15,0.12,p.y);vec2 drift=vec2(uTime*.07,uTime*-.04);float n=noise(p.xz*.19+drift)*.72+noise(p.xz*.48-drift)*.28;float minD=999.;for(int i=0;i<6;i++){vec2 d=abs(p.xz-uHouses[i].xy)-uHouses[i].zw;minD=min(minD,max(d.x,d.y));}float inside=1.-smoothstep(-.1,.7,minD);return height*smoothstep(.28,.82,n)*.145*(1.-inside);}',
+      'vec3 groundFog(vec3 color,vec2 uv){float depth=texture2D(tDepth,uv).x;vec4 view=uProjectionInverse*vec4(uv*2.-1.,depth*2.-1.,1.);view/=view.w;vec3 endPoint=(uCameraWorld*view).xyz;vec3 delta=endPoint-uCameraPosition;float distSq=dot(delta,delta);float dist=sqrt(max(distSq,1e-6));vec3 direction=delta/dist;if((depth>0.9995&&direction.y>0.04)||(uCameraPosition.y>3.1&&direction.y>=0.0)||(uCameraPosition.y>3.1&&endPoint.y>3.1))return color;float distance=min(dist,46.);float steps=max(uFogSteps,3.);float stepSize=distance/steps;float jitter=hash(uv*97.0+fract(uTime))*stepSize;float transmission=1.;for(int i=0;i<12;i++){if(float(i)>=steps)break;vec3 p=uCameraPosition+direction*(float(i)*stepSize+jitter);if(p.y<3.2){transmission*=exp(-fogDensity(p)*stepSize);}}return mix(vec3(.021,.036,.042),color,transmission);}',
       'void main(){vec2 uv=vUv;float threatMask=smoothstep(0.08,0.85,uThreat);float band=step(0.985,hash(vec2(floor(uv.y*60.0),floor(uTime*8.0))));',
       'float interference=max(uSanity*0.75,threatMask);uv.x+=band*sin(uTime*31.0)*interference*0.012*uMotion;uv.x+=sin(uv.y*170.+uTime*9.)*.0005*threatMask*uMotion;float radial=dot(uv-.5,uv-.5);float shift=interference*0.0022+radial*0.0011;',
-      'vec3 col=vec3(texture2D(tScene,uv+vec2(shift,0.)).r,texture2D(tScene,uv).g,texture2D(tScene,uv-vec2(shift,0.)).b);',
+      'vec3 col=shift>0.0004?vec3(texture2D(tScene,uv+vec2(shift,0.)).r,texture2D(tScene,uv).g,texture2D(tScene,uv-vec2(shift,0.)).b):texture2D(tScene,uv).rgb;',
       'vec3 bloom=max(texture2D(tScene,uv+vec2(.0035,.0025)).rgb-vec3(.56),0.)+max(texture2D(tScene,uv-vec2(.0035,.0025)).rgb-vec3(.56),0.)+max(texture2D(tScene,uv+vec2(-.0025,.0035)).rgb-vec3(.56),0.)+max(texture2D(tScene,uv+vec2(.0025,-.0035)).rgb-vec3(.56),0.);',
       'if(uFog>.5)col=groundFog(col,uv);',
       'col+=bloom*0.14+max(col-vec3(0.72),vec3(0.0))*0.22;',
-      'col*=1.-sin(vUv.y*850.)*.032*threatMask;col+=vec3(hash(vUv+floor(uTime*18.)*uMotion)-.5)*threatMask*.018;',
+      'col*=1.-sin(vUv.y*850.)*.032*threatMask;if(threatMask>0.01)col+=vec3(hash(vUv+floor(uTime*18.)*uMotion)-.5)*threatMask*.018;',
       'float vignette=1.0-smoothstep(0.24,0.78,length(vUv-0.5));col*=mix(0.48,1.0,vignette);',
       'col+=vec3(hash(vUv+fract(uTime))-0.5)*0.002;col=mix(col,vec3(col.r*1.32,col.g*.52,col.b*.56),uDamage*(1.0-vignette)*0.72);',
       'col=max(col,vec3(0.0));col=(col*(2.51*col+0.03))/(col*(2.43*col+0.59)+0.14);col=clamp(col,0.0,1.0);',
@@ -887,15 +887,22 @@
       this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
       this.scene.add(this.quad);
     }
-    resize(w, h) { this.target.setSize(w, h); }
+    resize(w, h) {
+      w = Math.max(1, Math.round(w));
+      h = Math.max(1, Math.round(h));
+      if (this._w === w && this._h === h) return;
+      this._w = w; this._h = h;
+      this.target.setSize(w, h);
+    }
     render(scene, camera, time, sanity, damage, reducedMotion, threat, volFog, fogSteps) {
       const u = this.material.uniforms;
       u.uTime.value = time;
       u.uSanity.value = sanity;
       u.uDamage.value = damage;
       u.uMotion.value = reducedMotion ? 0 : 1;
-      u.uFog.value = (this.depthSupported && volFog !== false) ? 1 : 0;
-      u.uFogSteps.value = Math.max(4, Math.min(16, fogSteps || 10));
+      const steps = fogSteps !== undefined ? fogSteps : 4;
+      u.uFog.value = (this.depthSupported && volFog !== false && steps > 0) ? 1 : 0;
+      u.uFogSteps.value = Math.max(3, Math.min(12, steps));
       camera.updateMatrixWorld();
       u.uProjectionInverse.value.copy(camera.projectionMatrixInverse);
       u.uCameraWorld.value.copy(camera.matrixWorld);

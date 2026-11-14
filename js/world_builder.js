@@ -8,6 +8,10 @@
       this.temp = new THREE.Vector3();
       this.decorHouses = []; this.echoes = []; this.outageRemaining = 0; this.cinematic = null;
       this.volumetricBeams = []; this.instancedExtras = []; this.skyDome = null;
+      this.staticColliderGrid = null; this.dynamicColliders = null; this._querySeq = 0; this._gridCell = 8;
+      this._occupants = []; this._compTarget = new THREE.Vector3(); this._compDelta = new THREE.Vector3();
+      this._segA = new THREE.Vector3(); this._segB = new THREE.Vector3(); this._segSub = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, minY: 0, maxY: 0 };
+      this.moonShadowInterval = .32; this.forestDrawDistSq = 80 * 80; this.allowForestShadow = true;
     }
     box(size, position, material, collision, parent) {
       const m = this.models.box(parent || this.root, size, position, material);
@@ -108,7 +112,48 @@
       this.buildSkyAndMountains();
       this.buildPaths(); this.buildGate(); this.buildWell(); G.WorldLayout.houses.forEach(h => this.buildHouse(h)); this.buildCemetery(); this.buildVillageDetails(); this.buildForest(); this.buildPickups(); this.buildWeather(); this.buildNotes(); this.buildEchoes();
       G.WorldLayout.companions.forEach(c => { const model = this.models.person(c.id, false); model.position.fromArray(c.position); this.root.add(model); this.companions.set(c.id, { model: model, config: c, path: [], repath: 0, arrived: false }); this.register('friend_' + c.id, model, { type: 'rescue', puzzle: c.rescueInteraction, label: 'Cứu ' + G.Lore.characters[c.id].name }); });
-      this.buildGroundDressing();this.buildApproach();this.interactions.forEach(e=>this.models.bakeRigid(e.root)); this.root.updateMatrixWorld(true); this.batchStaticMeshes(); return this;
+      this.buildGroundDressing();this.buildApproach();this.interactions.forEach(e=>this.models.bakeRigid(e.root)); this.root.updateMatrixWorld(true); this.batchStaticMeshes(); this.buildColliderGrid();
+      const qCfg = G.Config.quality[this.settings.quality] || G.Config.quality.medium;
+      this.models.attachLightPool(this.scene, this.settings.quality);
+      this.applyQuality(this.settings, qCfg);
+      return this;
+    }
+    applyQuality(settings, qCfg) {
+      if (!qCfg) qCfg = G.Config.quality[settings && settings.quality] || G.Config.quality.medium;
+      this.moonShadowInterval = qCfg.moonShadowInterval || .32;
+      this.forestDrawDistSq = Math.pow(qCfg.forestDrawDist || 80, 2);
+      this.allowForestShadow = (!settings || (settings.shadowQuality !== 'off' && settings.quality !== 'potato' && settings.quality !== 'low'));
+      const foliageDensity = qCfg.foliageDensity !== undefined ? qCfg.foliageDensity : 1;
+      for (let i = 0; i < this.instancedExtras.length; i++) {
+        const im = this.instancedExtras[i];
+        if (im.userData.fullCount === undefined) im.userData.fullCount = im.count;
+        im.count = Math.max(1, Math.round(im.userData.fullCount * foliageDensity));
+      }
+      if (!this.allowForestShadow && this.forestClusters) {
+        for (let i = 0; i < this.forestClusters.length; i++) this.forestClusters[i].castShadow = false;
+      }
+    }
+    buildColliderGrid() {
+      for (let i = 0; i < this.doors.length; i++) {
+        if (this.doors[i].collider) this.doors[i].collider.dynamic = true;
+      }
+      const grid = new Map(), dyn = [], cs = this._gridCell;
+      for (let i = 0; i < this.colliders.length; i++) {
+        const c = this.colliders[i];
+        if (c.dynamic || c.obb) { dyn.push(c); continue; }
+        const x0 = Math.floor(c.minX / cs), x1 = Math.floor(c.maxX / cs);
+        const z0 = Math.floor(c.minZ / cs), z1 = Math.floor(c.maxZ / cs);
+        for (let gx = x0; gx <= x1; gx++) {
+          for (let gz = z0; gz <= z1; gz++) {
+            const key = (gx + 256) * 1024 + (gz + 256);
+            let cell = grid.get(key);
+            if (!cell) { cell = []; grid.set(key, cell); }
+            cell.push(c);
+          }
+        }
+      }
+      this.staticColliderGrid = grid;
+      this.dynamicColliders = dyn;
     }
     batchStaticMeshes() {
       // Gộp vật thể tĩnh theo vật liệu. Cửa, đồ nhặt, nhân vật và đèn đung đưa
@@ -123,7 +168,7 @@
         if (!mesh.isMesh || mesh.isInstancedMesh || Array.isArray(mesh.material) || mesh.material.isShaderMaterial) return;
         let node = mesh; while (node) { if (moving.has(node) || !node.visible) return; node = node.parent; }
         mesh.getWorldPosition(this.temp);
-        const key = mesh.material.uuid + ':' + mesh.castShadow + ':' + mesh.receiveShadow + ':' + Math.floor(this.temp.x / 28) + ':' + Math.floor(this.temp.z / 28);
+        const key = mesh.material.uuid + ':' + mesh.castShadow + ':' + mesh.receiveShadow + ':' + Math.floor(this.temp.x / 42) + ':' + Math.floor(this.temp.z / 42);
         if (!groups.has(key)) groups.set(key, []); groups.get(key).push(mesh);
       });
       let batchIndex = 0;
@@ -162,7 +207,7 @@
       const add=(x,z,variant)=>{const key=Math.floor(x/38)+':'+Math.floor(z/38)+':'+variant;if(!clusters.has(key))clusters.set(key,{variant,transforms:[]});const size=.78+r()*.5;q.setFromAxisAngle(up,r()*Math.PI*2);matrix.compose(new THREE.Vector3(x,0,z),q,scale.setScalar(size));clusters.get(key).transforms.push(matrix.clone());count++;if(z<70)this.colliders.push({minX:x-.34,maxX:x+.34,minZ:z-.34,maxZ:z+.34,minY:0,maxY:9,enabled:true,navigation:true,opaque:true});};
       for(let i=0;i<114;i++){const z=65+r()*82,center=roadCurve.getPoint(G.Utils.clamp((z-5)/142,0,1)).x,side=i%2?1:-1,x=center+side*(7+r()*31);add(x,z,i%4);}
       for(let i=0;i<42;i++){const z=8+r()*47,x=(i%2?1:-1)*(8+r()*13);if(this.blocked(x,z,2.5,2)||G.WorldLayout.houses.concat(this.decorHouses).some(h=>Math.abs(x-h.position[0])<h.width/2+3&&Math.abs(z-h.position[2])<h.depth/2+3))continue;add(x,z,i%4);}
-      clusters.forEach(cluster=>{const prototype=prototypes[cluster.variant];prototype.updateMatrixWorld(true);prototype.traverse(source=>{if(!source.isMesh)return;const mesh=new THREE.InstancedMesh(source.geometry,source.material,cluster.transforms.length);cluster.transforms.forEach((transform,i)=>mesh.setMatrixAt(i,transform.clone().multiply(source.matrixWorld)));mesh.castShadow=true;mesh.receiveShadow=true;mesh.instanceMatrix.needsUpdate=true;mesh.frustumCulled=false;mesh.userData.forestCluster=true;const center=new THREE.Vector3();cluster.transforms.forEach(t=>center.add(new THREE.Vector3().setFromMatrixPosition(t)));center.divideScalar(cluster.transforms.length);mesh.userData.clusterCenter=center;this.root.add(mesh);if(!this.forestClusters)this.forestClusters=[];this.forestClusters.push(mesh);});});
+      clusters.forEach(cluster=>{const prototype=prototypes[cluster.variant];prototype.updateMatrixWorld(true);prototype.traverse(source=>{if(!source.isMesh)return;const mesh=new THREE.InstancedMesh(source.geometry,source.material,cluster.transforms.length);cluster.transforms.forEach((transform,i)=>mesh.setMatrixAt(i,transform.clone().multiply(source.matrixWorld)));const isLeaf=source.material&&source.material.alphaTest>0;const baseCast=source.castShadow&&!isLeaf;mesh.castShadow=baseCast;mesh.receiveShadow=source.receiveShadow;mesh.userData.castShadowBase=baseCast;mesh.instanceMatrix.needsUpdate=true;mesh.frustumCulled=false;mesh.userData.forestCluster=true;const center=new THREE.Vector3();cluster.transforms.forEach(t=>center.add(new THREE.Vector3().setFromMatrixPosition(t)));center.divideScalar(cluster.transforms.length);mesh.userData.clusterCenter=center;this.root.add(mesh);if(!this.forestClusters)this.forestClusters=[];this.forestClusters.push(mesh);});});
       this.approachTreeCount=count;
       // Roadside boundary granite boulders and haunted bamboo groves framing the foggy ravine
       const stone=this.textures.material('stone',0x7e887a);
@@ -428,7 +473,7 @@
       });
     }
     tiledRoof(parent, width, depth, position, slope) {
-      const sx=Math.ceil(width/.09),sz=Math.ceil(depth/.08),vertices=[],uv=[],indices=[];
+      const sx=Math.max(4,Math.ceil(width/.24)),sz=Math.max(8,Math.ceil(depth/.16)),vertices=[],uv=[],indices=[];
       for(let x=0;x<=sx;x++)for(let z=0;z<=sz;z++){
         const px=x/sx*width-width/2,pz=z/sz*depth-depth/2;
         const wave=Math.cos(pz*Math.PI*2/.32)*.045, row=(px+width/2)/.48, overlap=(row-Math.floor(row))*.033;
@@ -496,20 +541,22 @@
     }
     gnarledTree(parent,height,seed) {
       const r=G.Utils.seededRandom(381+seed),bark=this.textures.material('bark',0x6c6a5d);
-      const trunk=this.models.loft(parent,[[0,.36,.34],[.3,.32,.30],[height*.3,.21,.19,.09],[height*.6,.15,.14,-.06],[height*.85,.09,.08,.11],[height,.025,.023,.14]],bark,18,.09);
-      for(let i=0;i<7;i++){
+      const trunk=this.models.loft(parent,[[0,.36,.34],[.3,.32,.30],[height*.3,.21,.19,.09],[height*.6,.15,.14,-.06],[height*.85,.09,.08,.11],[height,.025,.023,.14]],bark,12,.09);
+      for(let i=0;i<5;i++){
         const angle=i*2.399+r(),reach=.75+r()*.7;
-        this.models.curve(parent,[[0,.26,0],[Math.sin(angle)*.52,.14,Math.cos(angle)*.52],[Math.sin(angle)*reach,.015,Math.cos(angle)*reach]],.078,bark,10);
+        this.models.curve(parent,[[0,.26,0],[Math.sin(angle)*.52,.14,Math.cos(angle)*.52],[Math.sin(angle)*reach,.015,Math.cos(angle)*reach]],.078,bark,6);
       }
-      for(let i=0;i<8;i++){
-        const angle=i*2.399,base=height*(.4+i*.045),reach=1.15+r()*1.6;
+      for(let i=0;i<6;i++){
+        const angle=i*2.399,base=height*(.4+i*.06),reach=1.15+r()*1.6;
         const tip=[Math.sin(angle)*reach,base+1.1+r(),Math.cos(angle)*reach];
-        this.models.curve(parent,[[0,base,0],[Math.sin(angle)*reach*.4,base+.35,Math.cos(angle)*reach*.4],tip],.055+(7-i)*.006,bark,12);
-        for(let j=0;j<2;j++){const a=angle+(j?-.55:.55);this.models.curve(parent,[[tip[0]*.65,base+.8,tip[2]*.65],tip,[tip[0]+Math.sin(a)*.75,tip[1]+.45,tip[2]+Math.cos(a)*.75]],.018,bark,8);}
+        this.models.curve(parent,[[0,base,0],[Math.sin(angle)*reach*.4,base+.35,Math.cos(angle)*reach*.4],tip],.055+(5-i)*.007,bark,8);
+        if(i<4){
+          for(let j=0;j<2;j++){const a=angle+(j?-.55:.55);this.models.curve(parent,[[tip[0]*.65,base+.8,tip[2]*.65],tip,[tip[0]+Math.sin(a)*.75,tip[1]+.45,tip[2]+Math.cos(a)*.75]],.018,bark,5);}
+        }
         // Hanging tropical banyan aerial root tendrils on lower strong boughs
-        if(i<3&&height>4.5){
+        if(i<2&&height>4.5){
           const ax=Math.sin(angle)*reach*.72,az=Math.cos(angle)*reach*.72,ay=base+.48;
-          this.models.curve(parent,[[ax,ay,az],[ax+(r()-.5)*.14,ay*.52,az+(r()-.5)*.14],[ax*.92,.35+r()*.9,az*.92]],.012,bark,6);
+          this.models.curve(parent,[[ax,ay,az],[ax+(r()-.5)*.14,ay*.52,az+(r()-.5)*.14],[ax*.92,.35+r()*.9,az*.92]],.012,bark,5);
         }
       }
     }
@@ -574,15 +621,15 @@
       const outerMat = this.models.sharedMaterial('leaf-canopy-outer', { map: this.textures.foliage(), alphaTest: .42, side: THREE.DoubleSide, roughness: .88, color: 0x7b8c72 });
       const innerMat = this.models.sharedMaterial('leaf-canopy-inner', { map: this.textures.foliage(), alphaTest: .42, side: THREE.DoubleSide, roughness: .94, color: 0x4b5946 });
       // Multi-tiered arched overlapping bough clusters eliminate flat billboard square cross seams
-      for (let i = 0; i < 26; i++) {
-        const a = i * 2.3999, tier = i < 10 ? 0 : i < 20 ? 1 : 2;
+      for (let i = 0; i < 16; i++) {
+        const a = i * 2.3999, tier = i < 6 ? 0 : i < 12 ? 1 : 2;
         const rad = size * (tier === 0 ? (.38 + (i % 3) * .08) : tier === 1 ? (.24 + (i % 3) * .07) : .08);
         const yOff = height + (tier === 0 ? -.15 : tier === 1 ? .42 : .88) + Math.sin(i * 1.7) * size * .08;
-        const cardS = size * (tier === 2 ? .52 : .42 + (i % 4) * .06);
+        const cardS = size * (tier === 2 ? .58 : .48 + (i % 4) * .065);
         const mat = (i % 2 === 0 || tier === 0) ? innerMat : outerMat;
         const tilt = tier === 2 ? -1.15 : -.55 - (i % 3) * .22;
         const leaf = this.models.mesh(parent, 'PlaneGeometry', [cardS, cardS * .88], mat, [Math.sin(a) * rad, yOff, Math.cos(a) * rad], [tilt, a + (i % 2) * .6, Math.sin(i) * .35]);
-        leaf.castShadow = tier === 2;
+        leaf.castShadow = false;
       }
     }
     buildVillageDetails() {
@@ -876,52 +923,188 @@
     isSafe(position) { return !!this.session && Object.values(this.session.companions).includes('rescued') && Math.hypot(position.x, position.z - 48) < 5; }
     blocked(x, z, radius, height, navigation) {
       if (x < -64.5 || x > 64.5 || z < -67.5 || z > 70) return true;
-      return this.colliders.some(c => c.enabled && (!navigation || c.navigation) && c.maxY > .23 && c.minY < height && this.circleHits(x,z,radius,navigation&&c.navShape?c.navShape:c));
+      const grid = this.staticColliderGrid;
+      if (!grid) {
+        for (let i = 0; i < this.colliders.length; i++) {
+          const c = this.colliders[i];
+          if (c.enabled && (!navigation || c.navigation) && c.maxY > .23 && c.minY < height && this.circleHits(x, z, radius, navigation && c.navShape ? c.navShape : c)) return true;
+        }
+        return false;
+      }
+      const cs = this._gridCell, seq = ++this._querySeq;
+      const x0 = Math.floor((x - radius) / cs), x1 = Math.floor((x + radius) / cs);
+      const z0 = Math.floor((z - radius) / cs), z1 = Math.floor((z + radius) / cs);
+      for (let gx = x0; gx <= x1; gx++) {
+        const row = (gx + 256) * 1024 + 256;
+        for (let gz = z0; gz <= z1; gz++) {
+          const cell = grid.get(row + gz);
+          if (!cell) continue;
+          for (let i = 0; i < cell.length; i++) {
+            const c = cell[i];
+            if (c._q === seq) continue;
+            c._q = seq;
+            if (c.enabled && (!navigation || c.navigation) && c.maxY > .23 && c.minY < height && this.circleHits(x, z, radius, navigation && c.navShape ? c.navShape : c)) return true;
+          }
+        }
+      }
+      const dyn = this.dynamicColliders;
+      for (let i = 0; i < dyn.length; i++) {
+        const c = dyn[i];
+        if (c.enabled && (!navigation || c.navigation) && c.maxY > .23 && c.minY < height && this.circleHits(x, z, radius, navigation && c.navShape ? c.navShape : c)) return true;
+      }
+      return false;
     }
-    move(position,dx,dz,radius,height) {
-      const occupants=[];if(this.player&&position!==this.player.position&&!this.player.hiddenSpot)occupants.push(this.player.position);this.companions.forEach(c=>{if(c.model.visible&&c.model.position!==position)occupants.push(c.model.position);});
-      const avoidPeople=(this.player&&position===this.player.position)||Array.from(this.companions.values()).some(c=>c.model.position===position);
-      const blocked=(x,z)=>this.blocked(x,z,radius,height)||(avoidPeople&&occupants.some(p=>Math.hypot(x-p.x,z-p.z)<radius+.28));
-      const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/Math.min(.12,radius*.5)));
-      for(let i=0;i<steps;i++){if(!blocked(position.x+dx/steps,position.z))position.x+=dx/steps;if(!blocked(position.x,position.z+dz/steps))position.z+=dz/steps;}return position;
+    _moveBlocked(x, z, radius, height, avoidPeople) {
+      if (this.blocked(x, z, radius, height)) return true;
+      if (!avoidPeople) return false;
+      const occ = this._occupants, minD = radius + .28, minDSq = minD * minD;
+      for (let i = 0; i < occ.length; i++) {
+        const dx = x - occ[i].x, dz = z - occ[i].z;
+        if (dx * dx + dz * dz < minDSq) return true;
+      }
+      return false;
+    }
+    move(position, dx, dz, radius, height) {
+      const occ = this._occupants; occ.length = 0;
+      let avoidPeople = false;
+      if (this.player) {
+        if (position === this.player.position) avoidPeople = true;
+        else if (!this.player.hiddenSpot) occ.push(this.player.position);
+      }
+      this.companions.forEach(c => {
+        if (c.model.position === position) avoidPeople = true;
+        else if (c.model.visible) occ.push(c.model.position);
+      });
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / Math.min(.12, radius * .5)));
+      const sx = dx / steps, sz = dz / steps;
+      for (let i = 0; i < steps; i++) {
+        if (!this._moveBlocked(position.x + sx, position.z, radius, height, avoidPeople)) position.x += sx;
+        if (!this._moveBlocked(position.x, position.z + sz, radius, height, avoidPeople)) position.z += sz;
+      }
+      return position;
     }
     segmentHits(a, b, c, padding) {
-      if(c.obb){const o=c.obb,local=p=>new THREE.Vector3((p.x-o.x)*o.ux+(p.z-o.z)*o.uz,p.y,(p.x-o.x)*o.vx+(p.z-o.z)*o.vz);return this.segmentHits(local(a),local(b),{minX:-o.hw,maxX:o.hw,minZ:-o.hd,maxZ:o.hd,minY:c.minY,maxY:c.maxY},padding);}
+      if (c.obb) {
+        const o = c.obb, sa = this._segA, sb = this._segB, sub = this._segSub;
+        sa.set((a.x - o.x) * o.ux + (a.z - o.z) * o.uz, a.y, (a.x - o.x) * o.vx + (a.z - o.z) * o.vz);
+        sb.set((b.x - o.x) * o.ux + (b.z - o.z) * o.uz, b.y, (b.x - o.x) * o.vx + (b.z - o.z) * o.vz);
+        sub.minX = -o.hw; sub.maxX = o.hw; sub.minZ = -o.hd; sub.maxZ = o.hd; sub.minY = c.minY; sub.maxY = c.maxY;
+        return this.segmentHits(sa, sb, sub, padding);
+      }
       let lo = 0, hi = 1;
-      for (const axis of ['X', 'Z']) { const key = axis.toLowerCase(), d = b[key] - a[key], min = c['min' + axis] - padding, max = c['max' + axis] + padding; if (Math.abs(d) < 1e-7) { if (a[key] < min || a[key] > max) return false; } else { let t1 = (min - a[key]) / d, t2 = (max - a[key]) / d; if (t1 > t2) { const t = t1; t1 = t2; t2 = t; } lo = Math.max(lo, t1); hi = Math.min(hi, t2); if (lo > hi) return false; } }
+      const dx = b.x - a.x, xMin = c.minX - padding, xMax = c.maxX + padding;
+      if (Math.abs(dx) < 1e-7) { if (a.x < xMin || a.x > xMax) return false; }
+      else { let t1 = (xMin - a.x) / dx, t2 = (xMax - a.x) / dx; if (t1 > t2) { const t = t1; t1 = t2; t2 = t; } lo = Math.max(lo, t1); hi = Math.min(hi, t2); if (lo > hi) return false; }
+      const dz = b.z - a.z, zMin = c.minZ - padding, zMax = c.maxZ + padding;
+      if (Math.abs(dz) < 1e-7) { if (a.z < zMin || a.z > zMax) return false; }
+      else { let t1 = (zMin - a.z) / dz, t2 = (zMax - a.z) / dz; if (t1 > t2) { const t = t1; t1 = t2; t2 = t; } lo = Math.max(lo, t1); hi = Math.min(hi, t2); if (lo > hi) return false; }
       const y = a.y + (b.y - a.y) * lo; return lo < .99 && hi > .01 && y >= c.minY && y <= c.maxY;
     }
-    lineOfSight(a, b, ignore) { return !this.colliders.some(c => c.enabled && c.opaque && c !== ignore && this.segmentHits(a, b, c, 0)); }
-    walkableLine(a, b, radius) { const distance = a.distanceTo(b), count = Math.ceil(distance / .35); for (let i = 0; i <= count; i++) { const t = count ? i / count : 0; if (this.blocked(G.Utils.lerp(a.x, b.x, t), G.Utils.lerp(a.z, b.z, t), radius, 1.7, radius >= .45 ? false : true)) return false; } return true; }
+    lineOfSight(a, b, ignore) {
+      const grid = this.staticColliderGrid;
+      if (!grid) {
+        for (let i = 0; i < this.colliders.length; i++) {
+          const c = this.colliders[i];
+          if (c.enabled && c.opaque && c !== ignore && this.segmentHits(a, b, c, 0)) return false;
+        }
+        return true;
+      }
+      const cs = this._gridCell, seq = ++this._querySeq;
+      const x0 = Math.floor(Math.min(a.x, b.x) / cs), x1 = Math.floor(Math.max(a.x, b.x) / cs);
+      const z0 = Math.floor(Math.min(a.z, b.z) / cs), z1 = Math.floor(Math.max(a.z, b.z) / cs);
+      for (let gx = x0; gx <= x1; gx++) {
+        const row = (gx + 256) * 1024 + 256;
+        for (let gz = z0; gz <= z1; gz++) {
+          const cell = grid.get(row + gz);
+          if (!cell) continue;
+          for (let i = 0; i < cell.length; i++) {
+            const c = cell[i];
+            if (c._q === seq) continue;
+            c._q = seq;
+            if (c.enabled && c.opaque && c !== ignore && this.segmentHits(a, b, c, 0)) return false;
+          }
+        }
+      }
+      const dyn = this.dynamicColliders;
+      for (let i = 0; i < dyn.length; i++) {
+        const c = dyn[i];
+        if (c.enabled && c.opaque && c !== ignore && this.segmentHits(a, b, c, 0)) return false;
+      }
+      return true;
+    }
+    _walkableCoords(ax, az, bx, bz, radius) {
+      const distance = Math.hypot(bx - ax, bz - az), count = Math.ceil(distance / .35), nav = radius < .45;
+      for (let i = 0; i <= count; i++) {
+        const t = count ? i / count : 0;
+        if (this.blocked(ax + (bx - ax) * t, az + (bz - az) * t, radius, 1.7, nav)) return false;
+      }
+      return true;
+    }
+    _walkableMid(ax, az, bx, bz, radius, nav, diag) {
+      if (diag) {
+        return !this.blocked(ax + (bx - ax) * .34, az + (bz - az) * .34, radius, 1.7, nav) &&
+               !this.blocked(ax + (bx - ax) * .67, az + (bz - az) * .67, radius, 1.7, nav);
+      }
+      return !this.blocked((ax + bx) * .5, (az + bz) * .5, radius, 1.7, nav);
+    }
+    walkableLine(a, b, radius) { return this._walkableCoords(a.x, a.z, b.x, b.z, radius); }
     findPath(start, end, radius = .33) {
-      const keyOf = (x, z) => radius + ':' + x + ',' + z;
-      const free = (x, z) => { const k = keyOf(x, z); if (!this.navCache.has(k)) this.navCache.set(k, !this.blocked(x, z, radius, 1.7, radius >= .45 ? false : true)); return this.navCache.get(k); };
-      const edgeFree = (x1, z1, x2, z2) => {
-        const key = 'edge:' + radius + ':' + x1 + ',' + z1 + ':' + x2 + ',' + z2;
-        if (!this.navCache.has(key)) this.navCache.set(key, this.walkableLine(new THREE.Vector3(x1, 0, z1), new THREE.Vector3(x2, 0, z2), radius));
-        return this.navCache.get(key);
+      if (this._walkableCoords(start.x, start.z, end.x, end.z, radius)) return [end.clone().setY(0)];
+      const rKey = Math.round(radius * 20), nav = radius < .45;
+      let cache = this.navCache.get(rKey);
+      if (!cache) { cache = { free: new Map(), edge: new Map() }; this.navCache.set(rKey, cache); }
+      const cellCache = cache.free, edgeCache = cache.edge;
+      const free = (x, z) => {
+        const k = (x + 256) * 512 + (z + 256);
+        let v = cellCache.get(k);
+        if (v === undefined) { v = !this.blocked(x, z, radius, 1.7, nav); cellCache.set(k, v); }
+        return v;
+      };
+      const edgeFree = (nx, nz, nk, si, x, z, diag) => {
+        const ek = nk * 8 + si;
+        let v = edgeCache.get(ek);
+        if (v === undefined) { v = this._walkableMid(nx, nz, x, z, radius, nav, diag); edgeCache.set(ek, v); }
+        return v;
       };
       const nearest = p => { const x = Math.round(p.x), z = Math.round(p.z); for (let r = 0; r < 5; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (free(x + dx, z + dz)) return [x + dx, z + dz]; return null; };
       const a = nearest(start), b = nearest(end); if (!a || !b) return [];
+      const keyOf = (x, z) => (x + 256) * 512 + (z + 256);
       const heap = [], nodes = new Map(), closed = new Set();
       const push = n => { heap.push(n); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p].f <= n.f) break; heap[i] = heap[p]; i = p; } heap[i] = n; };
       const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { let i = 0; while (i * 2 + 1 < heap.length) { let c = i * 2 + 1; if (c + 1 < heap.length && heap[c + 1].f < heap[c].f) c++; if (last.f <= heap[c].f) break; heap[i] = heap[c]; i = c; } heap[i] = last; } return top; };
-      const first = { x: a[0], z: a[1], g: 0, f: Math.hypot(a[0] - b[0], a[1] - b[1]), parent: null }; nodes.set(keyOf(...a), first); push(first);
+      const startKey = keyOf(a[0], a[1]);
+      const first = { x: a[0], z: a[1], g: 0, f: Math.hypot(a[0] - b[0], a[1] - b[1]), parent: null }; nodes.set(startKey, first); push(first);
+      const maxVisited = this.staticColliderGrid ? 6000 : 18000;
+      const steps = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2]];
       let visited = 0;
-      while (heap.length && visited++ < 18000) {
+      while (heap.length && visited++ < maxVisited) {
         const n = pop(), key = keyOf(n.x, n.z); if (closed.has(key)) continue; closed.add(key);
-        if (n.x === b[0] && n.z === b[1]) { const path = []; let current = n; while (current.parent) { path.push(new THREE.Vector3(current.x, 0, current.z)); current = current.parent; } path.reverse(); if (this.walkableLine(path.length ? path[path.length - 1] : start, end, radius)) path.push(end.clone().setY(0)); return path; }
-        for (const step of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-          const x = n.x + step[0], z = n.z + step[1], k = keyOf(x, z); if (closed.has(k) || !free(x, z)) continue;
-          if (step[0] && step[1] && (!free(x, n.z) || !free(n.x, z))) continue;
-          if (!edgeFree(n.x, n.z, x, z)) continue;
-          const cost = n.g + Math.hypot(...step), existing = nodes.get(k); if (existing && existing.g <= cost) continue;
+        if (n.x === b[0] && n.z === b[1]) {
+          const path = []; let current = n;
+          while (current.parent) { path.push(new THREE.Vector3(current.x, 0, current.z)); current = current.parent; }
+          path.reverse();
+          const lastPt = path.length ? path[path.length - 1] : start;
+          if (this._walkableCoords(lastPt.x, lastPt.z, end.x, end.z, radius)) path.push(end.clone().setY(0));
+          return path;
+        }
+        for (let si = 0; si < 8; si++) {
+          const s = steps[si], x = n.x + s[0], z = n.z + s[1], k = keyOf(x, z);
+          if (closed.has(k) || !free(x, z)) continue;
+          const diag = s[0] && s[1];
+          if (diag && (!free(x, n.z) || !free(n.x, z))) continue;
+          if (!edgeFree(n.x, n.z, key, si, x, z, diag)) continue;
+          const cost = n.g + s[2], existing = nodes.get(k); if (existing && existing.g <= cost) continue;
           const next = { x: x, z: z, g: cost, f: cost + Math.hypot(x - b[0], z - b[1]), parent: n }; nodes.set(k, next); push(next);
         }
       }
       return [];
     }
-    openNearbyDoors(position) { this.doors.forEach(d => { if (!d.locked && !d.open && d.hinge.getWorldPosition(this.temp).distanceTo(position) < 2.2) this.setDoor(d, true, true); }); }
+    openNearbyDoors(position) {
+      for (let i = 0; i < this.doors.length; i++) {
+        const d = this.doors[i];
+        if (!d.locked && !d.open && d.hinge.getWorldPosition(this.temp).distanceToSquared(position) < 4.84) this.setDoor(d, true, true);
+      }
+    }
     update(dt, time, camera) {
       this.time = time;
       if (this.skyDome) {
@@ -932,10 +1115,24 @@
           if (skyU.uFlash) skyU.uFlash.value = this.settings.reducedFlashes ? 0 : this.flash;
         }
       }
-      if(!this.forestFrustum){this.forestFrustum=new THREE.Frustum();this.forestMatrix=new THREE.Matrix4();this.forestSphere=new THREE.Sphere(new THREE.Vector3(),20);}camera.updateMatrixWorld();this.forestMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);this.forestFrustum.setFromProjectionMatrix(this.forestMatrix);(this.forestClusters||[]).forEach(mesh=>{const distance=mesh.userData.clusterCenter.distanceToSquared(camera.position);this.forestSphere.center.copy(mesh.userData.clusterCenter).y=5;mesh.visible=distance<80*80&&(distance<30*30||this.forestFrustum.intersectsSphere(this.forestSphere));mesh.castShadow=distance<38*38;});
-      this.moonLight.shadow.autoUpdate=false;if(time-(this.lastMoonShadow||-1)>.16){this.moonLight.shadow.needsUpdate=true;this.lastMoonShadow=time;}
+      if(!this.forestFrustum){this.forestFrustum=new THREE.Frustum();this.forestMatrix=new THREE.Matrix4();this.forestSphere=new THREE.Sphere(new THREE.Vector3(),20);}
+      camera.updateMatrixWorld();this.forestMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);this.forestFrustum.setFromProjectionMatrix(this.forestMatrix);
+      const fc = this.forestClusters, drawSq = this.forestDrawDistSq, allowShadow = this.allowForestShadow;
+      if (fc) {
+        for (let i = 0; i < fc.length; i++) {
+          const mesh = fc[i], distance = mesh.userData.clusterCenter.distanceToSquared(camera.position);
+          this.forestSphere.center.copy(mesh.userData.clusterCenter).y = 5;
+          mesh.visible = distance < drawSq && (distance < 900 || this.forestFrustum.intersectsSphere(this.forestSphere));
+          mesh.castShadow = allowShadow && mesh.userData.castShadowBase !== false && distance < 1444;
+        }
+      }
+      this.moonLight.shadow.autoUpdate=false;
+      if(this.moonLight.castShadow && time-(this.lastMoonShadow||-1)>this.moonShadowInterval){this.moonLight.shadow.needsUpdate=true;this.lastMoonShadow=time;}
       this.waterMaterial.uniforms.uTime.value = time;
-      this.doors.forEach(d=>{const next=G.Utils.damp(d.angle,d.open?(d.openAngle||-Math.PI/2):0,5,dt);if(Math.abs(next-d.angle)>.0001&&this.doorSweepClear(d,next)){d.angle=next;d.hinge.rotation.y=next;this.refreshDoorCollider(d);}});
+      for (let i = 0; i < this.doors.length; i++) {
+        const d = this.doors[i], next = G.Utils.damp(d.angle, d.open ? (d.openAngle || -Math.PI / 2) : 0, 5, dt);
+        if (Math.abs(next - d.angle) > .0001 && this.doorSweepClear(d, next)) { d.angle = next; d.hinge.rotation.y = next; this.refreshDoorCollider(d); }
+      }
       this.rain.visible = !this.isIndoors(camera.position);
       this.rain.position.set(camera.position.x, 0, camera.position.z);
       if (this.rain.visible) {
@@ -952,22 +1149,32 @@
       if (this.lightningTimer <= 0) { this.lightningTimer = 24 + this.random() * 28; this.flash = 1; this.bus.emit('weather:thunder', { delay: 1.2 + this.random() * 2.6 }); }
       this.stormLight.intensity = this.settings.reducedFlashes ? 0 : this.flash * 2.8;
       if (!this._prevCompPos) this._prevCompPos = new THREE.Vector3();
+      const compTarget = this._compTarget, compDelta = this._compDelta;
       this.companions.forEach((c, id) => {
         if (this.cinematic === 'intro') return;
-        const previousPosition=this._prevCompPos.copy(c.model.position);
+        const previousPosition = this._prevCompPos.copy(c.model.position);
         const rescued = this.session && this.session.companions[id] === 'rescued'; let moving = 0;
         if (rescued && !c.arrived) {
-          const target = new THREE.Vector3().fromArray(c.config.safePosition); c.repath -= dt;
-          if (c.repath <= 0) { c.path = this.findPath(c.model.position, target); c.repath = 3; }
+          compTarget.fromArray(c.config.safePosition); c.repath -= dt;
+          if (c.repath <= 0) { c.path = this.findPath(c.model.position, compTarget); c.repath = 3; }
           this.openNearbyDoors(c.model.position);
-          if (c.path.length) { const delta = c.path[0].clone().sub(c.model.position); delta.y = 0; if (delta.length() < .2) c.path.shift(); else { delta.normalize(); this.move(c.model.position, delta.x * dt * 2.1, delta.z * dt * 2.1, .28, 1.7); const targetYaw=Math.atan2(delta.x,delta.z),difference=Math.atan2(Math.sin(targetYaw-c.model.rotation.y),Math.cos(targetYaw-c.model.rotation.y));c.model.rotation.y+=G.Utils.clamp(difference,-dt*3,dt*3); } }
-          if (c.model.position.distanceTo(target) < .8) c.arrived = true;
+          if (c.path.length) {
+            compDelta.copy(c.path[0]).sub(c.model.position); compDelta.y = 0;
+            const dLen = compDelta.length();
+            if (dLen < .2) c.path.shift();
+            else {
+              compDelta.multiplyScalar(1 / dLen);
+              this.move(c.model.position, compDelta.x * dt * 2.1, compDelta.z * dt * 2.1, .28, 1.7);
+              const targetYaw = Math.atan2(compDelta.x, compDelta.z), difference = Math.atan2(Math.sin(targetYaw - c.model.rotation.y), Math.cos(targetYaw - c.model.rotation.y));
+              c.model.rotation.y += G.Utils.clamp(difference, -dt * 3, dt * 3);
+            }
+          }
+          if (c.model.position.distanceToSquared(compTarget) < .64) c.arrived = true;
         }
-        const travelled=c.model.position.distanceTo(previousPosition);c.model.userData.motionDistance=(c.model.userData.motionDistance||0)+travelled;moving=dt>0?Math.min(1,travelled/dt/2.1):0;c.model.userData.motionBlend=G.Utils.damp(c.model.userData.motionBlend||0,moving,8,dt);const gaze=Math.atan2(camera.position.x-c.model.position.x,camera.position.z-c.model.position.z)-c.model.rotation.y;const targetGaze=c.model.position.distanceTo(camera.position)<9?G.Utils.clamp(Math.atan2(Math.sin(gaze),Math.cos(gaze)),-.5,.5):0;c.model.userData.lookYaw=G.Utils.damp(c.model.userData.lookYaw||0,targetGaze,3,dt);this.models.animatePerson(c.model,time,c.model.userData.motionBlend,rescued?'safe':'captive');
+        const travelled = c.model.position.distanceTo(previousPosition); c.model.userData.motionDistance = (c.model.userData.motionDistance || 0) + travelled; moving = dt > 0 ? Math.min(1, travelled / dt / 2.1) : 0; c.model.userData.motionBlend = G.Utils.damp(c.model.userData.motionBlend || 0, moving, 8, dt); const gaze = Math.atan2(camera.position.x - c.model.position.x, camera.position.z - c.model.position.z) - c.model.rotation.y; const targetGaze = c.model.position.distanceToSquared(camera.position) < 81 ? G.Utils.clamp(Math.atan2(Math.sin(gaze), Math.cos(gaze)), -.5, .5) : 0; c.model.userData.lookYaw = G.Utils.damp(c.model.userData.lookYaw || 0, targetGaze, 3, dt); this.models.animatePerson(c.model, time, c.model.userData.motionBlend, rescued ? 'safe' : 'captive');
       });
-      this.models.update(time, this.settings.reducedMotion, camera, this.settings.quality);
+      this.models.update(time, this.settings.reducedMotion, camera, this.settings.quality, this.outageRemaining > 0);
       this.outageRemaining = Math.max(0, this.outageRemaining - dt);
-      if (this.outageRemaining > 0) this.models.animations.forEach(a => { if (a.kind === 'lantern') a.light.intensity = 0; });
       const lanternMaterial = this.models.materials.get('lantern-red'); if (lanternMaterial) lanternMaterial.emissiveIntensity = this.outageRemaining > 0 ? .015 : .7;
       (this.volumetricBeams || []).forEach(beam => {
         const mesh = beam.mesh || beam;
@@ -977,7 +1184,17 @@
         if (beamU && beamU.uTime) beamU.uTime.value = time;
       });
       if (this.secretDrawer && this.drawerOpen) this.secretDrawer.position.z = G.Utils.damp(this.secretDrawer.position.z, .72, 3, dt);
-      this.echoes.forEach(e => { const distance = camera.position.distanceTo(e.origin); e.model.visible = distance > 5 && distance < 27 && !(this.session && this.session.flags.ritualComplete); e.material.opacity = .18 * Math.min(1, Math.max(0, (distance - 5) / 4)); e.model.position.x = e.origin.x + Math.sin(time * .16 + e.phase) * .7; e.model.rotation.y = e.phase; this.models.animatePerson(e.model, time * .5, .12, 'captive'); });
+      const ritualDone = !!(this.session && this.session.flags.ritualComplete);
+      for (let i = 0; i < this.echoes.length; i++) {
+        const e = this.echoes[i], distSq = camera.position.distanceToSquared(e.origin);
+        e.model.visible = !ritualDone && distSq > 25 && distSq < 729;
+        if (!e.model.visible) continue;
+        const distance = Math.sqrt(distSq);
+        e.material.opacity = .18 * Math.min(1, Math.max(0, (distance - 5) / 4));
+        e.model.position.x = e.origin.x + Math.sin(time * .16 + e.phase) * .7;
+        e.model.rotation.y = e.phase;
+        this.models.animatePerson(e.model, time * .5, .12, 'captive');
+      }
     }
     dispose() { this.scene.remove(this.root); this.rainGeo.dispose(); this.ashGeo.dispose(); this.rainMat.dispose(); this.ashMat.dispose(); if (this.skyDome && this.skyDome.geometry) this.skyDome.geometry.dispose(); (this.volumetricBeams || []).forEach(beam => { const mesh = beam.mesh || beam; if (mesh && mesh.geometry) mesh.geometry.dispose(); if (mesh && mesh.material) mesh.material.dispose(); }); if (this.moonLight.shadow.map) this.moonLight.shadow.map.dispose(); this.interactions.clear(); this.targets = []; this.colliders = []; }
   };

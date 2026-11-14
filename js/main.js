@@ -78,14 +78,13 @@
       const s = this.settings, q = G.Config.quality[s.quality] || G.Config.quality.high;
       document.body.classList.toggle('reduced-motion', s.reducedMotion); document.body.classList.toggle('reduced-flashes', s.reducedFlashes); document.body.dataset.quality = s.quality;
       this.sound.applySettings(s); if (!this.renderer) return;
-      const ratio = G.Utils.clamp((window.devicePixelRatio || 1) * s.renderScale, 0.5, q.pixelRatio * s.renderScale);
-      this.renderer.setPixelRatio(ratio);
       const shadowsOn = s.shadowQuality !== 'off';
       const shadowSizes = { off: 512, low: 512, medium: 1024, high: 2048 };
       const smSize = shadowSizes[s.shadowQuality] || 1024;
       this.renderer.shadowMap.enabled = shadowsOn;
       this.renderer.toneMappingExposure = 1.08 * s.brightness;
       if (this.camera && this.state !== 'cutscene') { this.camera.fov = s.fov; this.camera.updateProjectionMatrix(); }
+      if (this.models && this.scene) this.models.attachLightPool(this.scene, s.quality);
       if (this.world) {
         this.world.settings = s;
         this.world.moonLight.castShadow = shadowsOn;
@@ -98,21 +97,35 @@
         this.world.rainGeo.setDrawRange(0, rainTarget * 2);
         this.world.ashGeo.setDrawRange(0, ashTarget);
         if (this.world.setBeamsVisible) this.world.setBeamsVisible(s.volumetricBeams);
+        if (this.world.applyQuality) this.world.applyQuality(s, q);
       }
       if (this.player) {
-        this.player.flashlight.castShadow = shadowsOn;
-        const flSize = s.shadowQuality === 'high' ? 1024 : 512;
+        this.player.flashlight.castShadow = shadowsOn && q.spotShadows !== false;
+        const flSize = q.flShadowSize || (s.shadowQuality === 'high' ? 1024 : 512);
         if (this.player.flashlight.shadow.mapSize.x !== flSize) {
           this.player.flashlight.shadow.mapSize.set(flSize, flSize);
           if (this.player.flashlight.shadow.map) { this.player.flashlight.shadow.map.dispose(); this.player.flashlight.shadow.map = null; }
         }
       }
-      this.resize(); this.bus.emit(G.EventNames.SETTINGS_CHANGED, s);
+      this.resize();
+      this.prewarmShaders();
+      this.bus.emit(G.EventNames.SETTINGS_CHANGED, s);
+    }
+    prewarmShaders() {
+      if (!this.renderer || !this.scene || !this.camera) return;
+      const restored = [];
+      const reveal = obj => { if (obj && !obj.visible) { obj.visible = true; restored.push(obj); } };
+      if (this.ghost) reveal(this.ghost.hallucination);
+      if (this.player) reveal(this.player.burningTalisman);
+      if (this.world && this.world.ritualRelics) this.world.ritualRelics.forEach(reveal);
+      this.renderer.compile(this.scene, this.camera);
+      for (let i = 0; i < restored.length; i++) restored[i].visible = false;
+      if (this.post && this.settings.postFX) this.renderer.compile(this.post.scene, this.post.camera);
     }
     createWorld(session) {
       this.destroyWorld(); this.session = session; this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, G.Config.camera.near, G.Config.camera.far);
       this.textures = new G.TextureFactory(this.settings.quality); this.models = new G.ModelsFactory(this.textures); this.world = new G.WorldBuilder(this.scene, this.textures, this.models, this.bus, this.settings).build(); this.world.sync(session);
-      this.player = new G.PlayerController(this, session);this.world.player=this.player; this.ghost = new G.GhostAI(this); this.quest = new G.QuestSystem(this); this.autosave = 0; this.dialogueQueue = []; this.subtitle = null; this.cutscene = null; this.skipDown = false; this.skipTime = 0;
+      this.player = new G.PlayerController(this, session);this.world.player=this.player; this.ghost = new G.GhostAI(this); this.quest = new G.QuestSystem(this); this.autosave = 0; this.dialogueQueue = []; this.subtitle = null; this.cutscene = null; this.skipDown = false; this.skipTime = 0; this._hudPrev = {};
       this.resize(); this.applySettings(); this.updateHUD();
     }
     destroyWorld() { if(this.sound)this.sound.stopSpeech(); if (this.quest) this.quest.dispose(); if (this.player) this.player.dispose(); if (this.ghost) this.ghost.dispose(); if (this.world) this.world.dispose(); if (this.models) this.models.dispose(); if (this.textures) this.textures.dispose(); this.quest = this.player = this.ghost = this.world = this.models = this.textures = null; }
@@ -216,31 +229,118 @@
       rows.forEach(row => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = row[0]; dd.textContent = row[1]; stats.append(dt, dd); });
     }
     updateHUD() {
-      if (!this.player) return; const p = this.player.data;
-      ['health', 'stamina', 'sanity', 'battery'].forEach(name => { el(name + '-bar').value = p[name]; el(name + '-value').textContent = Math.ceil(p[name]); el(name + '-bar').parentElement.classList.toggle('critical', p[name] < 20); });
-      el('location-name').textContent = this.world.location(this.player.position);
-      const seconds = this.session.flags.ritualComplete ? this.session.escapeRemaining : this.session.curseRemaining; el('curse-time').textContent = G.Utils.formatTime(seconds); el('curse-clock').classList.toggle('critical', seconds < 120); el('curse-clock').querySelector('span').textContent = this.session.flags.ritualComplete ? 'THOÁT KHỎI LÀNG' : 'NGUYỀN RỦA';
-      ['talisman', 'battery', 'medicine'].forEach(id => el(id + '-count').textContent = this.session.inventory[id] || 0); el('journal-count').textContent = this.session.journals.length + '/8';
-      document.querySelectorAll('[data-companion]').forEach(node => { const id = node.dataset.companion, status = this.session.companions[id]; node.dataset.status = status; node.textContent = G.Lore.characters[id].name + ' · ' + (status === 'rescued' ? 'Đã cứu' : status === 'lost' ? 'Mất tích' : 'Bị giam'); });
-      el('stealth-indicator').hidden = !this.player.hiddenSpot; el('stealth-indicator').classList.toggle('holding', this.player.holdingBreath); el('stealth-label').textContent = this.player.holdingBreath ? 'ĐANG NÍN THỞ' : 'ĐANG ẨN NẤP'; el('breath-meter').value = p.stamina;
-      document.documentElement.style.setProperty('--damage', this.player.damageFlash.toFixed(3)); document.documentElement.style.setProperty('--sanity', (Math.max(Math.max(0, 1 - p.sanity / 30), this.ghostThreat()) * .45).toFixed(3));
+      if (!this.player) return;
+      const p = this.player.data;
+      if (!this._hud) {
+        const curseClock = el('curse-clock');
+        this._hud = {
+          bars: ['health', 'stamina', 'sanity', 'battery'].map(name => ({
+            name, bar: el(name + '-bar'), val: el(name + '-value'), wrap: el(name + '-bar').parentElement
+          })),
+          location: el('location-name'),
+          curseTime: el('curse-time'),
+          curseClock,
+          curseLabel: curseClock.querySelector('span'),
+          items: ['talisman', 'battery', 'medicine'].map(id => ({ id, node: el(id + '-count') })),
+          journal: el('journal-count'),
+          companions: Array.from(document.querySelectorAll('[data-companion]')).map(node => ({
+            id: node.dataset.companion, node
+          })),
+          stealth: el('stealth-indicator'),
+          stealthLabel: el('stealth-label'),
+          breath: el('breath-meter'),
+          bloodFilter: el('blood-filter'),
+          sanityFilter: el('sanity-filter')
+        };
+      }
+      const h = this._hud, prev = this._hudPrev || (this._hudPrev = {});
+      for (let i = 0; i < h.bars.length; i++) {
+        const b = h.bars[i], raw = p[b.name], barV = Math.round(raw * 4) * .25, textV = String(Math.ceil(raw)), crit = raw < 20;
+        if (prev['bv_' + b.name] !== barV) { prev['bv_' + b.name] = barV; b.bar.value = raw; }
+        if (prev['tv_' + b.name] !== textV) { prev['tv_' + b.name] = textV; b.val.textContent = textV; }
+        if (prev['cr_' + b.name] !== crit) { prev['cr_' + b.name] = crit; b.wrap.classList.toggle('critical', crit); }
+      }
+      const loc = this.world.location(this.player.position);
+      if (prev.loc !== loc) { prev.loc = loc; h.location.textContent = loc; }
+      const seconds = this.session.flags.ritualComplete ? this.session.escapeRemaining : this.session.curseRemaining;
+      const timeStr = G.Utils.formatTime(seconds), cCrit = seconds < 120, cLab = this.session.flags.ritualComplete ? 'THOÁT KHỎI LÀNG' : 'NGUYỀN RỦA';
+      if (prev.timeStr !== timeStr) { prev.timeStr = timeStr; h.curseTime.textContent = timeStr; }
+      if (prev.cCrit !== cCrit) { prev.cCrit = cCrit; h.curseClock.classList.toggle('critical', cCrit); }
+      if (prev.cLab !== cLab) { prev.cLab = cLab; h.curseLabel.textContent = cLab; }
+      for (let i = 0; i < h.items.length; i++) {
+        const it = h.items[i], cnt = String(this.session.inventory[it.id] || 0);
+        if (prev['it_' + it.id] !== cnt) { prev['it_' + it.id] = cnt; it.node.textContent = cnt; }
+      }
+      const jStr = this.session.journals.length + '/8';
+      if (prev.jStr !== jStr) { prev.jStr = jStr; h.journal.textContent = jStr; }
+      for (let i = 0; i < h.companions.length; i++) {
+        const c = h.companions[i], status = this.session.companions[c.id];
+        if (prev['co_' + c.id] !== status) {
+          prev['co_' + c.id] = status;
+          c.node.dataset.status = status;
+          c.node.textContent = G.Lore.characters[c.id].name + ' · ' + (status === 'rescued' ? 'Đã cứu' : status === 'lost' ? 'Mất tích' : 'Bị giam');
+        }
+      }
+      const hid = !this.player.hiddenSpot, hold = this.player.holdingBreath, sLab = hold ? 'ĐANG NÍN THỞ' : 'ĐANG ẨN NẤP';
+      if (prev.hid !== hid) { prev.hid = hid; h.stealth.hidden = hid; }
+      if (!hid) {
+        if (prev.hold !== hold) { prev.hold = hold; h.stealth.classList.toggle('holding', hold); }
+        if (prev.sLab !== sLab) { prev.sLab = sLab; h.stealthLabel.textContent = sLab; }
+        const stamV = Math.round(p.stamina);
+        if (prev.stamV !== stamV) { prev.stamV = stamV; h.breath.value = p.stamina; }
+      }
+      const dmg = +this.player.damageFlash.toFixed(2);
+      const san = +((Math.max(Math.max(0, 1 - p.sanity / 30), this.ghostThreat()) * .45).toFixed(2));
+      if (prev.dmg !== dmg) {
+        prev.dmg = dmg;
+        h.bloodFilter.hidden = dmg <= .01;
+        h.bloodFilter.style.setProperty('--damage', String(dmg));
+      }
+      if (prev.san !== san) {
+        prev.san = san;
+        h.sanityFilter.hidden = san <= .01;
+        h.sanityFilter.style.setProperty('--sanity', String(san));
+      }
     }
     ghostThreat() { if (!this.ghost || !this.player || !['playing', 'cutscene'].includes(this.state) || ['dormant', 'banished'].includes(this.ghost.state)) return 0; return G.Utils.clamp(1 - this.ghost.position.distanceTo(this.player.position) / 15, 0, 1); }
-    resize() { if (!this.renderer || !this.camera) return; const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight); this.renderer.setSize(width, height, false); this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); if (this.post) { if (this.settings.postFX) { const size = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.post.resize(size.x, size.y); } else { this.post.resize(1, 1); } } }
+    resize() {
+      if (!this.renderer || !this.camera) return;
+      const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight);
+      const s = this.settings || G.Config.settingsDefaults;
+      const q = G.Config.quality[s.quality] || G.Config.quality.medium;
+      const dpr = Math.min(window.devicePixelRatio || 1, q.pixelRatio || 1.2);
+      let ratio = G.Utils.clamp(dpr * s.renderScale, .45, (q.pixelRatio || 1.2) * s.renderScale);
+      const maxPx = q.maxPixels || 1850000;
+      if (width * height * ratio * ratio > maxPx) ratio = Math.max(.45, Math.sqrt(maxPx / (width * height)));
+      this.renderer.setPixelRatio(ratio);
+      this.renderer.setSize(width, height, false);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      if (this.post) {
+        if (s.postFX) {
+          const size = this.renderer.getDrawingBufferSize(this._drawSize || (this._drawSize = new THREE.Vector2()));
+          this.post.resize(size.x, size.y);
+        } else {
+          this.post.resize(1, 1);
+        }
+      }
+    }
     loop(now) {
       if (!this.running) return; const dt = Math.min(.05, Math.max(0, (now - this.lastFrame) / 1000)); this.lastFrame = now; this.time += dt;
+      const speechMap = this._speechIds || (this._speechIds = { lan: 'lan', tuan: 'tuấn', hung: 'hùng' });
       try {
         this.updateToasts(dt);
         if (this.state === 'playing') {
           this.player.update(dt, this.time); this.ghost.update(dt, this.time);
           if (this.state === 'playing') { this.quest.update(dt); this.updateTimers(dt); }
-          if (this.state === 'playing') { this.world.companions.forEach((c,id)=>c.model.userData.speechLevel=this.sound.speechLevel({lan:'lan',tuan:'tuấn',hung:'hùng'}[id]));this.world.update(dt, this.time, this.camera); this.updateDialogue(dt); this.sound.update(dt, this.camera, this.player, this.ghost, this.time); this.autosave += dt; if (this.autosave >= 60 && this.ghost.state !== 'chase' && this.player.data.health > 0) { this.autosave = 0; this.save(false); } }
-        } else if (this.state === 'cutscene') { this.updateCutscene(dt); this.world.companions.forEach((c,id)=>c.model.userData.speechLevel=this.sound.speechLevel({lan:'lan',tuan:'tuấn',hung:'hùng'}[id]));this.world.update(dt, this.time, this.camera); this.updateDialogue(dt); this.sound.update(dt, this.camera, null, this.ghost, this.time); }
+          if (this.state === 'playing') { this.world.companions.forEach((c, id) => c.model.userData.speechLevel = this.sound.speechLevel(speechMap[id])); this.world.update(dt, this.time, this.camera); this.updateDialogue(dt); this.sound.update(dt, this.camera, this.player, this.ghost, this.time); this.autosave += dt; if (this.autosave >= 60 && this.ghost.state !== 'chase' && this.player.data.health > 0) { this.autosave = 0; this.save(false); } }
+        } else if (this.state === 'cutscene') { this.updateCutscene(dt); this.world.companions.forEach((c, id) => c.model.userData.speechLevel = this.sound.speechLevel(speechMap[id])); this.world.update(dt, this.time, this.camera); this.updateDialogue(dt); this.sound.update(dt, this.camera, null, this.ghost, this.time); }
         else if (this.state === 'menu') { this.models.update(this.time, this.settings.reducedMotion, this.camera, this.settings.quality); }
         this.hudClock += dt; if (this.hudClock >= .08) { this.hudClock = 0; this.updateHUD(); }
         if (this.scene && this.camera && !['loading', 'error'].includes(this.state)) {
           const qCfg = G.Config.quality[this.settings.quality] || G.Config.quality.high;
-          if (this.settings.postFX) this.post.render(this.scene, this.camera, this.time, this.player ? Math.max(0, 1 - this.player.data.sanity / 30) : 0, this.player ? this.player.damageFlash : 0, this.settings.reducedMotion || this.settings.reducedFlashes, this.ghostThreat(), this.settings.volumetricFog, qCfg.fogSteps || 14);
+          const fogSteps = qCfg.fogSteps !== undefined ? qCfg.fogSteps : 4;
+          if (this.settings.postFX) this.post.render(this.scene, this.camera, this.time, this.player ? Math.max(0, 1 - this.player.data.sanity / 30) : 0, this.player ? this.player.damageFlash : 0, this.settings.reducedMotion || this.settings.reducedFlashes, this.ghostThreat(), this.settings.volumetricFog, fogSteps);
           else this.renderer.render(this.scene, this.camera);
         }
       } catch (error) { console.error(error); this.setState('error'); el('error-title').textContent = 'Game gặp lỗi'; el('error-message').textContent = error.message || String(error); this.running = false; return; }

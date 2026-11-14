@@ -107,7 +107,9 @@
       if (!this.ctx || this.ctx.state !== 'running') return;
       const l = this.ctx.listener, p = camera.position; camera.getWorldDirection(this.forward); this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
       if (l.positionX) {
-        ['X', 'Y', 'Z'].forEach((axis, i) => { l['position' + axis].value = p.getComponent(i); l['forward' + axis].value = this.forward.getComponent(i); l['up' + axis].value = this.up.getComponent(i); });
+        l.positionX.value = p.x; l.positionY.value = p.y; l.positionZ.value = p.z;
+        l.forwardX.value = this.forward.x; l.forwardY.value = this.forward.y; l.forwardZ.value = this.forward.z;
+        l.upX.value = this.up.x; l.upY.value = this.up.y; l.upZ.value = this.up.z;
       } else { l.setPosition(p.x, p.y, p.z); l.setOrientation(this.forward.x, this.forward.y, this.forward.z, this.up.x, this.up.y, this.up.z); }
       this.wind.filter.frequency.setTargetAtTime(330 + Math.sin(time * .17) * 110, this.ctx.currentTime, .5);
       const chasing = ghost && ghost.state === 'chase'; this.chase = G.Utils.damp(this.chase, chasing ? 1 : 0, 2, dt);

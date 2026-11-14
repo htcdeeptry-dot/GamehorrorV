@@ -15,7 +15,12 @@
     }
     listen(node, event, handler) { node.addEventListener(event, handler); this.listeners.push(() => node.removeEventListener(event, handler)); }
     update(dt) {
-      this.cooldown = Math.max(0, this.cooldown - dt); this.updateTarget();
+      this.cooldown = Math.max(0, this.cooldown - dt);
+      this._targetClock = (this._targetClock || 0) - dt;
+      if (this._targetClock <= 0 || this.app.player.down('interact')) {
+        this._targetClock = .045;
+        this.updateTarget();
+      }
       if (this.hold) {
         if (!this.app.player.down('interact') || this.current !== this.hold) { this.hold = null; this.holdTime = 0; el('interaction-progress').hidden = true; }
         else { this.holdTime += dt; const p = G.Puzzles[this.hold.puzzle]; el('interaction-progress').value = this.holdTime / p.holdSeconds; if (this.holdTime >= p.holdSeconds) { const target = this.hold; this.hold = null; el('interaction-progress').hidden = true; this.completeItemInteraction(target); } }
@@ -23,24 +28,66 @@
       if (this.session.phase === 'awakening' && this.session.journals.includes('journal_01')) this.setPhase('search_village');
       if (this.session.phase === 'search_village' && this.hasRelics()) this.setPhase('return_to_well');
       if (this.session.flags.ritualComplete && this.session.phase !== 'escape') this.setPhase('escape');
-      G.WorldLayout.companions.forEach(c => { if (this.session.companions[c.id] !== 'captive') return; const distance = this.app.player.position.distanceTo(new THREE.Vector3().fromArray(c.position)); if (distance < 8) this.app.say(c.id + 'Nearby', true); });
+      const v = this._compVec || (this._compVec = new THREE.Vector3());
+      const list = G.WorldLayout.companions;
+      for (let i = 0; i < list.length; i++) {
+        const c = list[i];
+        if (this.session.companions[c.id] !== 'captive') continue;
+        v.fromArray(c.position);
+        if (this.app.player.position.distanceToSquared(v) < 64) this.app.say(c.id + 'Nearby', true);
+      }
     }
     updateTarget() {
-      if (this.app.player.hiddenSpot) { this.current = null; el('interaction-prompt').hidden = false; el('interaction-text').textContent = 'Ra khỏi chỗ nấp'; el('interaction-detail').textContent = ''; return; }
-      this.app.camera.updateMatrixWorld(true); this.world.root.updateMatrixWorld(true); this.ray.setFromCamera(new THREE.Vector2(0, 0), this.app.camera);
-      const hits = this.ray.intersectObjects(this.world.targets, true); this.current = null;
-      for (const hit of hits) {
-        if (!hit.object.isMesh) continue;
-        let node = hit.object, visible = true, entry = null;
-        while (node) { if (!node.visible) visible = false; if (!entry && node.userData.interactionId) entry = this.world.interactions.get(node.userData.interactionId); node = node.parent; }
-        if (!visible || !entry || !entry.enabled) continue;
-        const ownerCollider = entry.door ? entry.door.collider : this.world.colliders.find(c => c.mesh && (c.mesh === entry.root || c.mesh.parent === entry.root));
-        if (!this.world.lineOfSight(this.app.camera.position, hit.point, ownerCollider)) continue;
-        this.current = entry; break;
+      const prompt = this._promptEl || (this._promptEl = el('interaction-prompt'));
+      const textEl = this._textEl || (this._textEl = el('interaction-text'));
+      const detailEl = this._detailEl || (this._detailEl = el('interaction-detail'));
+      const crossEl = this._crossEl || (this._crossEl = el('crosshair'));
+      if (this.app.player.hiddenSpot) {
+        this.current = null;
+        if (prompt.hidden) prompt.hidden = false;
+        if (textEl.textContent !== 'Ra khỏi chỗ nấp') textEl.textContent = 'Ra khỏi chỗ nấp';
+        if (detailEl.textContent !== '') detailEl.textContent = '';
+        if (crossEl.classList.contains('interactable')) crossEl.classList.remove('interactable');
+        return;
       }
-      const prompt = el('interaction-prompt'); prompt.hidden = !this.current;
-      el('crosshair').classList.toggle('interactable', !!this.current);
-      if (this.current) { el('interaction-text').textContent = this.current.label; const p = G.Puzzles[this.current.puzzle]; el('interaction-detail').textContent = p && p.holdSeconds ? 'Giữ E trong ' + p.holdSeconds + ' giây' : ''; }
+      const origin = this._rayOrigin || (this._rayOrigin = new THREE.Vector2(0, 0));
+      const nearTargets = this._nearTargets || (this._nearTargets = []);
+      const v = this._tmpTargetPos || (this._tmpTargetPos = new THREE.Vector3());
+      const camPos = this.app.camera.position;
+      nearTargets.length = 0;
+      this.world.interactions.forEach(entry => {
+        if (!entry.enabled || !entry.root.visible) return;
+        entry.root.getWorldPosition(v);
+        if (v.distanceToSquared(camPos) <= 32) {
+          entry.root.updateWorldMatrix(true, true);
+          nearTargets.push(entry.root);
+        }
+      });
+      this.current = null;
+      if (nearTargets.length) {
+        this.app.camera.updateMatrixWorld();
+        this.ray.setFromCamera(origin, this.app.camera);
+        const hits = this.ray.intersectObjects(nearTargets, true);
+        for (let i = 0; i < hits.length; i++) {
+          const hit = hits[i];
+          if (!hit.object.isMesh) continue;
+          let node = hit.object, visible = true, entry = null;
+          while (node) { if (!node.visible) visible = false; if (!entry && node.userData.interactionId) entry = this.world.interactions.get(node.userData.interactionId); node = node.parent; }
+          if (!visible || !entry || !entry.enabled) continue;
+          const ownerCollider = entry.door ? entry.door.collider : this.world.colliders.find(c => c.mesh && (c.mesh === entry.root || c.mesh.parent === entry.root));
+          if (!this.world.lineOfSight(camPos, hit.point, ownerCollider)) continue;
+          this.current = entry; break;
+        }
+      }
+      const has = !!this.current;
+      if (prompt.hidden !== !has) prompt.hidden = !has;
+      if (crossEl.classList.contains('interactable') !== has) crossEl.classList.toggle('interactable', has);
+      if (this.current) {
+        if (textEl.textContent !== this.current.label) textEl.textContent = this.current.label;
+        const p = G.Puzzles[this.current.puzzle];
+        const det = p && p.holdSeconds ? 'Giữ E trong ' + p.holdSeconds + ' giây' : '';
+        if (detailEl.textContent !== det) detailEl.textContent = det;
+      }
     }
     interact() {
       if (this.app.state !== 'playing') return;

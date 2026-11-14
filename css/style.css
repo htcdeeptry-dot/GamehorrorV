@@ -159,9 +159,10 @@ body[data-state="playing"] #game-canvas { cursor: none; }
 #screen-filters { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
 #screen-filters > div { position: absolute; inset: 0; }
 .vignette { background: radial-gradient(ellipse, transparent 35%, rgba(0, 0, 0, .68)); }
-#blood-filter { opacity: var(--damage); background: radial-gradient(ellipse, transparent 42%, #610c16d9 90%), repeating-conic-gradient(from 10deg at 50% 50%, transparent 0 18deg, #50051122 19deg 23deg); transition: opacity .18s; }
+#blood-filter { opacity: var(--damage); background: radial-gradient(ellipse, transparent 42%, #610c16d9 90%), repeating-conic-gradient(from 10deg at 50% 50%, transparent 0 18deg, #50051122 19deg 23deg); transition: opacity .18s; will-change: opacity; }
 .scanlines { opacity: .07; background: repeating-linear-gradient(0deg, #000 0 1px, transparent 1px 4px); }
-#sanity-filter { opacity: var(--sanity); background: repeating-linear-gradient(0deg, transparent 0 15px, #aa23221c 16px 18px, transparent 19px 39px); box-shadow: inset 10px 0 70px #7d122b88, inset -10px 0 70px #20536866; animation: interference .19s steps(2) infinite; }
+#sanity-filter { opacity: var(--sanity); background: linear-gradient(90deg, #7d122b66, transparent 18%, transparent 82%, #20536855), repeating-linear-gradient(0deg, transparent 0 15px, #aa23221c 16px 18px, transparent 19px 39px); animation: interference .19s steps(2) infinite; will-change: opacity, transform; }
+#sanity-filter[hidden], #blood-filter[hidden] { display: none; animation: none; }
 #lightning-flash { background: #dbe0ff; opacity: var(--flash); }
 #fade-overlay { background: #000; opacity: var(--fade); transition: opacity 1s ease; }
 #hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; padding: var(--safe-top) 34px var(--safe-bottom); }

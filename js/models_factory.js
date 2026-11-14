@@ -19,6 +19,10 @@
       this._animQ2 = new THREE.Quaternion();
       this._tmpVec = new THREE.Vector3();
       this._lightEntries = [];
+      this._activeLights = [];
+      this._poolScene = null;
+      this._poolSize = 0;
+      this.lastLightUpdate = -1;
     }
     sharedMaterial(key, options) {
       if (!this.materials.has(key)) {
@@ -84,7 +88,7 @@
             for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrix); pos.push(v.x, v.y, v.z); if (n) v.fromBufferAttribute(n, i).applyMatrix3(nm).normalize(); else v.set(0, 1, 0); normal.push(v.x, v.y, v.z); tex.push(uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0); }
             const count = g.index ? g.index.count : p.count; for (let i = 0; i < count; i++) index.push(offset + (g.index ? g.index.getX(i) : i)); offset += p.count; parent.remove(m);
           });
-          const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(tex, 2)); geo.setIndex(index); this.geometries.set('rig-batch:' + this.geometries.size, geo); const mesh = new THREE.Mesh(geo, material); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);
+          const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(tex, 2)); geo.setIndex(index); this.geometries.set('rig-batch:' + this.geometries.size, geo); const mesh = new THREE.Mesh(geo, material); mesh.castShadow = meshes.some(m => m.castShadow); mesh.receiveShadow = meshes.some(m => m.receiveShadow); parent.add(mesh);
         });
       }); return root;
     }
@@ -1302,12 +1306,8 @@
       halo.position.y = -.02;
       halo.scale.set(1.55, 1.55, 1);
       g.add(halo);
-      const light = new THREE.PointLight(0xff6b42, .95, 7.8, 2);
-      light.position.y = -.05;
-      g.add(light);
-      this.lights.push(light);
       this.bakeRigid(g);
-      this.animations.push({ kind: 'lantern', root: g, light: light, halo: halo, phase: this.animations.length * 1.7 });
+      this.animations.push({ kind: 'lantern', root: g, halo: halo, color: 0xff6b42, baseIntensity: .92, intensity: .92, distance: 7.8, decay: 2, yOff: -.05, light: { intensity: .92 }, phase: this.animations.length * 1.7 });
       return g;
     }
     candle() {
@@ -1321,11 +1321,7 @@
       flame.position.y = .28;
       flame.scale.set(.10, .20, 1);
       g.add(flame);
-      const light = new THREE.PointLight(0xffac58, .48, 4.4, 2);
-      light.position.y = .32;
-      g.add(light);
-      this.lights.push(light);
-      this.animations.push({ kind: 'candle', root: flame, light: light, phase: this.animations.length });
+      this.animations.push({ kind: 'candle', root: flame, color: 0xffac58, baseIntensity: .48, intensity: .48, distance: 4.4, decay: 2, yOff: .04, light: { intensity: .48 }, phase: this.animations.length });
       return g;
     }
     table() {
@@ -1475,7 +1471,8 @@
         // Crisscrossing bamboo leaf sprays in upper canopy
         for (let f = 0; f < 3; f++) {
           const lx = pts[2 + (f > 1 ? 1 : 0)][0] + (r() - .5) * .6, ly = sh * (.62 + f * .16), lz = pts[2 + (f > 1 ? 1 : 0)][2] + (r() - .5) * .6;
-          this.mesh(g, 'PlaneGeometry', [1.45, 1.35], leafMat, [lx, ly, lz], [(r() - .5) * .7, ang + f * 1.1, (r() - .5) * .5]);
+          const bLeaf = this.mesh(g, 'PlaneGeometry', [1.45, 1.35], leafMat, [lx, ly, lz], [(r() - .5) * .7, ang + f * 1.1, (r() - .5) * .5]);
+          bLeaf.castShadow = false;
         }
       }
       return this.bakeRigid(g);
@@ -1659,30 +1656,76 @@
       }
       return g;
     }
-    update(time, reducedMotion, camera, quality) {
-      this.animations.forEach(a => {
+    attachLightPool(scene, quality) {
+      if (!scene) return;
+      const qCfg = G.Config.quality[quality] || G.Config.quality.medium;
+      const targetCount = Math.max(1, qCfg.maxDynamicLights || 4);
+      if (this._poolScene === scene && this._poolSize === targetCount) return;
+      for (let i = 0; i < this.lights.length; i++) {
+        if (this.lights[i].parent) this.lights[i].parent.remove(this.lights[i]);
+      }
+      this.lights.length = 0;
+      this._poolScene = scene;
+      this._poolSize = targetCount;
+      for (let i = 0; i < targetCount; i++) {
+        const l = new THREE.PointLight(0xff6b42, 0, 7.8, 2);
+        l.castShadow = false;
+        l.visible = true; // Keep visible constant; set intensity=0 to avoid shader recompilations
+        scene.add(l);
+        this.lights.push(l);
+      }
+      this._activeLights.length = targetCount;
+      for (let i = 0; i < targetCount; i++) this._activeLights[i] = null;
+      this.lastLightUpdate = -1;
+    }
+    update(time, reducedMotion, camera, quality, outage) {
+      const len = this.animations.length;
+      for (let i = 0; i < len; i++) {
+        const a = this.animations[i];
         if (a.kind === 'lantern') a.root.rotation.z = reducedMotion ? 0 : Math.sin(time * .8 + a.phase) * .08;
         const flicker = 1 + Math.sin(time * 8 + a.phase) * .06;
-        a.light.intensity = (a.kind === 'lantern' ? .92 : .48) * flicker;
-        if (a.halo) a.halo.material.opacity = .32 * flicker;
-      });
-      if (camera && (!this.lastLightUpdate || time - this.lastLightUpdate > .20)) {
-        this.lastLightUpdate = time;
+        const level = (outage && a.kind === 'lantern') ? 0 : a.baseIntensity * flicker;
+        a.intensity = level;
+        a.light.intensity = level;
+        if (a.halo) a.halo.material.opacity = outage ? .05 : .32 * flicker;
+      }
+      if (!this._poolScene && len) {
+        let p = this.animations[0].root;
+        while (p && !p.isScene) p = p.parent;
+        if (p && p.isScene) this.attachLightPool(p, quality);
+      }
+      if (camera && this.lights.length) {
         const temp = this._tmpVec, entries = this._lightEntries;
-        while (entries.length < this.lights.length) entries.push({ light: null, d: 0 });
-        entries.length = this.lights.length;
-        for (let i = 0; i < this.lights.length; i++) {
-          const light = this.lights[i];
-          entries[i].light = light;
-          entries[i].d = light.getWorldPosition(temp).distanceToSquared(camera.position);
+        if (this.lastLightUpdate < 0 || time - this.lastLightUpdate > .20) {
+          this.lastLightUpdate = time;
+          while (entries.length < len) entries.push({ a: null, d: 0 });
+          entries.length = len;
+          for (let i = 0; i < len; i++) {
+            const a = this.animations[i];
+            entries[i].a = a;
+            a.root.getWorldPosition(temp);
+            temp.y += a.yOff;
+            entries[i].d = (a.intensity <= 0.001) ? 1e9 : temp.distanceToSquared(camera.position);
+          }
+          entries.sort((x, y) => x.d - y.d);
+          for (let i = 0; i < this.lights.length; i++) {
+            const e = entries[i];
+            this._activeLights[i] = (e && e.d < 500) ? e.a : null;
+          }
         }
-        entries.sort((a, b) => a.d - b.d);
-        const qCfg = G.Config.quality[quality] || G.Config.quality.medium;
-        const count = qCfg.maxDynamicLights;
-        for (let i = 0; i < entries.length; i++) {
-          const entry = entries[i];
-          entry.light.visible = i < count && entry.d < 500;
-          entry.light.castShadow = false;
+        for (let i = 0; i < this.lights.length; i++) {
+          const pl = this.lights[i];
+          const src = this._activeLights[i];
+          if (!src || src.intensity <= 0.001) {
+            pl.intensity = 0;
+            continue;
+          }
+          src.root.getWorldPosition(temp);
+          pl.position.set(temp.x, temp.y + src.yOff, temp.z);
+          if (pl.color.getHex() !== src.color) pl.color.setHex(src.color);
+          pl.distance = src.distance;
+          pl.decay = src.decay;
+          pl.intensity = src.intensity;
         }
       }
     }
@@ -1696,8 +1739,8 @@
       (this.skeletons || []).forEach(s => s.dispose());
       this.geometries.forEach(g => g.dispose());
       this.materials.forEach(m => m.dispose());
-      this.lights.forEach(l => { if (l.shadow.map) l.shadow.map.dispose(); });
-      this.geometries.clear(); this.materials.clear(); this.characterTextures.clear(); this.animations = []; this.lights = [];
+      this.lights.forEach(l => { if (l.shadow.map) l.shadow.map.dispose(); if (l.parent) l.parent.remove(l); });
+      this.geometries.clear(); this.materials.clear(); this.characterTextures.clear(); this.animations = []; this.lights = []; this._activeLights = []; this._poolScene = null;
     }
   };
 }(window.Game = window.Game || {}));
