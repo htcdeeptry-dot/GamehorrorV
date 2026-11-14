@@ -123,7 +123,7 @@
         if (!mesh.isMesh || mesh.isInstancedMesh || Array.isArray(mesh.material) || mesh.material.isShaderMaterial) return;
         let node = mesh; while (node) { if (moving.has(node) || !node.visible) return; node = node.parent; }
         mesh.getWorldPosition(this.temp);
-        const key = mesh.material.uuid + ':' + mesh.castShadow + ':' + mesh.receiveShadow + ':' + Math.floor(this.temp.x / 14) + ':' + Math.floor(this.temp.z / 14);
+        const key = mesh.material.uuid + ':' + mesh.castShadow + ':' + mesh.receiveShadow + ':' + Math.floor(this.temp.x / 28) + ':' + Math.floor(this.temp.z / 28);
         if (!groups.has(key)) groups.set(key, []); groups.get(key).push(mesh);
       });
       let batchIndex = 0;
@@ -159,7 +159,7 @@
       const r=G.Utils.seededRandom(7801),prototypes=[];
       for(let i=0;i<4;i++){const root=new THREE.Group();this.gnarledTree(root,6.5+i*.65,170+i);this.addCanopy(root,5.9+i*.65,4.5);this.models.bakeRigid(root);prototypes.push(root);}
       const clusters=new Map(),matrix=new THREE.Matrix4(),q=new THREE.Quaternion(),scale=new THREE.Vector3(),up=new THREE.Vector3(0,1,0);let count=0;
-      const add=(x,z,variant)=>{const key=Math.floor(x/22)+':'+Math.floor(z/22)+':'+variant;if(!clusters.has(key))clusters.set(key,{variant,transforms:[]});const size=.78+r()*.5;q.setFromAxisAngle(up,r()*Math.PI*2);matrix.compose(new THREE.Vector3(x,0,z),q,scale.setScalar(size));clusters.get(key).transforms.push(matrix.clone());count++;if(z<70)this.colliders.push({minX:x-.34,maxX:x+.34,minZ:z-.34,maxZ:z+.34,minY:0,maxY:9,enabled:true,navigation:true,opaque:true});};
+      const add=(x,z,variant)=>{const key=Math.floor(x/38)+':'+Math.floor(z/38)+':'+variant;if(!clusters.has(key))clusters.set(key,{variant,transforms:[]});const size=.78+r()*.5;q.setFromAxisAngle(up,r()*Math.PI*2);matrix.compose(new THREE.Vector3(x,0,z),q,scale.setScalar(size));clusters.get(key).transforms.push(matrix.clone());count++;if(z<70)this.colliders.push({minX:x-.34,maxX:x+.34,minZ:z-.34,maxZ:z+.34,minY:0,maxY:9,enabled:true,navigation:true,opaque:true});};
       for(let i=0;i<114;i++){const z=65+r()*82,center=roadCurve.getPoint(G.Utils.clamp((z-5)/142,0,1)).x,side=i%2?1:-1,x=center+side*(7+r()*31);add(x,z,i%4);}
       for(let i=0;i<42;i++){const z=8+r()*47,x=(i%2?1:-1)*(8+r()*13);if(this.blocked(x,z,2.5,2)||G.WorldLayout.houses.concat(this.decorHouses).some(h=>Math.abs(x-h.position[0])<h.width/2+3&&Math.abs(z-h.position[2])<h.depth/2+3))continue;add(x,z,i%4);}
       clusters.forEach(cluster=>{const prototype=prototypes[cluster.variant];prototype.updateMatrixWorld(true);prototype.traverse(source=>{if(!source.isMesh)return;const mesh=new THREE.InstancedMesh(source.geometry,source.material,cluster.transforms.length);cluster.transforms.forEach((transform,i)=>mesh.setMatrixAt(i,transform.clone().multiply(source.matrixWorld)));mesh.castShadow=true;mesh.receiveShadow=true;mesh.instanceMatrix.needsUpdate=true;mesh.frustumCulled=false;mesh.userData.forestCluster=true;const center=new THREE.Vector3();cluster.transforms.forEach(t=>center.add(new THREE.Vector3().setFromMatrixPosition(t)));center.divideScalar(cluster.transforms.length);mesh.userData.clusterCenter=center;this.root.add(mesh);if(!this.forestClusters)this.forestClusters=[];this.forestClusters.push(mesh);});});
@@ -528,7 +528,7 @@
         tuftMatrices[i%3].push(mat4.clone());
         if(i%12===0&&!this.blocked(x+.4,z-.3,.7,1.4)){
           const rock=new THREE.Mesh(this.models.rockGeometry(.26+r()*.26,i),this.textures.material('ground',0x525a50));
-          rock.position.set(x+.4,.08,z-.3); rock.rotation.y=r()*6; rock.castShadow=rock.receiveShadow=true;
+          rock.position.set(x+.4,.08,z-.3); rock.rotation.y=r()*6; rock.castShadow=false; rock.receiveShadow=true;
           this.root.add(rock);
         }
       }
@@ -582,7 +582,7 @@
         const mat = (i % 2 === 0 || tier === 0) ? innerMat : outerMat;
         const tilt = tier === 2 ? -1.15 : -.55 - (i % 3) * .22;
         const leaf = this.models.mesh(parent, 'PlaneGeometry', [cardS, cardS * .88], mat, [Math.sin(a) * rad, yOff, Math.cos(a) * rad], [tilt, a + (i % 2) * .6, Math.sin(i) * .35]);
-        leaf.castShadow = true;
+        leaf.castShadow = tier === 2;
       }
     }
     buildVillageDetails() {
@@ -649,7 +649,7 @@
     buildEchoes() {
       [[-43, 19], [44, 17], [23, -46], [-32, -44]].forEach((p, i) => {
         const model = this.models.person('hung', false), material = this.models.sharedMaterial('echo_' + i, { skinning: true, color: 0x819187, emissive: 0x24362e, transparent: true, opacity: .24, depthWrite: false, roughness: 1 });
-        model.traverse(m => { if (m.isMesh) { m.material = material; m.castShadow = false; } }); model.position.set(p[0], 0, p[1]); this.root.add(model); this.echoes.push({ model: model, material: material, origin: model.position.clone(), phase: i * 2.3 });
+        model.traverse(m => { if (m.isSkinnedMesh) { m.material = material; m.castShadow = false; m.frustumCulled = false; } else if (m.isMesh) { m.visible = false; } }); model.position.set(p[0], 0, p[1]); this.root.add(model); this.echoes.push({ model: model, material: material, origin: model.position.clone(), phase: i * 2.3 });
       });
     }
     triggerBlackout(seconds) { this.outageRemaining = seconds; }
@@ -783,10 +783,15 @@
             desired.z += (dz / sep) * (.74 - sep);
           }
         });
-        if (!this.blocked(desired.x, desired.z, .38, 1.85, false)) c.model.position.copy(desired);
+        if (!this.blocked(desired.x, desired.z, .36, 1.85, false)) {
+          c.model.position.x = G.Utils.damp(c.model.position.x, desired.x, 14, .033);
+          c.model.position.z = G.Utils.damp(c.model.position.z, desired.z, 14, .033);
+          c.model.position.y = desired.y;
+        }
         targets.push(c.model.position);
         c.model.visible = u < .995;
-        c.model.rotation.y = targetYaw;
+        const yawDiff = Math.atan2(Math.sin(targetYaw - c.model.rotation.y), Math.cos(targetYaw - c.model.rotation.y));
+        c.model.rotation.y += yawDiff * .32;
         // Hung briefly glances back over shoulder when shouting "Minh! Dung buong tay!"
         c.model.userData.lookYaw = i === 2 && u > .05 && u < .45 ? -.48 * Math.sin(G.Utils.clamp((u - .05) / .40, 0, 1) * Math.PI) : 0;
         c.model.userData.suppressBlink = u < .05 && (c.model.userData.speechLevel || 0) > .08;
@@ -928,19 +933,28 @@
         }
       }
       if(!this.forestFrustum){this.forestFrustum=new THREE.Frustum();this.forestMatrix=new THREE.Matrix4();this.forestSphere=new THREE.Sphere(new THREE.Vector3(),20);}camera.updateMatrixWorld();this.forestMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);this.forestFrustum.setFromProjectionMatrix(this.forestMatrix);(this.forestClusters||[]).forEach(mesh=>{const distance=mesh.userData.clusterCenter.distanceToSquared(camera.position);this.forestSphere.center.copy(mesh.userData.clusterCenter).y=5;mesh.visible=distance<80*80&&(distance<30*30||this.forestFrustum.intersectsSphere(this.forestSphere));mesh.castShadow=distance<38*38;});
-      this.moonLight.shadow.autoUpdate=false;if(time-(this.lastMoonShadow||-1)>.12){this.moonLight.shadow.needsUpdate=true;this.lastMoonShadow=time;}
+      this.moonLight.shadow.autoUpdate=false;if(time-(this.lastMoonShadow||-1)>.16){this.moonLight.shadow.needsUpdate=true;this.lastMoonShadow=time;}
       this.waterMaterial.uniforms.uTime.value = time;
       this.doors.forEach(d=>{const next=G.Utils.damp(d.angle,d.open?(d.openAngle||-Math.PI/2):0,5,dt);if(Math.abs(next-d.angle)>.0001&&this.doorSweepClear(d,next)){d.angle=next;d.hinge.rotation.y=next;this.refreshDoorCollider(d);}});
-      const rain = this.rainGeo.attributes.position.array;
-      for (let i = 0; i < rain.length; i += 6) { rain[i + 1] -= dt * 15; if (rain[i + 1] < 0) rain[i + 1] += 26; rain[i + 3] = rain[i] - .035; rain[i + 4] = rain[i + 1] - .45; }
-      this.rainGeo.attributes.position.needsUpdate = true; this.rain.position.set(camera.position.x, 0, camera.position.z); this.rain.visible = !this.isIndoors(camera.position);
-      const ash = this.ashGeo.attributes.position.array; for (let i = 0; i < ash.length; i += 3) { ash[i] += dt * .15; ash[i + 1] -= dt * .16; if (ash[i + 1] < .1) ash[i + 1] = 12; if (ash[i] > 30) ash[i] = -30; } this.ashGeo.attributes.position.needsUpdate = true; this.ash.position.set(camera.position.x, 0, camera.position.z);
+      this.rain.visible = !this.isIndoors(camera.position);
+      this.rain.position.set(camera.position.x, 0, camera.position.z);
+      if (this.rain.visible) {
+        const rain = this.rainGeo.attributes.position.array;
+        const rainLim = Number.isFinite(this.rainGeo.drawRange.count) ? Math.min(rain.length, this.rainGeo.drawRange.count * 3) : rain.length;
+        for (let i = 0; i < rainLim; i += 6) { rain[i + 1] -= dt * 15; if (rain[i + 1] < 0) rain[i + 1] += 26; rain[i + 3] = rain[i] - .035; rain[i + 4] = rain[i + 1] - .45; }
+        this.rainGeo.attributes.position.needsUpdate = true;
+      }
+      const ash = this.ashGeo.attributes.position.array;
+      const ashLim = Number.isFinite(this.ashGeo.drawRange.count) ? Math.min(ash.length, this.ashGeo.drawRange.count * 3) : ash.length;
+      for (let i = 0; i < ashLim; i += 3) { ash[i] += dt * .15; ash[i + 1] -= dt * .16; if (ash[i + 1] < .1) ash[i + 1] = 12; if (ash[i] > 30) ash[i] = -30; }
+      this.ashGeo.attributes.position.needsUpdate = true; this.ash.position.set(camera.position.x, 0, camera.position.z);
       this.lightningTimer -= dt; this.flash = Math.max(0, this.flash - dt * 7);
       if (this.lightningTimer <= 0) { this.lightningTimer = 24 + this.random() * 28; this.flash = 1; this.bus.emit('weather:thunder', { delay: 1.2 + this.random() * 2.6 }); }
       this.stormLight.intensity = this.settings.reducedFlashes ? 0 : this.flash * 2.8;
+      if (!this._prevCompPos) this._prevCompPos = new THREE.Vector3();
       this.companions.forEach((c, id) => {
         if (this.cinematic === 'intro') return;
-        const previousPosition=c.model.position.clone();
+        const previousPosition=this._prevCompPos.copy(c.model.position);
         const rescued = this.session && this.session.companions[id] === 'rescued'; let moving = 0;
         if (rescued && !c.arrived) {
           const target = new THREE.Vector3().fromArray(c.config.safePosition); c.repath -= dt;

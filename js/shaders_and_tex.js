@@ -3,7 +3,9 @@
 
   G.TextureFactory = class TextureFactory {
     constructor(quality) {
-      this.size = G.Config.quality[quality || 'high'].textureSize;
+      this.quality = quality || 'high';
+      this.size = G.Config.quality[this.quality].textureSize;
+      this.anisotropy = this.quality === 'ultra' ? 6 : this.quality === 'high' ? 4 : this.quality === 'medium' ? 2 : 1;
       this.cache = new Map();
       this.materials = new Map();
       this.owned = new Set();
@@ -19,7 +21,7 @@
     texture(canvas, repeat, linear) {
       const t = new THREE.CanvasTexture(canvas);
       t.encoding = linear ? THREE.LinearEncoding : THREE.sRGBEncoding;
-      t.anisotropy = 8;
+      t.anisotropy = this.anisotropy;
       if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
       this.owned.add(t);
       return t;
@@ -477,7 +479,7 @@
 
     moon() {
       if (this.cache.has('moon')) return this.cache.get('moon');
-      const n = 512, c = this.canvas(n), ctx = c.getContext('2d'), r = G.Utils.seededRandom(9123);
+      const n = Math.min(512, Math.max(256, this.size)), c = this.canvas(n), ctx = c.getContext('2d'), r = G.Utils.seededRandom(9123);
       const g = ctx.createRadialGradient(n * .46, n * .42, n * .05, n * .5, n * .5, n * .52);
       g.addColorStop(0, '#c87266');
       g.addColorStop(.52, '#9a3438');
@@ -528,15 +530,15 @@
       if (this.cache.has(key)) return this.cache.get(key);
       const n = 256, c = this.canvas(n), ctx = c.getContext('2d'), cx = n / 2, cy = n / 2;
       const r = G.Utils.seededRandom(irisHex ^ (ghost ? 999 : 333));
-      // Warm living sclera or suffused corpse sclera
+      // Clear porcelain living sclera or haunting spirit sclera
       const scl = ctx.createRadialGradient(cx, cy, n * .12, cx, cy, n * .5);
-      scl.addColorStop(0, ghost ? '#c6c9c2' : '#ebe4da');
-      scl.addColorStop(.68, ghost ? '#9a9f9b' : '#ddd0c4');
-      scl.addColorStop(1, ghost ? '#544a4c' : '#9c7e74');
+      scl.addColorStop(0, ghost ? '#cdd2cc' : '#f7f2ec');
+      scl.addColorStop(.68, ghost ? '#a4aba7' : '#ebe2d9');
+      scl.addColorStop(1, ghost ? '#5a4e50' : '#bda299');
       ctx.fillStyle = scl;
       ctx.fillRect(0, 0, n, n);
-      // Fine capillary veins on outer sclera
-      const veins = ghost ? 26 : 12;
+      // Subtle scleral vessels only on outer edges for humans, darker crimson for Ghost Linh
+      const veins = ghost ? 22 : 6;
       for (let i = 0; i < veins; i++) {
         const a = r() * Math.PI * 2;
         let vx = cx + Math.cos(a) * n * .45, vy = cy + Math.sin(a) * n * .45;
@@ -546,40 +548,46 @@
           vx = cx + Math.cos(da) * dist; vy = cy + Math.sin(da) * dist;
           ctx.lineTo(vx, vy);
         }
-        ctx.strokeStyle = ghost ? 'rgba(130,22,30,' + (.28 + r() * .35) + ')' : 'rgba(148,56,56,' + (.12 + r() * .16) + ')';
-        ctx.lineWidth = ghost ? 1.4 : .9;
+        ctx.strokeStyle = ghost ? 'rgba(130,22,30,' + (.26 + r() * .32) + ')' : 'rgba(155,78,76,' + (.05 + r() * .07) + ')';
+        ctx.lineWidth = ghost ? 1.3 : .7;
         ctx.stroke();
       }
-      // Iris stroma
-      const irisR = n * .22;
+      // Expressive luminous Iris stroma
+      const irisR = n * .255;
       const baseCol = new THREE.Color(irisHex);
       const ir = Math.round(baseCol.r * 255), ig = Math.round(baseCol.g * 255), ib = Math.round(baseCol.b * 255);
-      ctx.fillStyle = 'rgb(' + Math.max(0, ir - 42) + ',' + Math.max(0, ig - 42) + ',' + Math.max(0, ib - 42) + ')';
+      const irGrad = ctx.createRadialGradient(cx, cy, irisR * .15, cx, cy, irisR);
+      irGrad.addColorStop(0, 'rgb(' + Math.min(255, Math.round(ir * 1.45)) + ',' + Math.min(255, Math.round(ig * 1.35)) + ',' + Math.min(255, Math.round(ib * 1.25)) + ')');
+      irGrad.addColorStop(.72, 'rgb(' + ir + ',' + ig + ',' + ib + ')');
+      irGrad.addColorStop(1, 'rgb(' + Math.max(0, ir - 44) + ',' + Math.max(0, ig - 44) + ',' + Math.max(0, ib - 44) + ')');
+      ctx.fillStyle = irGrad;
       ctx.beginPath(); ctx.arc(cx, cy, irisR, 0, Math.PI * 2); ctx.fill();
-      for (let i = 0; i < 120; i++) {
-        const a = (i / 120) * Math.PI * 2 + (r() - .5) * .04;
-        const mix = .65 + r() * .75;
-        ctx.strokeStyle = 'rgba(' + Math.min(255, Math.round(ir * mix)) + ',' + Math.min(255, Math.round(ig * mix)) + ',' + Math.min(255, Math.round(ib * mix)) + ',' + (.35 + r() * .45) + ')';
-        ctx.lineWidth = 1 + r() * 1.4;
+      for (let i = 0; i < 140; i++) {
+        const a = (i / 140) * Math.PI * 2 + (r() - .5) * .04;
+        const mix = .72 + r() * .85;
+        ctx.strokeStyle = 'rgba(' + Math.min(255, Math.round(ir * mix)) + ',' + Math.min(255, Math.round(ig * mix)) + ',' + Math.min(255, Math.round(ib * mix)) + ',' + (.30 + r() * .42) + ')';
+        ctx.lineWidth = .8 + r() * 1.2;
         ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a) * (irisR * .32), cy + Math.sin(a) * (irisR * .32));
-        ctx.lineTo(cx + Math.cos(a) * (irisR * .94), cy + Math.sin(a) * (irisR * .94));
+        ctx.moveTo(cx + Math.cos(a) * (irisR * .30), cy + Math.sin(a) * (irisR * .30));
+        ctx.lineTo(cx + Math.cos(a) * (irisR * .95), cy + Math.sin(a) * (irisR * .95));
         ctx.stroke();
       }
-      // Crisp limbal dark ring
-      ctx.strokeStyle = ghost ? 'rgba(12,8,10,0.88)' : 'rgba(18,12,9,0.78)';
-      ctx.lineWidth = n * .022;
+      // Crisp deep limbal dark ring
+      ctx.strokeStyle = ghost ? 'rgba(10,6,9,0.92)' : 'rgba(14,9,7,0.88)';
+      ctx.lineWidth = n * .026;
       ctx.beginPath(); ctx.arc(cx, cy, irisR * .96, 0, Math.PI * 2); ctx.stroke();
       // Pupil
       ctx.fillStyle = '#030405';
-      ctx.beginPath(); ctx.arc(cx, cy, irisR * (ghost ? .38 : .43), 0, Math.PI * 2); ctx.fill();
-      // Subtle iris collarette catchlight
-      ctx.fillStyle = 'rgba(255,245,235,0.22)';
-      ctx.beginPath(); ctx.arc(cx - irisR * .26, cy - irisR * .28, irisR * .10, 0, Math.PI * 2); ctx.fill();
-      // Upper-lid AO shadow across top of eyeball
-      const lidAO = ctx.createLinearGradient(0, cy - irisR * 1.6, 0, cy + irisR * .3);
-      lidAO.addColorStop(0, 'rgba(12,8,8,0.68)');
-      lidAO.addColorStop(.55, 'rgba(12,8,8,0.18)');
+      ctx.beginPath(); ctx.arc(cx, cy, irisR * (ghost ? .36 : .41), 0, Math.PI * 2); ctx.fill();
+      // Dual sparkling catchlights
+      ctx.fillStyle = 'rgba(255,250,245,0.62)';
+      ctx.beginPath(); ctx.arc(cx - irisR * .28, cy - irisR * .28, irisR * .11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,244,232,0.34)';
+      ctx.beginPath(); ctx.arc(cx + irisR * .22, cy + irisR * .24, irisR * .055, 0, Math.PI * 2); ctx.fill();
+      // Subtle upper-lid AO shadow without blacking out upper iris sparkle
+      const lidAO = ctx.createLinearGradient(0, cy - irisR * 1.45, 0, cy + irisR * .1);
+      lidAO.addColorStop(0, 'rgba(12,8,8,0.48)');
+      lidAO.addColorStop(.55, 'rgba(12,8,8,0.12)');
       lidAO.addColorStop(1, 'rgba(12,8,8,0)');
       ctx.fillStyle = lidAO;
       ctx.fillRect(0, 0, n, n);
@@ -591,12 +599,12 @@
     face(ghost) {
       const key = ghost ? 'ghost_face' : 'human_face';
       if (this.cache.has(key)) return this.cache.get(key);
-      const c = this.canvas(512), ctx = c.getContext('2d');
-      ctx.fillStyle = ghost ? '#c4c9c0' : '#bba58b';
-      ctx.fillRect(0, 0, 512, 512);
-      const shade = ctx.createRadialGradient(256, 225, 40, 256, 255, 280);
-      shade.addColorStop(0, '#ffffff12'); shade.addColorStop(1, '#283028aa');
-      ctx.fillStyle = shade; ctx.fillRect(0, 0, 512, 512);
+      const c = this.canvas(Math.min(512, Math.max(256, this.size))), ctx = c.getContext('2d'), s = c.width;
+      ctx.fillStyle = ghost ? '#cad0c7' : '#d2b69d';
+      ctx.fillRect(0, 0, s, s);
+      const shade = ctx.createRadialGradient(s * .5, s * .44, s * .08, s * .5, s * .5, s * .55);
+      shade.addColorStop(0, '#ffffff18'); shade.addColorStop(1, '#28302888');
+      ctx.fillStyle = shade; ctx.fillRect(0, 0, s, s);
       const t = this.texture(c, false, false);
       this.cache.set(key, t);
       return t;
@@ -604,17 +612,17 @@
 
     skinMicro() {
       if (this.cache.has('skin-micro')) return this.cache.get('skin-micro');
-      const n = 512, canvas = this.canvas(n), ctx = canvas.getContext('2d'), r = G.Utils.seededRandom(4408);
-      // Subtle normal-like pore map (neutral 128, 128, 255 tangent space)
+      const n = Math.min(512, Math.max(256, this.size)), canvas = this.canvas(n), ctx = canvas.getContext('2d'), r = G.Utils.seededRandom(4408);
+      // Silky airbrushed porcelain micro-normal (fine low-amplitude tangent perturbation)
       const img = ctx.createImageData(n, n);
       for (let y = 0; y < n; y++) {
         for (let x = 0; x < n; x++) {
           const i = (y * n + x) * 4;
-          const nx = 128 + (r() - .5) * 28 + Math.sin(x * .25 + y * .11) * 6;
-          const ny = 128 + (r() - .5) * 28 + Math.cos(y * .22 - x * .09) * 6;
-          img.data[i] = Math.max(96, Math.min(160, nx));
-          img.data[i + 1] = Math.max(96, Math.min(160, ny));
-          img.data[i + 2] = 248;
+          const nx = 128 + (r() - .5) * 10 + Math.sin(x * .22 + y * .10) * 3;
+          const ny = 128 + (r() - .5) * 10 + Math.cos(y * .20 - x * .08) * 3;
+          img.data[i] = Math.max(114, Math.min(142, nx));
+          img.data[i + 1] = Math.max(114, Math.min(142, ny));
+          img.data[i + 2] = 252;
           img.data[i + 3] = 255;
         }
       }
@@ -628,27 +636,33 @@
       if (this.cache.has('hair-strands')) return this.cache.get('hair-strands');
       const canvas = this.canvas(256, 512), ctx = canvas.getContext('2d'), r = G.Utils.seededRandom(2728);
       ctx.clearRect(0, 0, 256, 512);
-      // Tapered dense root body with soft wispy ends — zero pale edge halo
-      const mass = ctx.createLinearGradient(0, 0, 0, 512);
-      mass.addColorStop(0, 'rgba(26,22,20,0.96)');
-      mass.addColorStop(.55, 'rgba(22,19,18,0.88)');
-      mass.addColorStop(.86, 'rgba(18,16,15,0.42)');
-      mass.addColorStop(1, 'rgba(16,14,14,0)');
-      ctx.fillStyle = mass;
-      ctx.beginPath();
-      ctx.moveTo(28, 0); ctx.lineTo(228, 0);
-      ctx.quadraticCurveTo(238, 260, 200, 495);
-      ctx.lineTo(56, 495);
-      ctx.quadraticCurveTo(18, 260, 28, 0);
-      ctx.fill();
-      for (let i = 0; i < 140; i++) {
-        const x = 18 + r() * 220;
-        const c1 = 18 + Math.floor(r() * 34);
-        ctx.strokeStyle = 'rgba(' + c1 + ',' + Math.max(10, c1 - 3) + ',' + Math.max(10, c1 - 4) + ',' + (.45 + r() * .5) + ')';
-        ctx.lineWidth = .7 + r() * 1.6;
+      // Soft horizontally feathered lock core + irregular wispy strand tips (zero blunt block edges)
+      const horiz = ctx.createLinearGradient(0, 0, 256, 0);
+      horiz.addColorStop(0, 'rgba(20,16,15,0)');
+      horiz.addColorStop(.18, 'rgba(24,19,18,0.58)');
+      horiz.addColorStop(.50, 'rgba(28,22,20,0.92)');
+      horiz.addColorStop(.82, 'rgba(24,19,18,0.58)');
+      horiz.addColorStop(1, 'rgba(20,16,15,0)');
+      const vert = ctx.createLinearGradient(0, 0, 0, 512);
+      vert.addColorStop(0, 'rgba(255,255,255,0.96)');
+      vert.addColorStop(.62, 'rgba(255,255,255,0.82)');
+      vert.addColorStop(.88, 'rgba(255,255,255,0.22)');
+      vert.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = horiz;
+      ctx.fillRect(16, 0, 224, 420);
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.fillStyle = vert;
+      ctx.fillRect(0, 0, 256, 512);
+      ctx.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < 320; i++) {
+        const x = 16 + r() * 224;
+        const c1 = 22 + Math.floor(r() * 58);
+        const endY = 300 + Math.pow(r(), .65) * 208;
+        ctx.strokeStyle = 'rgba(' + (c1 + 8) + ',' + Math.max(12, c1 - 2) + ',' + Math.max(12, c1 - 5) + ',' + (.45 + r() * .50) + ')';
+        ctx.lineWidth = .45 + r() * 1.15;
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.bezierCurveTo(x + (r() - .5) * 26, 150, x + (r() - .5) * 24, 340, x + (r() - .5) * 30, 435 + r() * 75);
+        ctx.bezierCurveTo(x + (r() - .5) * 16, 140, x + (r() - .5) * 14, 300, x + (r() - .5) * 20, endY);
         ctx.stroke();
       }
       const t = this.texture(canvas, false, false);
@@ -658,14 +672,14 @@
 
     createSkinSssMaterial(opts) {
       const ghost = !!(opts && opts.ghost);
-      const sssHex = ghost ? 0x324642 : 0xb24436;
-      const rimHex = ghost ? 0x5c7375 : 0x5d727c;
+      const sssHex = ghost ? 0x466368 : 0xd8705e;
+      const rimHex = ghost ? 0x708b90 : 0x788e99;
       const mat = new THREE.MeshStandardMaterial({
         map: opts.map || null,
         normalMap: opts.normalMap || null,
-        normalScale: opts.normalScale || new THREE.Vector2(.45, .45),
+        normalScale: opts.normalScale || new THREE.Vector2(.18, .18),
         roughnessMap: opts.roughnessMap || null,
-        roughness: opts.roughness !== undefined ? opts.roughness : (ghost ? .48 : .52),
+        roughness: opts.roughness !== undefined ? opts.roughness : (ghost ? .48 : .44),
         metalness: 0,
         color: opts.color !== undefined ? opts.color : 0xffffff,
         skinning: opts.skinning !== undefined ? opts.skinning : true,
@@ -681,10 +695,11 @@
             '#include <lights_fragment_end>',
             '#include <lights_fragment_end>\n' +
             'float skinNdv = clamp(dot(geometry.normal, geometry.viewDir), 0.0, 1.0);\n' +
-            'float skinFres = pow(1.0 - skinNdv, 3.4);\n' +
+            'float skinFres = pow(1.0 - skinNdv, 3.2);\n' +
             'float directLuma = clamp(dot(reflectedLight.directDiffuse, vec3(0.3, 0.59, 0.11)) * 1.9, 0.0, 1.0);\n' +
-            'reflectedLight.directDiffuse += diffuseColor.rgb * uSssColor * (0.14 + 0.24 * skinFres) * directLuma;\n' +
-            'reflectedLight.indirectSpecular += uRimColor * skinFres * 0.14;'
+            'reflectedLight.directDiffuse += diffuseColor.rgb * uSssColor * (0.16 + 0.28 * skinFres) * (0.35 + 0.65 * directLuma);\n' +
+            'reflectedLight.indirectDiffuse += diffuseColor.rgb * uSssColor * 0.09;\n' +
+            'reflectedLight.indirectSpecular += uRimColor * skinFres * 0.16;'
           );
       };
       return mat;
@@ -692,26 +707,30 @@
 
     roadSurface() {
       if (this.cache.has('road-surface')) return this.cache.get('road-surface');
-      const c = this.canvas(1024), ctx = c.getContext('2d'), r = G.Utils.seededRandom(688);
+      const s = this.size >= 768 ? 1024 : Math.max(256, this.size);
+      const sc = s / 1024;
+      const c = this.canvas(s), ctx = c.getContext('2d'), r = G.Utils.seededRandom(688);
       ctx.fillStyle = '#2c3128';
-      ctx.fillRect(0, 0, 1024, 1024);
-      for (let i = 0; i < 42000; i++) {
-        const x = r() * 1024, y = r() * 1024, v = 30 + Math.floor(r() * 52);
+      ctx.fillRect(0, 0, s, s);
+      const count = Math.round(42000 * (sc * sc * .75 + .25));
+      for (let i = 0; i < count; i++) {
+        const x = r() * s, y = r() * s, v = 30 + Math.floor(r() * 52);
         ctx.fillStyle = 'rgb(' + v + ',' + (v + 3) + ',' + (v - 4) + ')';
-        ctx.beginPath(); ctx.ellipse(x, y, .6 + r() * 4.2, .7 + r() * 3.2, r() * 6, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x, y, (.6 + r() * 4.2) * sc, (.7 + r() * 3.2) * sc, r() * 6, 0, 7); ctx.fill();
       }
       // Deep cart ruts & rain puddles along old village dirt lane
       [.27, .73].forEach(x => {
-        const g = ctx.createLinearGradient((x - .13) * 1024, 0, (x + .13) * 1024, 0);
+        const g = ctx.createLinearGradient((x - .13) * s, 0, (x + .13) * s, 0);
         g.addColorStop(0, 'rgba(18,22,19,0)');
         g.addColorStop(.5, 'rgba(10,14,13,0.82)');
         g.addColorStop(1, 'rgba(18,22,19,0)');
-        ctx.fillStyle = g; ctx.fillRect((x - .13) * 1024, 0, 266, 1024);
+        ctx.fillStyle = g; ctx.fillRect((x - .13) * s, 0, 266 * sc, s);
       });
       // Embedded worn cobbles & dead leaves
-      for (let i = 0; i < 420; i++) {
+      const stones = Math.round(420 * (sc * .65 + .35));
+      for (let i = 0; i < stones; i++) {
         ctx.fillStyle = i % 3 === 0 ? '#6e6540' : i % 3 === 1 ? '#454a3a' : '#4a3d27';
-        ctx.beginPath(); ctx.ellipse(r() * 1024, r() * 1024, 2 + r() * 5, 1.2 + r() * 2.5, r() * 6, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(r() * s, r() * s, (2 + r() * 5) * sc, (1.2 + r() * 2.5) * sc, r() * 6, 0, 7); ctx.fill();
       }
       const t = this.texture(c, true, false);
       this.cache.set('road-surface', t);
@@ -816,7 +835,7 @@
       'float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}',
       'float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}',
       'float fogDensity(vec3 p){float height=exp(-max(p.y,0.0)*2.05)*smoothstep(-0.15,0.12,p.y);vec2 drift=vec2(uTime*.07,uTime*-.04);float n=noise(p.xz*.19+drift)*.65+noise(p.xz*.52-drift)*.35;float inside=0.;for(int i=0;i<6;i++){vec2 d=abs(p.xz-uHouses[i].xy)-uHouses[i].zw;inside=max(inside,(1.-smoothstep(-.1,.7,max(d.x,d.y))));}return height*smoothstep(.28,.82,n)*.145*(1.-inside);}',
-      'vec3 groundFog(vec3 color,vec2 uv){float depth=texture2D(tDepth,uv).x;vec4 view=uProjectionInverse*vec4(uv*2.-1.,depth*2.-1.,1.);view/=view.w;vec3 endPoint=(uCameraWorld*view).xyz;vec3 delta=endPoint-uCameraPosition;float distance=min(length(delta),52.);vec3 direction=normalize(delta);float steps=max(uFogSteps,4.);float stepSize=distance/steps;float transmission=1.;for(int i=0;i<24;i++){if(float(i)>=steps)break;vec3 p=uCameraPosition+direction*(float(i)+.5)*stepSize;float density=fogDensity(p);transmission*=exp(-density*stepSize);}return mix(vec3(.021,.036,.042),color,transmission);}',
+      'vec3 groundFog(vec3 color,vec2 uv){float depth=texture2D(tDepth,uv).x;vec4 view=uProjectionInverse*vec4(uv*2.-1.,depth*2.-1.,1.);view/=view.w;vec3 endPoint=(uCameraWorld*view).xyz;vec3 delta=endPoint-uCameraPosition;float distance=min(length(delta),46.);vec3 direction=normalize(delta);if((depth>0.9995&&direction.y>0.06)||(uCameraPosition.y>2.6&&direction.y>0.0))return color;float steps=max(uFogSteps,4.);float stepSize=distance/steps;float jitter=hash(uv+fract(uTime))*stepSize;float transmission=1.;for(int i=0;i<16;i++){if(float(i)>=steps)break;vec3 p=uCameraPosition+direction*(float(i)*stepSize+jitter);if(p.y<3.2){float density=fogDensity(p);transmission*=exp(-density*stepSize);}}return mix(vec3(.021,.036,.042),color,transmission);}',
       'void main(){vec2 uv=vUv;float threatMask=smoothstep(0.08,0.85,uThreat);float band=step(0.985,hash(vec2(floor(uv.y*60.0),floor(uTime*8.0))));',
       'float interference=max(uSanity*0.75,threatMask);uv.x+=band*sin(uTime*31.0)*interference*0.012*uMotion;uv.x+=sin(uv.y*170.+uTime*9.)*.0005*threatMask*uMotion;float radial=dot(uv-.5,uv-.5);float shift=interference*0.0022+radial*0.0011;',
       'vec3 col=vec3(texture2D(tScene,uv+vec2(shift,0.)).r,texture2D(tScene,uv).g,texture2D(tScene,uv-vec2(shift,0.)).b);',
@@ -876,7 +895,7 @@
       u.uDamage.value = damage;
       u.uMotion.value = reducedMotion ? 0 : 1;
       u.uFog.value = (this.depthSupported && volFog !== false) ? 1 : 0;
-      u.uFogSteps.value = Math.max(4, Math.min(24, fogSteps || 14));
+      u.uFogSteps.value = Math.max(4, Math.min(16, fogSteps || 10));
       camera.updateMatrixWorld();
       u.uProjectionInverse.value.copy(camera.projectionMatrixInverse);
       u.uCameraWorld.value.copy(camera.matrixWorld);

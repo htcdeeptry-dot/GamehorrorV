@@ -101,7 +101,7 @@
       }
       if (this.player) {
         this.player.flashlight.castShadow = shadowsOn;
-        const flSize = Math.min(1024, smSize);
+        const flSize = s.shadowQuality === 'high' ? 1024 : 512;
         if (this.player.flashlight.shadow.mapSize.x !== flSize) {
           this.player.flashlight.shadow.mapSize.set(flSize, flSize);
           if (this.player.flashlight.shadow.map) { this.player.flashlight.shadow.map.dispose(); this.player.flashlight.shadow.map = null; }
@@ -110,7 +110,7 @@
       this.resize(); this.bus.emit(G.EventNames.SETTINGS_CHANGED, s);
     }
     createWorld(session) {
-      this.destroyWorld(); this.session = session; this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, .08, 260);
+      this.destroyWorld(); this.session = session; this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, G.Config.camera.near, G.Config.camera.far);
       this.textures = new G.TextureFactory(this.settings.quality); this.models = new G.ModelsFactory(this.textures); this.world = new G.WorldBuilder(this.scene, this.textures, this.models, this.bus, this.settings).build(); this.world.sync(session);
       this.player = new G.PlayerController(this, session);this.world.player=this.player; this.ghost = new G.GhostAI(this); this.quest = new G.QuestSystem(this); this.autosave = 0; this.dialogueQueue = []; this.subtitle = null; this.cutscene = null; this.skipDown = false; this.skipTime = 0;
       this.resize(); this.applySettings(); this.updateHUD();
@@ -226,7 +226,7 @@
       document.documentElement.style.setProperty('--damage', this.player.damageFlash.toFixed(3)); document.documentElement.style.setProperty('--sanity', (Math.max(Math.max(0, 1 - p.sanity / 30), this.ghostThreat()) * .45).toFixed(3));
     }
     ghostThreat() { if (!this.ghost || !this.player || !['playing', 'cutscene'].includes(this.state) || ['dormant', 'banished'].includes(this.ghost.state)) return 0; return G.Utils.clamp(1 - this.ghost.position.distanceTo(this.player.position) / 15, 0, 1); }
-    resize() { if (!this.renderer || !this.camera) return; const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight); this.renderer.setSize(width, height, false); this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); if (this.post) { const size = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.post.resize(size.x, size.y); } }
+    resize() { if (!this.renderer || !this.camera) return; const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight); this.renderer.setSize(width, height, false); this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); if (this.post) { if (this.settings.postFX) { const size = this.renderer.getDrawingBufferSize(new THREE.Vector2()); this.post.resize(size.x, size.y); } else { this.post.resize(1, 1); } } }
     loop(now) {
       if (!this.running) return; const dt = Math.min(.05, Math.max(0, (now - this.lastFrame) / 1000)); this.lastFrame = now; this.time += dt;
       try {

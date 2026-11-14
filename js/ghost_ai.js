@@ -8,6 +8,7 @@
       this.hallucination = app.models.person('linh', true); this.hallucination.visible = false; app.scene.add(this.hallucination);
       this.offNoise = this.bus.on(G.EventNames.NOISE, event => this.hear(event)); this.random = G.Utils.seededRandom(G.Config.seed + 723);
       this.eventClock = 16; this.eventIndex = 0; this.lastEvent = null; this.inspectionGrace = 0;
+      this._tmpDelta = new THREE.Vector3(); this._tmpFwd = new THREE.Vector3(); this._tmpEye = new THREE.Vector3();
     }
     setState(state) { if (this.state === state) return; this.state = state; this.stateTime = 0; this.pathClock = 0; this.bus.emit(G.EventNames.GHOST_STATE, { state: state }); if (state === 'chase') { this.app.sound.cue('stinger'); this.app.session.flags.ghostAwakened = true; } }
     hear(event) {
@@ -17,13 +18,13 @@
     }
     canSee(player) {
       if (this.world.isSafe(player.position) || player.hiddenSpot) return false;
-      const delta = player.position.clone().sub(this.position), distance = delta.length();
+      const delta = this._tmpDelta.copy(player.position).sub(this.position), distance = delta.length();
       const lit = player.data.flashlightOn && player.data.battery > 0;
       const range = (lit ? this.cfg.flashlightDetectionRadius : this.cfg.sightDistance) * (player.crouching ? .65 : 1);
       if (distance > range) return false;
-      const forward = new THREE.Vector3(Math.sin(this.model.rotation.y), 0, Math.cos(this.model.rotation.y));
+      const forward = this._tmpFwd.set(Math.sin(this.model.rotation.y), 0, Math.cos(this.model.rotation.y));
       if (distance > 3 && forward.dot(delta.normalize()) < Math.cos(this.cfg.sightHalfAngle)) return false;
-      return this.world.lineOfSight(this.position.clone().add(new THREE.Vector3(0, 1.6, 0)), player.camera.position);
+      return this.world.lineOfSight(this._tmpEye.copy(this.position).setY(this.position.y + 1.6), player.camera.position);
     }
     repel(position) {
       if (this.state === 'banished' || this.stunImmunity > 0 || this.position.distanceTo(position) > G.Config.player.talisman.repelRadius) return false;
@@ -49,7 +50,7 @@
       this.updateHallucinations(dt, time); this.updateParanormal(dt);
       if (this.state === 'banished') return;
       if (this.state === 'dormant') { if (this.app.session.elapsed >= this.cfg.activationDelay || this.app.session.flags.ghostAwakened) this.setState('patrol'); this.app.models.animatePerson(this.model, time, 0, 'idle'); return; }
-      if (this.state === 'stunned') { this.stunTimer -= dt; this.model.rotation.z = Math.sin(time * 14) * .08; if (this.stunTimer <= 0) { this.model.rotation.z = 0; this.stunImmunity = 2; this.setState('search'); this.target.copy(this.position); } return; }
+      if (this.state === 'stunned') { this.stunTimer -= dt; this.model.rotation.z = Math.sin(time * 3.8) * .06; if (this.stunTimer <= 0) { this.model.rotation.z = 0; this.stunImmunity = 2; this.setState('search'); this.target.copy(this.position); } return; }
       const sees = this.canSee(player), distance = this.position.distanceTo(player.position);
       if (sees) { this.lastKnown.copy(player.position); this.lostSight = 0; this.setState('chase'); } else this.lostSight += dt;
       let speed = 0;

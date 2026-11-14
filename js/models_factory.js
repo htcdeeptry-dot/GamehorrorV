@@ -14,6 +14,11 @@
       this.animations = [];
       this.lights = [];
       this.characterTextures = new Map();
+      this._animAxis = new THREE.Vector3(1, 0, 0);
+      this._animQ = new THREE.Quaternion();
+      this._animQ2 = new THREE.Quaternion();
+      this._tmpVec = new THREE.Vector3();
+      this._lightEntries = [];
     }
     sharedMaterial(key, options) {
       if (!this.materials.has(key)) {
@@ -112,18 +117,35 @@
       this.geometries.set(key, g);
       return g;
     }
-    hairRibbon(parent, points, width, material, seed) {
+    hairRibbon(parent, points, width, material, seed, refCenter) {
       const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3().fromArray(p))), vertices = [], uv = [], indices = [];
-      for (let i = 0; i <= 14; i++) {
-        const t = i / 14, p = curve.getPoint(t), tangent = curve.getTangent(t);
-        const side = new THREE.Vector3(0, 0, 1).cross(tangent).normalize();
-        if (side.lengthSq() < .01) side.set(1, 0, 0);
-        const w = width * (.35 + .65 * Math.sin(t * Math.PI)) * Math.pow(1 - t, .45);
-        for (let edge = -1; edge <= 1; edge += 2) {
-          vertices.push(p.x + side.x * w * edge, p.y + side.y * w * edge, p.z + side.z * w * edge);
-          uv.push(edge === -1 ? 0 : 1, 1 - t);
+      const ref = new THREE.Vector3().fromArray(refCenter || (points[0][1] > 1.35 ? [0, 1.63, .02] : [0, .85, 0]));
+      const upRef = new THREE.Vector3(0, 0, 1), radial = new THREE.Vector3(), side = new THREE.Vector3();
+      const segs = 16;
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs, p = curve.getPoint(t), tangent = curve.getTangent(t);
+        radial.copy(p).sub(ref);
+        if (radial.lengthSq() < 1e-4) radial.set(0, 0, 1);
+        radial.normalize();
+        side.crossVectors(radial, tangent);
+        if (side.lengthSq() < 1e-4) side.crossVectors(upRef, tangent);
+        if (side.lengthSq() < 1e-4) side.set(1, 0, 0);
+        side.normalize();
+        const w = width * (.42 + .58 * Math.sin(t * Math.PI * .92)) * Math.pow(Math.max(0.02, 1 - t), .36);
+        const camber = w * .26;
+        for (let col = 0; col < 3; col++) {
+          const edge = col - 1, lift = col === 1 ? camber : -camber * .22;
+          vertices.push(
+            p.x + side.x * w * edge + radial.x * lift,
+            p.y + side.y * w * edge + radial.y * lift,
+            p.z + side.z * w * edge + radial.z * lift
+          );
+          uv.push(col * .5, 1 - t);
         }
-        if (i) { const n = i * 2; indices.push(n - 2, n - 1, n, n - 1, n + 1, n); }
+        if (i) {
+          const r0 = (i - 1) * 3, r1 = i * 3;
+          indices.push(r0, r0 + 1, r1, r0 + 1, r1 + 1, r1, r0 + 1, r0 + 2, r1 + 1, r0 + 2, r1 + 2, r1 + 1);
+        }
       }
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -161,30 +183,33 @@
       const texKey = key + ':' + id + ':' + part.mesh + ':' + !!ghost;
       if (this.characterTextures.has(texKey)) return this.characterTextures.get(texKey);
 
-      const W = Math.min(1024, Math.max(512, image.width)), H = Math.min(1024, Math.max(512, image.height));
+      const texCap = (this.textures && this.textures.size) >= 768 ? 1024 : ((this.textures && this.textures.size) >= 512 ? 512 : 384);
+      const W = Math.min(texCap, Math.max(256, image.width)), H = Math.min(texCap, Math.max(256, image.height));
+      const R = Math.min(512, W);
       const c = this.textures.canvas(W, H), ctx = c.getContext('2d');
-      const rCanvas = this.textures.canvas(512, 512), rctx = rCanvas.getContext('2d');
-      const baseRough = part.kind === 'hair' ? 185 : part.kind === 'skin' ? (ghost ? 128 : 138) : (ghost ? 115 : 220);
+      const rCanvas = this.textures.canvas(R, R), rctx = rCanvas.getContext('2d');
+      const baseRough = part.kind === 'hair' ? 196 : part.kind === 'skin' ? (ghost ? 186 : 182) : (ghost ? 118 : 212);
       rctx.fillStyle = 'rgb(' + baseRough + ',' + baseRough + ',' + baseRough + ')';
-      rctx.fillRect(0, 0, 512, 512);
+      rctx.fillRect(0, 0, R, R);
 
-      // Draw original texture cleanly
+      // Luminous studio skin tone & crisp clothing balance
       ctx.save();
-      if (ghost && part.kind === 'skin') ctx.filter = 'grayscale(0.92) contrast(1.12) brightness(1.06)';
-      else if (id === 'hung' && part.kind === 'skin') ctx.filter = 'brightness(0.88) saturate(1.08)';
-      else if (id === 'tuan' && part.kind === 'skin') ctx.filter = 'brightness(0.95) saturate(0.95)';
+      if (ghost && part.kind === 'skin') ctx.filter = 'grayscale(0.92) contrast(1.10) brightness(1.12)';
+      else if (id === 'lan' && part.kind === 'skin') ctx.filter = 'brightness(1.03) contrast(0.99) saturate(1.03)';
+      else if (id === 'hung' && part.kind === 'skin') ctx.filter = 'brightness(0.95) contrast(1.05) saturate(1.07)';
+      else if (id === 'tuan' && part.kind === 'skin') ctx.filter = 'brightness(1.02) contrast(0.98) saturate(0.96)';
       ctx.drawImage(image, 0, 0, W, H);
       ctx.restore();
 
-      // Remove white alpha-bleed halos on MakeHuman hair cards while keeping soft tapered fringe
+      // Remove white alpha-bleed halos on MakeHuman hair cards while preserving rich natural dark-espresso sheen
       if (part.kind === 'hair') {
         const imgData = ctx.getImageData(0, 0, W, H), d = imgData.data;
-        const tint = ghost ? [.07, .07, .08] : id === 'lan' ? [.13, .10, .09] : id === 'hung' ? [.10, .09, .09] : [.14, .12, .11];
+        const tint = ghost ? [.12, .12, .14] : id === 'lan' ? [.28, .22, .20] : id === 'hung' ? [.24, .21, .20] : [.26, .22, .21];
         for (let i = 0; i < d.length; i += 4) {
           const lum = (d[i] + d[i + 1] + d[i + 2]) / (3 * 255);
-          d[i] = Math.round(tint[0] * 255 * (.48 + lum * .82));
-          d[i + 1] = Math.round(tint[1] * 255 * (.48 + lum * .82));
-          d[i + 2] = Math.round(tint[2] * 255 * (.48 + lum * .82));
+          d[i] = Math.round(tint[0] * 255 * (.48 + lum * .85));
+          d[i + 1] = Math.round(tint[1] * 255 * (.48 + lum * .85));
+          d[i + 2] = Math.round(tint[2] * 255 * (.48 + lum * .85));
           if (d[i + 3] < 24) d[i + 3] = 0;
         }
         ctx.putImageData(imgData, 0, 0);
@@ -199,9 +224,9 @@
         const rnd = G.Utils.seededRandom(Array.from(texKey).reduce((a, ch) => Math.imul(a, 31) + ch.charCodeAt(0), 9123));
 
         if (part.kind === 'skin') {
-          // Subtle wet sheen on nose bridge, cheeks & brow (before tear highlights so blood tears stay wet-glossy)
-          rctx.fillStyle = ghost ? 'rgb(88,88,88)' : 'rgb(112,112,112)';
-          rctx.fillRect(512 * .74, 512 * .35, 512 * .22, 512 * .32);
+          // Soft velvet-satin complexion roughness across face + delicate dewy T-zone highlight
+          rctx.fillStyle = ghost ? 'rgb(168,168,168)' : 'rgb(176,176,176)';
+          rctx.fillRect(R * .74, R * .35, R * .22, R * .32);
 
           const samplePatch = (uN, vN) => {
             const sx = Math.max(2, Math.min(W - 4, Math.round(uN * W - 2)));
@@ -227,7 +252,39 @@
             ctx.restore();
           }
 
-          // Smooth single-composite wrist & neck ligature marks for Ghost Linh (zero vertex-arc stacking)
+          // Smooth sculpted radiance: soft nose-bridge light, peach cheek blush & hollow-cheek/jawline contour
+          ctx.save();
+          ctx.filter = 'blur(' + Math.max(1.8, W * .0052) + 'px)';
+          const noseGlow = ctx.createLinearGradient(0.822 * W, 0.517 * H, 0.875 * W, 0.517 * H);
+          noseGlow.addColorStop(0, ghost ? 'rgba(235,240,238,0.14)' : 'rgba(255,245,235,0.16)');
+          noseGlow.addColorStop(1, ghost ? 'rgba(235,240,238,0.06)' : 'rgba(255,242,230,0.08)');
+          ctx.fillStyle = noseGlow;
+          ctx.beginPath();
+          ctx.ellipse(0.848 * W, 0.517 * H, W * .026, H * .0065, 0, 0, Math.PI * 2);
+          ctx.fill();
+          [-1, 1].forEach(side => {
+            const cxBlush = (0.517 + side * 0.043) * H;
+            const bg = ctx.createRadialGradient(0.862 * W, cxBlush, 0, 0.862 * W, cxBlush, W * .021);
+            bg.addColorStop(0, ghost ? 'rgba(218,225,222,0.12)' : id === 'lan' ? 'rgba(226,120,118,0.22)' : 'rgba(202,130,114,0.08)');
+            bg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0.838 * W, cxBlush - H * .024, W * .048, H * .048);
+
+            // Subtle high-fashion cheekbone / V-jawline sculpt contour
+            const cyContour = (0.517 + side * 0.056) * H;
+            const cg = ctx.createRadialGradient(0.892 * W, cyContour, 0, 0.892 * W, cyContour, W * .028);
+            cg.addColorStop(0, ghost ? 'rgba(40,42,46,0.14)' : 'rgba(92,52,42,0.09)');
+            cg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = cg;
+            ctx.fillRect(0.862 * W, cyContour - H * .030, W * .060, H * .060);
+          });
+          ctx.restore();
+
+          // Delicate satin highlight on nose bridge & cheeks (never glossy vinyl)
+          rctx.fillStyle = 'rgb(148,148,148)';
+          rctx.fillRect(R * .825, R * .510, R * .046, R * .014);
+
+          // Smooth single-composite wrist & neck ligature marks for Ghost Linh
           if (ghost) {
             const maskC = this.textures.canvas(W, H), mCtx = maskC.getContext('2d');
             mCtx.fillStyle = '#380b15';
@@ -242,7 +299,7 @@
               }
             }
             ctx.save();
-            ctx.globalAlpha = .42;
+            ctx.globalAlpha = .40;
             ctx.filter = 'blur(2.4px)';
             ctx.drawImage(maskC, 0, 0);
             ctx.restore();
@@ -250,30 +307,29 @@
 
           // Clean single-pass UV-space facial detail (u: forehead 0.75 -> chin 0.93, v: midline 0.517)
           ctx.save();
-          // 1. Natural arched eyebrows + fine micro hair wisps (positioned sharply at MakeHuman brow ridge u=0.817)
-          const browCol = ghost ? 'rgba(18, 16, 18, 0.46)' : id === 'hung' ? 'rgba(20, 14, 12, 0.50)' : id === 'tuan' ? 'rgba(22, 16, 14, 0.42)' : 'rgba(28, 18, 15, 0.40)';
+          // 1. Crisp sculpted high-definition eyebrows (Miss-arch for Lan, tapered sword-brow for Hung, sleek brow for Tuan)
+          const browCol = ghost ? 'rgba(20, 18, 20, 0.56)' : id === 'hung' ? 'rgba(20, 15, 13, 0.54)' : id === 'tuan' ? 'rgba(20, 15, 13, 0.56)' : 'rgba(28, 18, 15, 0.56)';
           [-1, 1].forEach(side => {
-            const yIn = (0.517 + side * 0.011) * H, xIn = 0.8185 * W;
-            const yPk = (0.517 + side * 0.036) * H, xPk = 0.8148 * W;
-            const yOut = (0.517 + side * 0.052) * H, xOut = 0.8195 * W;
+            const yIn = (0.517 + side * 0.0115) * H, xIn = 0.8188 * W;
+            const yPk = (0.517 + side * 0.0365) * H, xPk = (id === 'lan' || ghost ? 0.8134 : id === 'hung' ? 0.8152 : 0.8156) * W;
+            const yOut = (0.517 + side * 0.0525) * H, xOut = (id === 'hung' ? 0.8178 : 0.8194) * W;
             ctx.save();
             ctx.strokeStyle = browCol;
             ctx.lineCap = 'round';
-            ctx.lineWidth = W * .0036;
-            ctx.filter = 'blur(0.9px)';
+            ctx.lineWidth = W * (id === 'lan' || ghost ? .0029 : id === 'hung' ? .0037 : .0035);
+            ctx.filter = 'blur(0.75px)';
             ctx.beginPath();
             ctx.moveTo(xIn, yIn);
             ctx.quadraticCurveTo(xPk, yPk, xOut, yOut);
             ctx.stroke();
             ctx.restore();
-            // Fine individual brow hairs
-            ctx.strokeStyle = ghost ? 'rgba(14,14,16,0.55)' : 'rgba(18,12,10,0.48)';
+            ctx.strokeStyle = ghost ? 'rgba(14,14,16,0.68)' : 'rgba(18,12,10,0.62)';
             ctx.lineWidth = Math.max(0.7, W * .0009);
-            for (let s = 0; s < 14; s++) {
-              const t = s / 13, omt = 1 - t;
+            for (let s = 0; s < 16; s++) {
+              const t = s / 15, omt = 1 - t;
               const bx = omt * omt * xIn + 2 * omt * t * xPk + t * t * xOut;
               const by = omt * omt * yIn + 2 * omt * t * yPk + t * t * yOut;
-              const len = W * (.0026 + (1 - Math.abs(t - .45)) * .0018);
+              const len = W * (.0024 + (1 - Math.abs(t - .45)) * .0016);
               ctx.beginPath();
               ctx.moveTo(bx + len * .45, by - side * len * .35);
               ctx.lineTo(bx - len * .55, by + side * len * .55);
@@ -281,21 +337,35 @@
             }
           });
 
-          // 2. Subtle eyelid crease shadow & tired under-eye hollows (never heavy black stripes)
+          // 2. Refined eyelid crease, sleek tightline & champagne shimmer (Lan) / clean idol definition
           [0.484, 0.550].forEach((ev, idx) => {
             const side = idx === 0 ? -1 : 1;
             ctx.save();
-            ctx.filter = 'blur(1.1px)';
-            // Delicate upper lid fold
-            ctx.strokeStyle = ghost ? 'rgba(24, 14, 22, 0.52)' : 'rgba(42, 26, 22, 0.24)';
-            ctx.lineWidth = W * .0024;
+            if (id === 'lan') {
+              const sh = ctx.createRadialGradient(0.831 * W, ev * H, 0, 0.831 * W, ev * H, W * .014);
+              sh.addColorStop(0, 'rgba(214, 154, 134, 0.22)');
+              sh.addColorStop(1, 'rgba(0,0,0,0)');
+              ctx.fillStyle = sh;
+              ctx.fillRect(0.818 * W, (ev - 0.015) * H, W * .026, H * .030);
+            }
+            ctx.filter = 'blur(0.8px)';
+            ctx.strokeStyle = ghost ? 'rgba(24, 14, 22, 0.52)' : 'rgba(52, 30, 24, 0.30)';
+            ctx.lineWidth = W * .0021;
             ctx.beginPath();
-            ctx.moveTo(0.835 * W, (ev - 0.012) * H);
-            ctx.quadraticCurveTo(0.829 * W, ev * H, 0.835 * W, (ev + 0.012) * H);
+            ctx.moveTo(0.834 * W, (ev - 0.013) * H);
+            ctx.quadraticCurveTo(0.8265 * W, ev * H, 0.834 * W, (ev + 0.013) * H);
             ctx.stroke();
-            // Soft under-eye shadow
-            const ug = ctx.createRadialGradient(0.849 * W, ev * H, 0, 0.849 * W, ev * H, W * .014);
-            ug.addColorStop(0, ghost ? 'rgba(34, 22, 34, 0.44)' : id === 'tuan' ? 'rgba(62, 38, 36, 0.14)' : 'rgba(55, 34, 30, 0.07)');
+            // Sleek almond upper-lash eyeliner accent
+            ctx.filter = 'blur(0.45px)';
+            ctx.strokeStyle = ghost ? 'rgba(18, 12, 18, 0.65)' : (id === 'lan' ? 'rgba(22, 12, 12, 0.62)' : 'rgba(28, 20, 18, 0.36)');
+            ctx.lineWidth = W * (id === 'lan' ? .0023 : .0016);
+            ctx.beginPath();
+            ctx.moveTo(0.838 * W, (ev - side * 0.011) * H);
+            ctx.quadraticCurveTo(0.833 * W, ev * H, (id === 'lan' ? 0.8335 : 0.837) * W, (ev + side * 0.016) * H);
+            ctx.stroke();
+            // Under-eye brightness for living leads vs tragic hollow for Ghost Linh
+            const ug = ctx.createRadialGradient(0.850 * W, ev * H, 0, 0.850 * W, ev * H, W * .014);
+            ug.addColorStop(0, ghost ? 'rgba(38, 22, 34, 0.42)' : 'rgba(255, 242, 232, 0.16)');
             ug.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = ug;
             ctx.fillRect(0.834 * W, (ev - 0.016) * H, W * .028, H * .032);
@@ -323,8 +393,8 @@
                 rctx.strokeStyle = 'rgb(22, 22, 22)';
                 rctx.lineWidth = specPx;
                 rctx.beginPath();
-                rctx.moveTo(0.841 * 512, startV * 512);
-                rctx.bezierCurveTo(0.856 * 512, (startV + bendV * .4) * 512, 0.872 * 512, (startV - bendV * .3) * 512, endU * 512, (startV + bendV * .2) * 512);
+                rctx.moveTo(0.841 * R, startV * R);
+                rctx.bezierCurveTo(0.856 * R, (startV + bendV * .4) * R, 0.872 * R, (startV - bendV * .3) * R, endU * R, (startV + bendV * .2) * R);
                 rctx.stroke();
                 rctx.restore();
               };
@@ -333,40 +403,49 @@
             }
           });
 
-          // 3b. Anatomical micro-AO: nostril wing shadows, nasolabial folds, philtrum & cheekbone depth
+          // 3b. Subtle philtrum, clean nostril contour & cheekbone shadow
           ctx.save();
-          ctx.filter = 'blur(1.8px)';
-          // Philtrum & upper lip shadow
-          ctx.fillStyle = ghost ? 'rgba(28,24,28,0.28)' : 'rgba(56,30,24,0.16)';
-          ctx.beginPath(); ctx.ellipse(0.878 * W, 0.517 * H, W * .005, H * .006, 0, 0, Math.PI * 2); ctx.fill();
-          // Nostril wing creases & bridge side shadows
+          ctx.filter = 'blur(1.4px)';
+          ctx.fillStyle = ghost ? 'rgba(28,24,28,0.22)' : 'rgba(72,42,36,0.10)';
+          ctx.beginPath(); ctx.ellipse(0.882 * W, 0.517 * H, W * .0045, H * .005, 0, 0, Math.PI * 2); ctx.fill();
           [-1, 1].forEach(side => {
-            ctx.fillStyle = ghost ? 'rgba(24,20,24,0.34)' : 'rgba(54,28,22,0.20)';
-            ctx.beginPath(); ctx.ellipse(0.865 * W, (0.517 + side * 0.011) * H, W * .0045, H * .0055, 0, 0, Math.PI * 2); ctx.fill();
-            // Subtle nasolabial contour
-            ctx.strokeStyle = ghost ? 'rgba(26,22,26,0.24)' : 'rgba(64,34,26,0.11)';
-            ctx.lineWidth = W * .0028;
-            ctx.beginPath();
-            ctx.moveTo(0.867 * W, (0.517 + side * 0.014) * H);
-            ctx.quadraticCurveTo(0.882 * W, (0.517 + side * 0.025) * H, 0.896 * W, (0.517 + side * 0.026) * H);
-            ctx.stroke();
-            // Collarbone / neck shadow below jaw (u ~ 0.92..0.96, v around sides)
-            ctx.fillStyle = ghost ? 'rgba(18,16,20,0.26)' : 'rgba(46,24,18,0.14)';
+            ctx.fillStyle = ghost ? 'rgba(24,20,24,0.28)' : 'rgba(64,34,28,0.14)';
+            ctx.beginPath(); ctx.ellipse(0.867 * W, (0.517 + side * 0.011) * H, W * .004, H * .005, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = ghost ? 'rgba(18,16,20,0.22)' : 'rgba(54,30,24,0.10)';
             ctx.beginPath(); ctx.ellipse(0.946 * W, (0.517 + side * 0.032) * H, W * .012, H * .018, 0, 0, Math.PI * 2); ctx.fill();
           });
           ctx.restore();
 
-          // 4. Natural muted lip shading + Ghost Linh mouth-corner trickle
+          // 4. Anatomically proportioned Hoa Hau / Nam Vuong Lips (narrower poised male mouth, petal cupid's-bow for Lan)
           ctx.save();
-          ctx.filter = 'blur(1.2px)';
-          const lipGrad = ctx.createRadialGradient(0.891 * W, 0.517 * H, 0, 0.891 * W, 0.517 * H, W * .017);
-          lipGrad.addColorStop(0, ghost ? 'rgba(54, 34, 42, 0.44)' : id === 'lan' ? 'rgba(132, 64, 62, 0.22)' : 'rgba(110, 62, 56, 0.14)');
-          lipGrad.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = lipGrad;
+          ctx.filter = 'blur(0.7px)';
+          const lipW = (id === 'lan' || ghost) ? .015 : .012;
+          const lipUpper = ghost ? 'rgba(104, 38, 52, 0.55)' : id === 'lan' ? 'rgba(188, 68, 76, 0.56)' : 'rgba(136, 70, 64, 0.24)';
+          const lipLower = ghost ? 'rgba(92, 34, 46, 0.48)' : id === 'lan' ? 'rgba(178, 62, 72, 0.50)' : 'rgba(130, 66, 60, 0.21)';
+          ctx.fillStyle = lipUpper;
           ctx.beginPath();
-          ctx.ellipse(0.891 * W, 0.517 * H, W * .006, H * .018, 0, 0, Math.PI * 2);
+          ctx.moveTo(0.8982 * W, (0.517 - lipW) * H);
+          ctx.quadraticCurveTo(0.8942 * W, (0.517 - lipW * .42) * H, 0.8965 * W, 0.517 * H);
+          ctx.quadraticCurveTo(0.8942 * W, (0.517 + lipW * .42) * H, 0.8982 * W, (0.517 + lipW) * H);
+          ctx.quadraticCurveTo(0.8996 * W, 0.517 * H, 0.8982 * W, (0.517 - lipW) * H);
           ctx.fill();
+          ctx.fillStyle = lipLower;
+          ctx.beginPath();
+          ctx.ellipse(0.9016 * W, 0.517 * H, W * (id === 'lan' || ghost ? .0042 : .0030), H * (lipW * .88), 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = ghost ? 'rgba(42, 12, 18, 0.52)' : 'rgba(84, 32, 32, 0.30)';
+          ctx.lineWidth = W * .0013;
+          ctx.beginPath();
+          ctx.moveTo(0.8986 * W, (0.517 - lipW * .90) * H);
+          ctx.quadraticCurveTo(0.8982 * W, 0.517 * H, 0.8986 * W, (0.517 + lipW * .90) * H);
+          ctx.stroke();
           ctx.restore();
+          if (id === 'lan' || ghost) {
+            rctx.fillStyle = ghost ? 'rgb(122,122,122)' : 'rgb(112,112,112)';
+            rctx.beginPath();
+            rctx.ellipse(0.9012 * R, 0.517 * R, R * .0040, R * .012, 0, 0, Math.PI * 2);
+            rctx.fill();
+          }
 
           if (ghost) {
             ctx.save();
@@ -374,26 +453,26 @@
             ctx.strokeStyle = 'rgba(98, 8, 16, 0.78)';
             ctx.lineWidth = W * .0020;
             ctx.beginPath();
-            ctx.moveTo(0.891 * W, 0.533 * H);
-            ctx.quadraticCurveTo(0.900 * W, 0.536 * H, 0.910 * W, 0.534 * H);
+            ctx.moveTo(0.898 * W, 0.533 * H);
+            ctx.quadraticCurveTo(0.905 * W, 0.536 * H, 0.914 * W, 0.534 * H);
             ctx.stroke();
             rctx.strokeStyle = 'rgb(26,26,26)';
             rctx.lineWidth = 1.6;
             rctx.beginPath();
-            rctx.moveTo(0.891 * 512, 0.533 * 512);
-            rctx.quadraticCurveTo(0.900 * 512, 0.536 * 512, 0.910 * 512, 0.534 * 512);
+            rctx.moveTo(0.898 * R, 0.533 * R);
+            rctx.quadraticCurveTo(0.905 * R, 0.536 * R, 0.914 * R, 0.534 * R);
             rctx.stroke();
             ctx.restore();
           }
 
-          // 5. Subtle fine jaw stubble on Hung
+          // 5. Ultra-clean complexion on Tuan & crisp jawline (subtle refined shadow on Hung, zero dirty pixels)
           if (id === 'hung') {
             ctx.save();
-            ctx.fillStyle = 'rgba(26, 20, 18, 0.12)';
-            for (let s = 0; s < 260; s++) {
-              const su = (.894 + rnd() * .036) * W, sv = (.448 + rnd() * .138) * H;
-              if (Math.hypot((su / W - .910) / .022, (sv / H - .517) / .068) < 1) {
-                ctx.fillRect(su, sv, 1.1, 1.1);
+            ctx.fillStyle = 'rgba(26, 20, 18, 0.06)';
+            for (let s = 0; s < 140; s++) {
+              const su = (.900 + rnd() * .030) * W, sv = (.460 + rnd() * .114) * H;
+              if (Math.hypot((su / W - .912) / .018, (sv / H - .517) / .055) < 1) {
+                ctx.fillRect(su, sv, 1.0, 1.0);
               }
             }
             ctx.restore();
@@ -403,7 +482,7 @@
 
         if (part.kind === 'clothes' && !part.mesh.includes('shoes')) {
           if (id === 'lan') {
-            // Soften chest emblem decal to smooth neutral grey fabric luminance first, then glaze wine-burgundy jacket
+            // Smooth continuous wine-burgundy fitted top & dark charcoal-navy pants (zero triangle sawtooths)
             const logoMask = this.textures.canvas(W, H), lmCtx = logoMask.getContext('2d');
             const ov = this.textures.canvas(W, H), octx = ov.getContext('2d');
             for (let t = 0; t < idxAttr.count; t += 3) {
@@ -414,19 +493,20 @@
               const u0 = uvAttr.getX(a) * W, v0 = (1 - uvAttr.getY(a)) * H;
               const u1 = uvAttr.getX(b) * W, v1 = (1 - uvAttr.getY(b)) * H;
               const u2 = uvAttr.getX(cI) * W, v2 = (1 - uvAttr.getY(cI)) * H;
-              if (cy > 1.05 && cy < 1.43 && Math.abs(cx) < .15 && cz > .02) {
-                lmCtx.fillStyle = '#9a9a9a';
-                this.fillPaddedTriangle(lmCtx, u0, v0, u1, v1, u2, v2, 3.0);
+              if (cy > 1.02 && cy < 1.46 && Math.abs(cx) < .17 && cz > .01) {
+                lmCtx.fillStyle = '#929292';
+                this.fillPaddedTriangle(lmCtx, u0, v0, u1, v1, u2, v2, 3.2);
               }
               if (cy > .985) {
-                octx.fillStyle = cy > 1.39 ? '#361a1e' : '#5e2329';
+                const topMix = Math.max(0, Math.min(1, (cy - 1.32) / .16));
+                octx.fillStyle = `rgb(${Math.round(90 - topMix * 28)},${Math.round(32 - topMix * 12)},${Math.round(38 - topMix * 12)})`;
               } else if (cy > .945) {
                 octx.fillStyle = Math.abs(cx) < .035 && cz > .05 ? '#84704c' : '#1b1715';
               } else {
                 const mud = cy < .40 ? Math.max(0, 1 - cy / .40) : 0;
-                octx.fillStyle = `rgb(${Math.round(30 + mud * 26)},${Math.round(36 + mud * 18)},${Math.round(48 + mud * 4)})`;
+                octx.fillStyle = `rgb(${Math.round(28 + mud * 22)},${Math.round(33 + mud * 16)},${Math.round(46 + mud * 4)})`;
               }
-              this.fillPaddedTriangle(octx, u0, v0, u1, v1, u2, v2, 2.2);
+              this.fillPaddedTriangle(octx, u0, v0, u1, v1, u2, v2, 2.4);
             }
             ctx.save();
             ctx.globalAlpha = .92;
@@ -440,8 +520,8 @@
             }
             ctx.putImageData(imgData, 0, 0);
             ctx.save();
-            ctx.globalAlpha = .80;
-            ctx.filter = 'blur(1.4px)';
+            ctx.globalAlpha = .92;
+            ctx.filter = 'blur(2.2px)';
             ctx.drawImage(ov, 0, 0);
             ctx.restore();
           } else if (ghost) {
@@ -482,52 +562,57 @@
             }
             ctx.restore();
             rctx.fillStyle = 'rgb(195,195,195)';
-            rctx.fillRect(0, 0, 512, 512);
+            rctx.fillRect(0, 0, R, R);
             rctx.fillStyle = 'rgb(112,112,112)';
-            rctx.fillRect(0, Math.round(512 * .68), 512, Math.round(512 * .32));
+            rctx.fillRect(0, Math.round(R * .68), R, Math.round(R * .32));
           } else if (id === 'tuan' || id === 'hung') {
-            // Single-composite waxed jacket, indigo/charcoal denim & mud-splattered hems
+            // Smooth tailored overshirts & dark denim (even shading, zero MakeHuman stripe bleed or triangle seams)
             const ov = this.textures.canvas(W, H), octx = ov.getContext('2d');
             for (let t = 0; t < idxAttr.count; t += 3) {
               const a = idxAttr.getX(t), b = idxAttr.getX(t + 1), cI = idxAttr.getX(t + 2);
               const cy = (pAttr.getY(a) + pAttr.getY(b) + pAttr.getY(cI)) / 3;
               const cz = (pAttr.getZ(a) + pAttr.getZ(b) + pAttr.getZ(cI)) / 3;
-              const shoulderWet = cy > 1.38 ? .15 : 0;
+              const topMix = Math.max(0, Math.min(1, (cy - 1.35) / .15));
               if (cy > .97) {
-                octx.fillStyle = id === 'tuan' ? (cy > 1.41 ? '#1e2c33' : '#293e47') : (cy > 1.40 ? '#272a1c' : '#353924');
+                octx.fillStyle = id === 'tuan'
+                  ? `rgb(${Math.round(42 - topMix * 12)},${Math.round(62 - topMix * 14)},${Math.round(74 - topMix * 14)})`
+                  : `rgb(${Math.round(48 - topMix * 12)},${Math.round(52 - topMix * 12)},${Math.round(38 - topMix * 10)})`;
               } else if (cy > .925) {
-                octx.fillStyle = cz > .06 ? '#463826' : '#181512';
+                octx.fillStyle = cz > .06 ? '#4a3a28' : '#181512';
               } else {
                 const mud = cy < .42 ? Math.max(0, 1 - cy / .42) : 0;
-                octx.fillStyle = `rgb(${Math.round(24 + mud * 26 + shoulderWet * 10)},${Math.round(24 + mud * 18)},${Math.round(22 + mud * 4)})`;
+                octx.fillStyle = id === 'tuan'
+                  ? `rgb(${Math.round(28 + mud * 22)},${Math.round(31 + mud * 18)},${Math.round(36 + mud * 8)})`
+                  : `rgb(${Math.round(26 + mud * 22)},${Math.round(34 + mud * 18)},${Math.round(48 + mud * 6)})`;
               }
-              this.fillPaddedTriangle(octx, uvAttr.getX(a) * W, (1 - uvAttr.getY(a)) * H, uvAttr.getX(b) * W, (1 - uvAttr.getY(b)) * H, uvAttr.getX(cI) * W, (1 - uvAttr.getY(cI)) * H, 1.8);
+              this.fillPaddedTriangle(octx, uvAttr.getX(a) * W, (1 - uvAttr.getY(a)) * H, uvAttr.getX(b) * W, (1 - uvAttr.getY(b)) * H, uvAttr.getX(cI) * W, (1 - uvAttr.getY(cI)) * H, 2.2);
             }
+            const imgData = ctx.getImageData(0, 0, W, H), dCol = imgData.data;
+            for (let p = 0; p < dCol.length; p += 4) {
+              const lum = Math.round(dCol[p] * .30 + dCol[p + 1] * .58 + dCol[p + 2] * .12);
+              dCol[p] = dCol[p + 1] = dCol[p + 2] = Math.min(220, Math.max(48, Math.round(lum * .78 + 38)));
+            }
+            ctx.putImageData(imgData, 0, 0);
             ctx.save();
-            ctx.globalAlpha = .58;
-            ctx.filter = 'blur(1.4px)';
+            ctx.globalAlpha = .90;
+            ctx.filter = 'blur(2.0px)';
             ctx.drawImage(ov, 0, 0);
             ctx.restore();
-            // Rain-dampened jacket roughness variation (lower roughness on wet shoulders & cuffs)
-            rctx.fillStyle = 'rgb(142,142,142)';
-            rctx.fillRect(0, 0, 512, 220);
+            // Subtle rain-dampened shoulder sheen
+            rctx.fillStyle = 'rgb(165,165,165)';
+            rctx.fillRect(0, 0, R, Math.round(R * .43));
           }
-          // Crisp woven linen/canvas twill micro-grain & subtle weathered grime spots
-          ctx.fillStyle = 'rgba(18, 16, 14, 0.08)';
+          // Crisp woven linen/canvas twill micro-grain
+          ctx.fillStyle = 'rgba(18, 16, 14, 0.06)';
           for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
           for (let x = 0; x < W; x += 3) ctx.fillRect(x, 0, 1, H);
-          for (let s = 0; s < 22; s++) {
-            const sx = rnd() * W, sy = rnd() * H, sr = W * (.01 + rnd() * .03);
-            ctx.fillStyle = 'rgba(20, 22, 16, 0.09)';
-            ctx.beginPath(); ctx.ellipse(sx, sy, sr, sr * .6, rnd() * 3, 0, Math.PI * 2); ctx.fill();
-          }
         }
 
         if (part.mesh.includes('shoes')) {
           ctx.fillStyle = 'rgba(26, 20, 16, 0.72)';
           ctx.fillRect(0, 0, W, H);
           rctx.fillStyle = 'rgb(132,132,132)';
-          rctx.fillRect(0, 0, 512, 512);
+          rctx.fillRect(0, 0, R, R);
         }
       }
 
@@ -541,12 +626,20 @@
       const cache = key + ':' + !!normal + ':' + !!ghost;
       if (this.characterTextures.has(cache)) return this.characterTextures.get(cache);
       const image = G.CharacterImages[key];
-      const texture = new THREE.Texture(image);
-      texture.encoding = normal ? THREE.LinearEncoding : THREE.sRGBEncoding;
-      texture.anisotropy = 8;
-      texture.needsUpdate = true;
-      this.characterTextures.set(cache, texture);
-      return texture;
+      const maxDim = (this.textures && this.textures.size) >= 768 ? 1024 : 512;
+      let tex;
+      if (image.width > maxDim || image.height > maxDim) {
+        const c = this.textures.canvas(Math.min(maxDim, image.width), Math.min(maxDim, image.height));
+        c.getContext('2d').drawImage(image, 0, 0, c.width, c.height);
+        tex = this.textures.texture(c, false, !!normal);
+      } else {
+        tex = new THREE.Texture(image);
+        tex.encoding = normal ? THREE.LinearEncoding : THREE.sRGBEncoding;
+        tex.anisotropy = this.textures ? this.textures.anisotropy : 2;
+        tex.needsUpdate = true;
+      }
+      this.characterTextures.set(cache, tex);
+      return tex;
     }
     characterGeometry(key, charId) {
       const cache = 'production:' + key + ':' + (charId || 'base');
@@ -557,46 +650,135 @@
       }
       g.setIndex(new THREE.BufferAttribute(unpack(data.index, Uint32Array), 1));
       const p = g.attributes.position;
+      const female = charId === 'lan' || charId === 'linh';
+      const eyeY = female ? 1.607 : 1.681, eyeZ = female ? .127 : .131, eyeX = female ? .0318 : .0326;
+      const gauss = (dx, dy, dz, sx, sy, sz) => Math.exp(-(dx * dx) / (sx * sx) - (dy * dy) / (sy * sy) - (dz * dz) / (sz * sz));
+      const isBody = key.endsWith('_body'), isCloth = !isBody && !key.includes('shoes') && !key.includes('hair') && !key.includes('short') && !key.includes('long') && !key.includes('ponytail');
 
-      // Sculpt distinct proportions & silhouettes for Hung vs Tuan and Ghost Linh
-      if (charId === 'hung') {
+      // Sculpt refined Miss-Universe / Handsome-King facial beauty & athletic/tailored silhouettes
+      if (isBody) {
         for (let i = 0; i < p.count; i++) {
           let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-          if (y > 1.10 && y < 1.52) x *= 1.045;
-          if (y > 1.56 && y < 1.66 && z > .04) { x *= 1.06; if (y < 1.60 && z > .09) { y -= .004; z += .003; } }
-          if (key === 'male_short02' && y > 1.72) { y += .008; z -= .003; }
-          p.setXYZ(i, x, y, z);
-        }
-      } else if (charId === 'tuan') {
-        for (let i = 0; i < p.count; i++) {
-          let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-          if (y > 1.12 && y < 1.50) x *= .97;
-          if (y > 1.57 && y < 1.66 && Math.abs(x) > .018) x *= .94;
-          p.setXYZ(i, x, y, z);
-        }
-      }
-
-      if (charId === 'linh' && key === 'female_female_elegantsuit01') {
-        for (let i = 0; i < p.count; i++) {
-          let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-          if (y < .96) {
-            const t = Math.max(0, Math.min(1, (.96 - y) / .42));
-            const angle = Math.atan2(z, x);
-            const flare = 1 + .62 * t + .15 * t * Math.sin(angle * 7 + y * 8);
-            const tatter = Math.sin(angle * 11) * .045 * t * t;
-            y = .96 - t * .90 + tatter;
-            x *= flare;
-            z = (z - .02) * flare + .02;
-          } else if (y > 1.24 && y < 1.46 && z > .06 && Math.abs(x) < .07) {
-            // Pull upper blazer neckline inward like a traditional wet mourning collar
-            x *= .86;
+          const nearEye = Math.hypot(Math.abs(x) - eyeX, y - eyeY, z - eyeZ) < .0165;
+          if (!nearEye && y > (female ? 1.48 : 1.55) && z > .06) {
+            if (female) {
+              // Miss-Universe sculpted V-line jawline, tapered dainty chin & subtle buccal contour
+              const wJaw = gauss(Math.abs(x) - .042, y - 1.522, z - .108, .028, .032, .052);
+              x *= 1 - .135 * wJaw;
+              const wBuccal = gauss(Math.abs(x) - .036, y - 1.546, z - .126, .016, .016, .022);
+              x *= 1 - .07 * wBuccal;
+              const wChin = gauss(x, y - 1.508, z - .145, .015, .013, .020);
+              z += .0036 * wChin; y -= .0024 * wChin; x *= 1 - .10 * wChin;
+              // Lifted malar cheekbones
+              const wCheek = gauss(Math.abs(x) - .037, y - 1.576, z - .134, .016, .017, .022);
+              z += .0034 * wCheek; y += .0016 * wCheek;
+              // Refined narrow nose bridge, pinched alar wings & delicate upturned tip
+              const wNose = gauss(x, y - 1.584, z - .154, .007, .024, .022);
+              z += .0026 * wNose;
+              const wAlar = gauss(Math.abs(x) - .011, y - 1.566, z - .152, .006, .012, .016);
+              x *= 1 - .14 * wAlar;
+              const wTip = gauss(x, y - 1.568, z - .162, .008, .008, .012);
+              z += .0022 * wTip; y += .0012 * wTip;
+              // Softly plump cupid's-bow lips (slightly narrower corners)
+              const wLip = gauss(x, y - 1.542, z - .154, .014, .008, .018);
+              z += .0024 * wLip;
+            } else {
+              const isHung = charId === 'hung';
+              // Differentiate Handsome-King silhouettes: sleek refined Tuan vs chiseled angular Hung
+              const wGonial = gauss(Math.abs(x) - .046, y - 1.586, z - .102, .016, .020, .026);
+              if (isHung) {
+                x += Math.sign(x) * .0048 * wGonial;
+                const wBuccal = gauss(Math.abs(x) - .040, y - 1.616, z - .128, .016, .016, .022);
+                x *= 1 - .08 * wBuccal;
+              } else {
+                const wSlimJaw = gauss(Math.abs(x) - .044, y - 1.602, z - .116, .022, .026, .032);
+                x *= 1 - .075 * wSlimJaw;
+              }
+              const wChin = gauss(x, y - 1.584, z - .152, .017, .015, .022);
+              z += (isHung ? .0042 : .0038) * wChin; y -= (isHung ? .0024 : .0022) * wChin;
+              if (!isHung) x *= 1 - .08 * wChin;
+              // High malar cheekbones
+              const wCheek = gauss(Math.abs(x) - .040, y - 1.644, z - .136, .017, .018, .024);
+              z += (isHung ? .0036 : .0032) * wCheek;
+              // Crisp narrow straight nose bridge & heroic brow ridge
+              const wNose = gauss(x, y - 1.656, z - .158, .008, .025, .024);
+              z += (isHung ? .0038 : .0032) * wNose;
+              const wNoseSide = gauss(Math.abs(x) - .011, y - 1.644, z - .155, .006, .016, .018);
+              x *= 1 - .11 * wNoseSide;
+              const wBrow = gauss(x, y - 1.696, z - .138, .036, .010, .020);
+              z += (isHung ? .0044 : .0022) * wBrow;
+            }
+          }
+          // Athletic / hourglass body posture proportions
+          if (charId === 'lan' && y > 1.00 && y < 1.24) {
+            const wW = Math.exp(-Math.pow((y - 1.11) / .09, 2));
+            x *= 1 - .06 * wW; z *= 1 - .04 * wW;
+          } else if (charId === 'tuan') {
+            if (y > 1.35 && y < 1.52) x *= 1.028;
+            if (y > .98 && y < 1.24) { const wW = Math.exp(-Math.pow((y - 1.11) / .10, 2)); x *= 1 - .06 * wW; }
+          } else if (charId === 'hung') {
+            if (y > 1.34 && y < 1.53) { x *= 1.052; if (z > .04) z += .004; }
+            if (y > .98 && y < 1.24) { const wW = Math.exp(-Math.pow((y - 1.11) / .10, 2)); x *= 1 - .05 * wW; }
           }
           p.setXYZ(i, x, y, z);
+        }
+      } else {
+        if (charId === 'lan' && isCloth) {
+          for (let i = 0; i < p.count; i++) {
+            let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+            if (y > 1.00 && y < 1.24) { const wW = Math.exp(-Math.pow((y - 1.11) / .09, 2)); x *= 1 - .055 * wW; z *= 1 - .035 * wW; }
+            p.setXYZ(i, x, y, z);
+          }
+        } else if (charId === 'tuan') {
+          for (let i = 0; i < p.count; i++) {
+            let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+            if (isCloth) {
+              if (y > 1.35 && y < 1.52) x *= 1.028;
+              if (y > .98 && y < 1.24) { const wW = Math.exp(-Math.pow((y - 1.11) / .10, 2)); x *= 1 - .055 * wW; }
+            }
+            p.setXYZ(i, x, y, z);
+          }
+        } else if (charId === 'hung') {
+          for (let i = 0; i < p.count; i++) {
+            let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+            if (isCloth) {
+              if (y > 1.34 && y < 1.53) { x *= 1.052; if (z > .04) z += .004; }
+              if (y > .98 && y < 1.24) { const wW = Math.exp(-Math.pow((y - 1.11) / .10, 2)); x *= 1 - .045 * wW; }
+            }
+            if (key === 'male_short02' && y > 1.72) { y += .010; z -= .003; }
+            p.setXYZ(i, x, y, z);
+          }
+        } else if (charId === 'linh' && key === 'female_female_elegantsuit01') {
+          for (let i = 0; i < p.count; i++) {
+            let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+            if (y < .96) {
+              const t = Math.max(0, Math.min(1, (.96 - y) / .42));
+              const angle = Math.atan2(z, x);
+              const flare = 1 + .62 * t + .15 * t * Math.sin(angle * 7 + y * 8);
+              const tatter = Math.sin(angle * 11) * .045 * t * t;
+              y = .96 - t * .90 + tatter;
+              x *= flare;
+              z = (z - .02) * flare + .02;
+            } else if (y > 1.24 && y < 1.46 && z > .06 && Math.abs(x) < .07) {
+              x *= .86;
+            }
+            p.setXYZ(i, x, y, z);
+          }
         }
       }
 
       g.computeVertexNormals();
       this.smoothSeams(g);
+      // Subtle normal offset on fitted clothes prevents animated skin from ever poking or Z-fighting through
+      if (isCloth && charId !== 'linh') {
+        const nrm = g.attributes.normal;
+        for (let i = 0; i < p.count; i++) {
+          const y = p.getY(i);
+          if (y > .90 && y < 1.56) {
+            p.setXYZ(i, p.getX(i) + nrm.getX(i) * .0024, p.getY(i) + nrm.getY(i) * .0024, p.getZ(i) + nrm.getZ(i) * .0024);
+          }
+        }
+      }
       g.computeBoundingSphere();
       this.geometries.set(cache, g);
       return g;
@@ -632,9 +814,9 @@
           mat = this.sharedMaterial('prod-skin:' + (ghost ? 'linh' : id) + ':' + index, this.textures.createSkinSssMaterial({
             map: painted.map,
             normalMap: this.textures.skinMicro(),
-            normalScale: new THREE.Vector2(.28, .28),
+            normalScale: new THREE.Vector2(.14, .14),
             roughnessMap: painted.roughnessMap,
-            roughness: ghost ? .54 : .64,
+            roughness: ghost ? .64 : .62,
             color: ghost ? 0xcad6cc : 0xffffff,
             skinning: true,
             morphTargets: true,
@@ -643,18 +825,21 @@
         } else {
           const isGhostClothes = ghost && part.kind === 'clothes';
           const normalTex = isGhostClothes ? this.textures.clothWrinkle() : (part.normal ? this.characterTexture(part.normal, true, false) : null);
-          const normScale = isGhostClothes ? .95 : .74;
+          const normScale = isGhostClothes ? .90 : .68;
           mat = this.sharedMaterial('prod-' + (ghost ? 'linh' : id) + '-' + index, {
             map: painted.map,
             normalMap: normalTex,
             normalScale: new THREE.Vector2(normScale, normScale),
             roughnessMap: painted.roughnessMap,
-            roughness: hair ? .76 : ghost ? .50 : part.mesh.includes('shoes') ? .58 : .86,
+            roughness: hair ? (ghost ? .54 : .78) : ghost ? .56 : part.mesh.includes('shoes') ? .52 : .86,
             metalness: part.mesh.includes('shoes') ? .08 : 0,
-            color: ghost ? (hair ? 0x171819 : 0xd0d8ce) : 0xffffff,
+            color: ghost ? (hair ? 0x1a1c20 : 0xd0d8ce) : hair ? (id === 'lan' ? 0xc6a89a : 0xb2a6a0) : 0xffffff,
             skinning: true,
             side: hair || isGhostClothes ? THREE.DoubleSide : THREE.FrontSide,
-            alphaTest: hair ? .18 : isGhostClothes ? .28 : 0
+            alphaTest: hair ? .32 : isGhostClothes ? .28 : 0,
+            polygonOffset: !hair && !isGhostClothes,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1
           });
         }
 
@@ -666,7 +851,7 @@
             for (const eye of eyes) {
               const dx = p.getX(i) - eye[0], dy = p.getY(i) - eye[1];
               const upperMask = dy > -.0018 ? 1 : .20;
-              const lid = Math.exp(-Math.pow(dx / .0168, 3.2) - Math.pow((dy - .001) / .013, 3.6));
+              const lid = Math.exp(-Math.pow(Math.abs(dx / .0168), 3.2) - Math.pow(Math.abs((dy - .001) / .013), 3.6));
               // Anatomical downward sweep + subtle +Z wrap over cornea curve
               blink[i * 3 + 1] += (-.0020 - dy) * lid * upperMask * .92;
               blink[i * 3 + 2] += lid * .0038 * Math.max(0, 1 - Math.abs(dy) / .014);
@@ -687,12 +872,21 @@
           const cache = 'covered:' + (ghost ? 'linh' : id);
           if (!this.geometries.has(cache)) {
             const g = geometry.clone(), p = g.attributes.position, idx = g.index, kept = [];
+            const longSleeves = id !== 'lan';
+            const hideV = v => {
+              const x = p.getX(v), y = p.getY(v), z = p.getZ(v);
+              if (Math.abs(x) < .36 && y < .93) return true;
+              if (y >= .93 && y < 1.31 && Math.abs(x) < .16 && (z < .04 || y < 1.25)) return true;
+              if (longSleeves && Math.abs(x) > .18 && Math.abs(x) < .43 && y < 1.44) return true;
+              return false;
+            };
             for (let i = 0; i < idx.count; i += 3) {
               const vs = [idx.getX(i), idx.getX(i + 1), idx.getX(i + 2)];
-              if (vs.every(v => Math.abs(p.getX(v)) < .36 && p.getY(v) < 1.0)) continue;
+              if (vs.every(hideV)) continue;
               kept.push(...vs);
             }
             g.setIndex(kept);
+            g.computeBoundingSphere();
             this.geometries.set(cache, g);
           }
           geometry = this.geometries.get(cache);
@@ -702,6 +896,7 @@
         if (skin) faceMeshes.push(mesh);
         mesh.name = part.mesh;
         mesh.castShadow = mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
         root.add(mesh);
       });
 
@@ -719,50 +914,51 @@
 
       // High-detail eyes: planar-UV iris/sclera sphere + glossy cornea dome + sculpted upper & lower eyelashes
       const corneaMat = this.sharedMaterial('eye-cornea', new THREE.MeshPhysicalMaterial({
-        color: 0xffffff, transparent: true, opacity: .18, roughness: .015, metalness: .05,
-        clearcoat: 1.0, clearcoatRoughness: .015, depthWrite: false
+        color: 0xffffff, transparent: true, opacity: .20, roughness: .012, metalness: .04,
+        clearcoat: 1.0, clearcoatRoughness: .012, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
       }));
-      const lashMat = this.sharedMaterial('eyelash-mat', { color: 0x0b0909, roughness: .72 });
-      const irisDefaults = { lan: 0x3b2316, tuan: 0x2f1d13, hung: 0x452a19 };
+      const lashMat = this.sharedMaterial('eyelash-mat', { color: 0x090707, roughness: .62 });
+      const irisDefaults = { lan: 0x341c12, tuan: 0x2c1910, hung: 0x3b2214 };
       ['l', 'r'].forEach((side, i) => {
         const eyePos = new THREE.Vector3().fromArray(d.landmarks['joint-' + side + '-eye']).sub(headOrigin);
-        eyePos.z += female ? .0025 : .0048;
-        const irisHex = ghost ? (i === 0 ? G.Lore.characters.linh.leftEye : G.Lore.characters.linh.rightEye) : (irisDefaults[id] || 0x3b2316);
+        eyePos.z += female ? .0028 : .0048;
+        const irisHex = ghost ? (i === 0 ? G.Lore.characters.linh.leftEye : G.Lore.characters.linh.rightEye) : (irisDefaults[id] || 0x341c12);
         const eyeMat = this.sharedMaterial('eye-ball:' + irisHex + ':' + !!ghost, {
           map: this.textures.eyeTexture(irisHex, ghost),
-          roughness: .18,
+          roughness: .16,
           metalness: 0
         });
         const eyeMesh = new THREE.Mesh(this.eyeballGeometry(.0140), eyeMat);
         eyeMesh.position.copy(eyePos);
         head.add(eyeMesh);
 
-        const cornea = new THREE.Mesh(this.geometry('SphereGeometry', [.0146, 20, 14]), corneaMat);
-        cornea.position.set(eyePos.x, eyePos.y, eyePos.z + .0008);
+        const cornea = new THREE.Mesh(this.geometry('SphereGeometry', [.0148, 18, 12]), corneaMat);
+        cornea.position.set(eyePos.x, eyePos.y, eyePos.z + .0009);
+        cornea.renderOrder = 2;
         head.add(cornea);
 
         // Sculpted upper & fine lower eyelash arcs
         const s = side === 'l' ? 1 : -1;
-        const lashZ = female ? .0159 : .0173;
+        const lashZ = female ? .0160 : .0173;
         this.curve(head, [
           [eyePos.x - .0135 * s, eyePos.y + .0025, eyePos.z + lashZ - .0045],
-          [eyePos.x, eyePos.y + .0070, eyePos.z + lashZ],
-          [eyePos.x + .0145 * s, eyePos.y + .0016, eyePos.z + lashZ - .0055]
-        ], female ? .0015 : .0012, lashMat, 8);
+          [eyePos.x, eyePos.y + .0072, eyePos.z + lashZ],
+          [eyePos.x + .0150 * s, eyePos.y + .0019, eyePos.z + lashZ - .0052]
+        ], female ? .0016 : .0012, lashMat, 8);
         this.curve(head, [
           [eyePos.x - .011 * s, eyePos.y - .0025, eyePos.z + lashZ - .005],
           [eyePos.x, eyePos.y - .0048, eyePos.z + lashZ - .001],
           [eyePos.x + .011 * s, eyePos.y - .0028, eyePos.z + lashZ - .0055]
-        ], .0007, lashMat, 6);
+        ], .00065, lashMat, 6);
       });
 
       // Handcrafted AAA Character Wardrobe, Accessories & Layered Hair Silhouettes
       const strandMat = this.sharedMaterial('hair-card:' + (ghost ? 'linh' : id), {
         map: this.textures.hairStrands(),
-        color: ghost ? 0x101112 : id === 'lan' ? 0x1b1411 : id === 'hung' ? 0x141211 : 0x181513,
-        roughness: ghost ? .44 : .72,
-        transparent: true,
-        alphaTest: .34,
+        color: ghost ? 0x3a3e44 : id === 'lan' ? 0xb89684 : id === 'hung' ? 0x8e847e : 0x9e928c,
+        roughness: ghost ? .56 : .74,
+        alphaTest: .28,
         side: THREE.DoubleSide
       });
       const leatherMat = this.sharedMaterial('char-leather-dark', { map: this.textures.get('cloth'), color: 0x2a1c14, roughness: .58, metalness: .08 });
@@ -834,19 +1030,26 @@
           this.curve(wBone, [[0, -.01, .028], [side === 'L' ? .015 : -.015, -.055, .036], [side === 'L' ? .008 : -.008, -.105, .030]], .0042, ropeMat, 6);
         });
       } else if (id === 'lan') {
-        const coatMat = this.sharedMaterial('lan-coat-accent', { map: this.textures.get('cloth'), normalMap: this.textures.clothWrinkle(), color: 0x4b1d22, roughness: .78 });
-        // Layered bangs + fuller ponytail tails
+        const coatMat = this.sharedMaterial('lan-coat-accent', { map: this.textures.get('cloth'), normalMap: this.textures.clothWrinkle(), color: 0x44171d, roughness: .82 });
+        const pearlMat = this.sharedMaterial('pearl-stud', { color: 0xf7f1e8, roughness: .18, metalness: .15 });
+        // Soft S-curved curtain waves hugging cheekbones & jaw, delicate pearl studs & cohesive flowing ponytail
         attachAtBone('head', hg => {
           [
-            [[.005, 1.71, .085], [-.042, 1.665, .112], [-.072, 1.565, .098], [-.068, 1.46, .070]],
-            [[-.005, 1.71, .085], [.045, 1.665, .112], [.074, 1.565, .098], [.070, 1.46, .070]],
-            [[0, 1.615, -.102], [-.025, 1.47, -.128], [-.02, 1.31, -.124]],
-            [[0, 1.615, -.102], [.025, 1.47, -.128], [.02, 1.31, -.124]]
-          ].forEach((pts, idx) => this.hairRibbon(hg, pts, idx < 2 ? .016 : .022, strandMat, idx));
+            [[.002, 1.720, .078], [-.044, 1.674, .102], [-.072, 1.592, .080], [-.058, 1.500, .054]],
+            [[-.002, 1.720, .078], [.044, 1.674, .102], [.072, 1.592, .080], [.058, 1.500, .054]],
+            [[-.008, 1.716, .086], [-.050, 1.662, .104], [-.068, 1.578, .082], [-.054, 1.512, .062]],
+            [[.008, 1.716, .086], [.050, 1.662, .104], [.068, 1.578, .082], [.054, 1.512, .062]],
+            [[0, 1.622, -.100], [-.018, 1.520, -.162], [-.022, 1.405, -.198], [-.014, 1.295, -.205]],
+            [[0, 1.622, -.100], [0, 1.522, -.168], [0, 1.410, -.204], [0, 1.285, -.210]],
+            [[0, 1.622, -.100], [.018, 1.520, -.162], [.022, 1.405, -.198], [.014, 1.295, -.205]]
+          ].forEach((pts, idx) => this.hairRibbon(hg, pts, idx < 4 ? .019 : .024, strandMat, idx, [0, 1.61, .02]));
+          [-.068, .068].forEach(ex => {
+            this.ellipsoid(hg, [ex, 1.586, .046], [.0055, .0065, .0055], pearlMat);
+          });
         });
         // Upturned coat storm collar, front placket & brass snaps + Explorer Canvas Backpack
         attachAtBone('spine01', sg => {
-          this.curve(sg, [[-.078, 1.425, .088], [-.074, 1.455, .012], [0, 1.465, -.042], [.074, 1.455, .012], [.078, 1.425, .088]], .016, coatMat, 14);
+          this.curve(sg, [[-.076, 1.420, .084], [-.072, 1.450, .012], [0, 1.460, -.042], [.072, 1.450, .012], [.076, 1.420, .084]], .015, coatMat, 14);
           this.curve(sg, [[0, 1.41, .122], [0, 1.33, .165], [0, 1.24, .176], [0, 1.09, .158], [0, .98, .158]], .008, coatMat, 12);
           [1.36, 1.24, 1.12, 1.01].forEach((y, bi) => {
             const bz = y > 1.2 ? .178 : .163;
@@ -878,28 +1081,30 @@
         });
         this.cylinder(bone('wrist.L'), .027, .027, .016, [0, 0, 0], leatherMat, 14);
       } else if (id === 'tuan') {
-        const coatMat = this.sharedMaterial('tuan-coat-accent', { map: this.textures.get('cloth'), normalMap: this.textures.clothWrinkle(), color: 0x24363e, roughness: .80 });
-        // Layered messy bangs hiding hairline seam + sideburns
+        const coatMat = this.sharedMaterial('tuan-coat-accent', { map: this.textures.get('cloth'), normalMap: this.textures.clothWrinkle(), color: 0x22333f, roughness: .82 });
+        // Clean K-idol 6:4 parted comma hair with fuller brow coverage + sleek sideburns
         attachAtBone('head', hg => {
           [
-            [[-.02, 1.79, .06], [-.035, 1.755, .122], [-.048, 1.705, .142]],
-            [[.005, 1.795, .06], [0, 1.76, .125], [-.008, 1.708, .145]],
-            [[.035, 1.79, .058], [.042, 1.752, .120], [.050, 1.705, .138]],
-            [[-.068, 1.75, .045], [-.082, 1.69, .085], [-.078, 1.615, .078]],
-            [[.068, 1.75, .045], [.082, 1.69, .085], [.078, 1.615, .078]]
-          ].forEach((pts, idx) => this.hairRibbon(hg, pts, .018, strandMat, idx));
+            [[.006, 1.805, .055], [-.024, 1.778, .130], [-.048, 1.726, .138], [-.066, 1.672, .114]],
+            [[-.004, 1.802, .062], [-.038, 1.772, .128], [-.062, 1.716, .132], [-.074, 1.658, .106]],
+            [[.012, 1.802, .060], [-.010, 1.776, .136], [-.022, 1.722, .145]],
+            [[.018, 1.804, .058], [.038, 1.778, .134], [.048, 1.724, .142], [.030, 1.694, .147]],
+            [[.024, 1.800, .062], [.054, 1.770, .126], [.070, 1.714, .128], [.074, 1.660, .102]],
+            [[.004, 1.803, .064], [.022, 1.777, .138], [.016, 1.724, .147]],
+            [[-.068, 1.750, .050], [-.080, 1.694, .080], [-.075, 1.624, .072]],
+            [[.068, 1.750, .050], [.080, 1.694, .080], [.075, 1.624, .072]]
+          ].forEach((pts, idx) => this.hairRibbon(hg, pts, idx < 6 ? .022 : .015, strandMat, idx, [0, 1.66, .02]));
         });
-        // Field jacket storm collar, chest pockets, epaulets & diagonal journal satchel strap
+        // Crisp tailored chest pockets, epaulets & diagonal journal satchel strap (no extra collar tube overlap)
         attachAtBone('spine01', sg => {
-          this.curve(sg, [[-.084, 1.49, .078], [-.082, 1.525, .005], [0, 1.535, -.055], [.082, 1.525, .005], [.084, 1.49, .078]], .017, coatMat, 14);
-          [-.082, .082].forEach(x => {
-            this.box(sg, [.075, .085, .018], [x, 1.32, .152], coatMat);
-            this.box(sg, [.078, .024, .022], [x, 1.36, .155], coatMat);
-            this.box(sg, [.085, .016, .035], [x * 1.45, 1.48, .01], coatMat);
+          [-.084, .084].forEach(x => {
+            this.box(sg, [.072, .080, .012], [x, 1.31, .150], coatMat);
+            this.box(sg, [.075, .020, .015], [x, 1.348, .152], coatMat);
+            this.box(sg, [.076, .014, .032], [x * 1.48, 1.482, .006], coatMat);
           });
           // Cross-body leather satchel strap (shoulder L -> hip R)
-          this.curve(sg, [[.098, 1.485, .005], [.035, 1.36, .160], [-.095, 1.15, .145], [-.185, 1.00, .02]], .013, strapMat, 12);
-          this.curve(sg, [[.098, 1.485, .005], [.025, 1.36, -.145], [-.115, 1.15, -.135], [-.185, 1.00, .02]], .013, strapMat, 12);
+          this.curve(sg, [[.102, 1.485, .004], [.035, 1.35, .158], [-.095, 1.15, .145], [-.185, 1.00, .02]], .012, strapMat, 12);
+          this.curve(sg, [[.102, 1.485, .004], [.025, 1.35, -.145], [-.115, 1.15, -.135], [-.185, 1.00, .02]], .012, strapMat, 12);
         });
         attachAtBone('spine04', wg => {
           const belt = this.mesh(wg, 'TorusGeometry', [.178, .012, 6, 26], leatherMat, [0, 1.00, .01], [Math.PI / 2, 0, 0]);
@@ -912,36 +1117,39 @@
         });
         this.cylinder(bone('wrist.L'), .029, .029, .016, [0, 0, 0], steelMat, 14);
       } else {
-        // Hung: rugged expedition cargo vest + collar + utility belt/pouch + pendant + tousled bangs
+        // Hung: rugged expedition cargo vest (clean collar clearance) + pendant + swept-back quiff
         const vestMat = this.sharedMaterial('hung-vest-olive', { map: this.textures.get('cloth'), normalMap: this.textures.clothWrinkle(), color: 0x353b25, roughness: .88 });
         attachAtBone('head', hg => {
           [
-            [[-.03, 1.795, .06], [-.045, 1.758, .124], [-.056, 1.708, .142]],
-            [[.01, 1.80, .06], [.005, 1.762, .128], [-.005, 1.710, .145]],
-            [[.042, 1.79, .058], [.050, 1.754, .120], [.056, 1.708, .138]],
-            [[-.074, 1.75, .04], [-.086, 1.69, .085], [-.082, 1.615, .078]],
-            [[.074, 1.75, .04], [.086, 1.69, .085], [.082, 1.615, .078]]
-          ].forEach((pts, idx) => this.hairRibbon(hg, pts, .019, strandMat, idx));
+            [[-.016, 1.778, .126], [-.010, 1.816, .122], [-.006, 1.812, .052]],
+            [[.012, 1.775, .130], [.016, 1.820, .124], [.026, 1.810, .048]],
+            [[-.038, 1.776, .118], [-.038, 1.806, .112], [-.044, 1.786, .045]],
+            [[.038, 1.772, .120], [.048, 1.800, .112], [.060, 1.756, .072]],
+            [[-.056, 1.762, .092], [-.072, 1.724, .106], [-.076, 1.668, .092]],
+            [[.056, 1.762, .092], [.074, 1.724, .104], [.078, 1.668, .090]],
+            [[-.070, 1.748, .046], [-.081, 1.694, .076], [-.076, 1.622, .068]],
+            [[.070, 1.748, .046], [.081, 1.694, .076], [.076, 1.622, .068]]
+          ].forEach((pts, idx) => this.hairRibbon(hg, pts, idx < 4 ? .020 : .015, strandMat, idx, [0, 1.66, .02]));
         });
         attachAtBone('neck01', ng => {
           this.curve(ng, [[-.052, 1.50, .02], [-.026, 1.43, .085], [0, 1.385, .136], [.026, 1.43, .085], [.052, 1.50, .02]], .0025, leatherMat, 12);
           this.cylinder(ng, .012, .012, .005, [0, 1.382, .138], steelMat, 10).rotation.x = Math.PI / 2;
         });
         attachAtBone('spine01', sg => {
-          this.curve(sg, [[-.088, 1.485, .078], [-.086, 1.52, .005], [0, 1.53, -.055], [.086, 1.52, .005], [.088, 1.485, .078]], .018, vestMat, 14);
-          // Shoulder yokes wrapping over trapezius + zip trim + contoured bellows cargo pockets
+          // Outer deltoid vest straps clear of open shirt collar + slim contoured cargo pockets
           [-.082, .082].forEach(x => {
-            this.curve(sg, [[x * 1.15, 1.39, -.08], [x * 1.25, 1.495, 0], [x * 1.1, 1.40, .122]], .022, vestMat, 10);
-            this.box(sg, [.094, .29, .018], [x * .95, 1.24, .138], vestMat);
-            this.box(sg, [.068, .075, .018], [x * .95, 1.31, .150], leatherMat);
-            this.box(sg, [.072, .022, .020], [x * .95, 1.35, .152], vestMat);
-            this.cylinder(sg, .005, .005, .004, [x * .95, 1.344, .163], brassMat, 8).rotation.x = Math.PI / 2;
-            this.box(sg, [.074, .085, .020], [x * .95, 1.15, .148], leatherMat);
-            this.box(sg, [.078, .024, .022], [x * .95, 1.195, .150], vestMat);
-            this.cylinder(sg, .005, .005, .004, [x * .95, 1.188, .162], brassMat, 8).rotation.x = Math.PI / 2;
+            const ep = this.box(sg, [.040, .009, .088], [x * 1.78, 1.472, 0], vestMat);
+            ep.rotation.z = x < 0 ? .26 : -.26;
+            this.box(sg, [.090, .28, .010], [x * .94, 1.24, .135], vestMat);
+            this.box(sg, [.066, .074, .011], [x * .94, 1.31, .142], leatherMat);
+            this.box(sg, [.070, .020, .012], [x * .94, 1.35, .144], vestMat);
+            this.cylinder(sg, .005, .005, .004, [x * .94, 1.344, .151], brassMat, 8).rotation.x = Math.PI / 2;
+            this.box(sg, [.070, .082, .012], [x * .94, 1.15, .141], leatherMat);
+            this.box(sg, [.074, .022, .013], [x * .94, 1.195, .143], vestMat);
+            this.cylinder(sg, .005, .005, .004, [x * .94, 1.188, .151], brassMat, 8).rotation.x = Math.PI / 2;
           });
-          this.box(sg, [.010, .30, .010], [0, 1.24, .148], brassMat);
-          this.box(sg, [.24, .32, .022], [0, 1.25, -.112], vestMat);
+          this.box(sg, [.010, .29, .008], [0, 1.24, .143], brassMat);
+          this.box(sg, [.24, .31, .018], [0, 1.25, -.112], vestMat);
         });
         attachAtBone('spine04', wg => {
           const belt = this.mesh(wg, 'TorusGeometry', [.184, .014, 6, 26], leatherMat, [0, .99, .01], [Math.PI / 2, 0, 0]);
@@ -1009,6 +1217,7 @@
       root.userData.id = id;
       root.userData.isGhost = ghost;
       this.bakeRigid(root);
+      root.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
       this.animatePerson(root, 0, 0, 'idle');
       return root;
     }
@@ -1031,11 +1240,11 @@
       }
 
       const breath = Math.sin(time * 2.1 + r.blinkOffset);
-      const shiver = captive ? Math.sin(time * 17 + r.blinkOffset) * .004 : 0;
+      const shiver = captive ? Math.sin(time * 2.8 + r.blinkOffset) * .0025 : 0;
       r.hips.position.y = r.baseY + (ghost ? Math.sin(time * 1.6) * .022 : Math.abs(Math.sin(phase)) * .011 * m + breath * .002);
 
-      // Head gaze, ghost unnerving tilt, captive bow
-      const ghostTwitch = ghost ? (Math.sin(time * 1.9) > .94 ? Math.sin(time * 23) * .08 : 0) : 0;
+      // Head gaze, ghost slow unnerving tilt, captive bow (smooth — no high-frequency snap)
+      const ghostTwitch = ghost ? (Math.sin(time * 1.3) * .045 + Math.sin(time * 3.1) * .025) : 0;
       r.head.rotation.set(
         captive ? .14 + breath * .015 : dragged ? -.08 : breath * .012,
         (root.userData.lookYaw || 0) + Math.sin(time * .48 + r.blinkOffset) * .035,
@@ -1046,13 +1255,13 @@
       r.torso.rotation.set((dragged ? -.14 * m : captive ? .09 : .018) + breath * .012, Math.sin(phase) * .035 * m + shiver, 0);
 
       r.speech = (r.speech || 0) * .65 + (root.userData.speechLevel || 0) * .35;
-      if (r.jaw) r.jaw.rotation.x = r.speech * .11;
+      if (r.jaw) r.jaw.rotation.x = r.speech * .045;
 
       if (r.clavicles) r.clavicles.forEach(c => { c.clav.quaternion.copy(c.base); });
-      const axis = new THREE.Vector3(1, 0, 0), q = new THREE.Quaternion(), q2 = new THREE.Quaternion();
+      const axis = this._animAxis, q = this._animQ, q2 = this._animQ2;
       r.arms.forEach((arm, i) => {
         const wave = Math.sin(phase + i * Math.PI), talkLift = i === 1 ? r.speech * .18 : r.speech * .07;
-        const shPitch = chase ? -.85 - Math.sin(time * 6 + i) * .08 : dragged ? -.36 * m - .18 * Math.sin(time * 5 + i) : -wave * .26 * m - talkLift;
+        const shPitch = chase ? -.85 - Math.sin(time * 3.8 + i) * .06 : dragged ? -.36 * m - .12 * Math.sin(time * 3.2 + i) : -wave * .26 * m - talkLift;
         const elBend = chase ? -.22 : captive ? -.38 : dragged ? -.42 : -Math.max(0, wave) * .18 * m - .12 - r.speech * .28;
         arm.shoulder.quaternion.copy(arm.upperBase).multiply(q.setFromAxisAngle(axis, shPitch));
         arm.elbow.quaternion.copy(arm.lowerBase).multiply(q2.setFromAxisAngle(axis, elBend));
@@ -1457,24 +1666,24 @@
         a.light.intensity = (a.kind === 'lantern' ? .92 : .48) * flicker;
         if (a.halo) a.halo.material.opacity = .32 * flicker;
       });
-      if (camera && (!this.lastLightUpdate || time - this.lastLightUpdate > .15)) {
+      if (camera && (!this.lastLightUpdate || time - this.lastLightUpdate > .20)) {
         this.lastLightUpdate = time;
-        const temp = new THREE.Vector3();
-        const nearest = this.lights.map(light => ({ light: light, d: light.getWorldPosition(temp).distanceToSquared(camera.position) })).sort((a, b) => a.d - b.d);
+        const temp = this._tmpVec, entries = this._lightEntries;
+        while (entries.length < this.lights.length) entries.push({ light: null, d: 0 });
+        entries.length = this.lights.length;
+        for (let i = 0; i < this.lights.length; i++) {
+          const light = this.lights[i];
+          entries[i].light = light;
+          entries[i].d = light.getWorldPosition(temp).distanceToSquared(camera.position);
+        }
+        entries.sort((a, b) => a.d - b.d);
         const qCfg = G.Config.quality[quality] || G.Config.quality.medium;
         const count = qCfg.maxDynamicLights;
-        nearest.forEach((entry, i) => {
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
           entry.light.visible = i < count && entry.d < 500;
-          entry.light.castShadow = (quality === 'high' || quality === 'ultra') && i === 0 && entry.d < 100;
-          entry.light.shadow.autoUpdate = false;
-          if (entry.light.castShadow && time - (entry.light.userData.shadowTime || -1) > .14) {
-            entry.light.shadow.needsUpdate = true;
-            entry.light.userData.shadowTime = time;
-          }
-          entry.light.shadow.mapSize.set(512, 512);
-          entry.light.shadow.bias = -.0005;
-          entry.light.shadow.normalBias = .035;
-        });
+          entry.light.castShadow = false;
+        }
       }
     }
     dispose() {

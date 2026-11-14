@@ -8,8 +8,9 @@
       this.breathExhausted = false; this.regenDelay = 0; this.invulnerability = 0; this.talismanCooldown = 0; this.damageFlash = 0; this.stepDistance = 0; this.bobPhase = 0; this.healTimer = 0;
       this.direction = new THREE.Vector3(); this.lookEuler = new THREE.Euler(0, 0, 0, 'YXZ'); this.flashDirection = new THREE.Vector3(0, 0, -1);
       const cfg = G.Config.player.flashlight;
-      const shMapSize = { low: 512, medium: 1024, high: 2048 }[app.settings.shadowQuality || 'medium'] || 1024;
-      this.flashlight = new THREE.SpotLight(0xffe8c0, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay); this.flashlight.castShadow = app.settings.shadowQuality !== 'off'; this.flashlight.shadow.mapSize.set(shMapSize, shMapSize); this.flashlight.shadow.bias = -.0004; this.flashlight.shadow.normalBias = .025;
+      const shMapSize = app.settings.shadowQuality === 'high' ? 1024 : 512;
+      this.flashlight = new THREE.SpotLight(0xffe8c0, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay); this.flashlight.castShadow = app.settings.shadowQuality !== 'off'; this.flashlight.shadow.mapSize.set(shMapSize, shMapSize); this.flashlight.shadow.bias = -.0004; this.flashlight.shadow.normalBias = .025; this.flashlight.shadow.autoUpdate = false; this.flashlight.shadow.needsUpdate = true;
+      this._flashOffset = new THREE.Vector3(.18, -.15, -.25); this._tmpVec = new THREE.Vector3(); this._lastShadowTime = -1; this._lastShadowPos = new THREE.Vector3(); this._lastShadowYaw = 999; this._lastShadowPitch = 999;
       this.flashTarget = new THREE.Object3D(); this.flashlight.target = this.flashTarget; app.scene.add(this.flashlight, this.flashTarget);
       this.fillLight = new THREE.PointLight(0xb1b7b9, .14, 3); app.scene.add(this.fillLight);
       this.hand = new THREE.Group(); this.camera.add(this.hand); app.scene.add(this.camera);
@@ -158,7 +159,7 @@
       if (lightOn) this.data.battery = Math.max(0, this.data.battery - c.flashlight.batteryDrain * dt);
       const ghost = this.app.ghost, distance = ghost ? ghost.position.distanceTo(this.position) : 100;
       let sanityRate = lightOn ? 0 : -c.sanityDarkDrain;
-      if (ghost && ghost.state !== 'banished' && ghost.state !== 'dormant' && distance < c.sanityGhostRadius && this.world.lineOfSight(this.camera.position, ghost.position.clone().add(new THREE.Vector3(0, 1.6, 0)))) sanityRate -= c.sanityGhostDrain * (1 - distance / c.sanityGhostRadius);
+      if (ghost && ghost.state !== 'banished' && ghost.state !== 'dormant' && distance < c.sanityGhostRadius && this.world.lineOfSight(this.camera.position, this._tmpVec.copy(ghost.position).setY(ghost.position.y + 1.6))) sanityRate -= c.sanityGhostDrain * (1 - distance / c.sanityGhostRadius);
       if (this.world.isSafe(this.position)) sanityRate = c.sanitySafeRegen;
       this.data.sanity = G.Utils.clamp(this.data.sanity + sanityRate * dt, 0, 100);
       this.updateCamera(dt, time); this.data.position = this.position.toArray(); this.data.yaw = this.yaw; this.data.pitch = this.pitch;
@@ -171,10 +172,20 @@
       const madness = reduced ? 0 : Math.max(0, 1 - this.data.sanity / 30);
       this.camera.position.set(this.position.x, this.height + bob, this.position.z); this.lookEuler.set(this.pitch, this.yaw, Math.sin(time * .9) * .018 * madness); this.camera.quaternion.setFromEuler(this.lookEuler);
       this.camera.getWorldDirection(this.direction); if (!dt) this.flashDirection.copy(this.direction); else this.flashDirection.lerp(this.direction, 1 - Math.exp(-8 * dt)).normalize();
-      const offset = new THREE.Vector3(.18, -.15, -.25).applyQuaternion(this.camera.quaternion); this.flashlight.position.copy(this.camera.position).add(offset); this.flashTarget.position.copy(this.flashlight.position).addScaledVector(this.flashDirection, 12);
+      const offset = this._tmpVec.copy(this._flashOffset).applyQuaternion(this.camera.quaternion); this.flashlight.position.copy(this.camera.position).add(offset); this.flashTarget.position.copy(this.flashlight.position).addScaledVector(this.flashDirection, 12);
       const flicker = this.data.battery < 15 && !this.app.settings.reducedFlashes ? .55 + .45 * Math.abs(Math.sin(time * 27) * Math.sin(time * 13)) : 1;
       const lightOn = this.data.flashlightOn && this.data.battery > 0 && !this.hiddenSpot;
       this.flashlight.intensity = c.flashlight.intensity * flicker; this.flashlight.visible = lightOn; this.hand.visible = !this.hiddenSpot;
+      if (lightOn && this.flashlight.castShadow && (time - this._lastShadowTime > .032 || !dt)) {
+        const moved = this._lastShadowPos.distanceToSquared(this.position) > .0004 || Math.abs(this.yaw - this._lastShadowYaw) > .004 || Math.abs(this.pitch - this._lastShadowPitch) > .004;
+        if (moved || this._lastShadowTime < 0) {
+          this.flashlight.shadow.needsUpdate = true;
+          this._lastShadowTime = time;
+          this._lastShadowPos.copy(this.position);
+          this._lastShadowYaw = this.yaw;
+          this._lastShadowPitch = this.pitch;
+        }
+      }
       if (this.lensMat) this.lensMat.emissiveIntensity = lightOn ? .88 * flicker : 0;
       if (this.flashBeam) {
         this.flashBeam.visible = lightOn && this.app.settings.volumetricBeams !== false;

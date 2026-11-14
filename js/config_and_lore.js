@@ -17,14 +17,14 @@
     seed: 19942024, threeRevision: '128', locale: 'vi-VN',
     storage: { saveKey: 'huyet_le_thon.save.v1', settingsKey: 'huyet_le_thon.settings.v1', maxSaveBytes: 262144 },
     runtime: { maxDelta: 0.05, fixedStep: 1 / 60, maxSubSteps: 5, autosaveInterval: 60, interactionDistance: 2.6, pauseOnBlur: true, skipHoldSeconds: 1.25 },
-    renderer: { antialias: true, alpha: false, powerPreference: 'high-performance', exposure: 1.08, clearColor: 0x090a10, maxPixelRatio: 2.0, shadowBias: -0.00025, shadowNormalBias: 0.035 },
-    camera: { fov: 75, near: 0.08, far: 240, cutsceneNear: 0.05 },
+    renderer: { antialias: true, alpha: false, powerPreference: 'high-performance', exposure: 1.08, clearColor: 0x090a10, maxPixelRatio: 1.5, shadowBias: -0.00025, shadowNormalBias: 0.035 },
+    camera: { fov: 75, near: 0.10, far: 240, cutsceneNear: 0.08 },
     quality: {
-      potato: { pixelRatio: 0.8, renderScale: 0.75, shadowQuality: 'off', shadows: false, shadowMapSize: 512, rainCount: 180, ashCount: 40, particleDensity: 0.35, textureSize: 256, maxDynamicLights: 2, postProcessing: false, volumetricFog: false, volumetricBeams: false, foliageDensity: 0.45, fogSteps: 0 },
-      low: { pixelRatio: 1.0, renderScale: 0.9, shadowQuality: 'low', shadows: true, shadowMapSize: 512, rainCount: 450, ashCount: 95, particleDensity: 0.55, textureSize: 512, maxDynamicLights: 4, postProcessing: false, volumetricFog: false, volumetricBeams: false, foliageDensity: 0.65, fogSteps: 0 },
-      medium: { pixelRatio: 1.25, renderScale: 1.0, shadowQuality: 'medium', shadows: true, shadowMapSize: 1024, rainCount: 1050, ashCount: 220, particleDensity: 0.85, textureSize: 512, maxDynamicLights: 6, postProcessing: true, volumetricFog: true, volumetricBeams: true, foliageDensity: 0.85, fogSteps: 10 },
-      high: { pixelRatio: 1.65, renderScale: 1.0, shadowQuality: 'high', shadows: true, shadowMapSize: 2048, rainCount: 1800, ashCount: 420, particleDensity: 1.0, textureSize: 1024, maxDynamicLights: 10, postProcessing: true, volumetricFog: true, volumetricBeams: true, foliageDensity: 1.0, fogSteps: 16 },
-      ultra: { pixelRatio: 2.0, renderScale: 1.15, shadowQuality: 'high', shadows: true, shadowMapSize: 2048, rainCount: 2600, ashCount: 620, particleDensity: 1.35, textureSize: 1024, maxDynamicLights: 14, postProcessing: true, volumetricFog: true, volumetricBeams: true, foliageDensity: 1.0, fogSteps: 22 }
+      potato: { pixelRatio: 0.75, renderScale: 0.70, shadowQuality: 'off', shadows: false, shadowMapSize: 512, rainCount: 140, ashCount: 30, particleDensity: 0.30, textureSize: 256, maxDynamicLights: 2, postProcessing: false, volumetricFog: false, volumetricBeams: false, foliageDensity: 0.40, fogSteps: 0 },
+      low: { pixelRatio: 0.90, renderScale: 0.85, shadowQuality: 'low', shadows: true, shadowMapSize: 512, rainCount: 320, ashCount: 70, particleDensity: 0.50, textureSize: 256, maxDynamicLights: 3, postProcessing: false, volumetricFog: false, volumetricBeams: false, foliageDensity: 0.60, fogSteps: 0 },
+      medium: { pixelRatio: 1.0, renderScale: 1.0, shadowQuality: 'medium', shadows: true, shadowMapSize: 1024, rainCount: 620, ashCount: 130, particleDensity: 0.75, textureSize: 512, maxDynamicLights: 4, postProcessing: true, volumetricFog: true, volumetricBeams: true, foliageDensity: 0.80, fogSteps: 6 },
+      high: { pixelRatio: 1.20, renderScale: 1.0, shadowQuality: 'medium', shadows: true, shadowMapSize: 1024, rainCount: 980, ashCount: 220, particleDensity: 1.0, textureSize: 512, maxDynamicLights: 5, postProcessing: true, volumetricFog: true, volumetricBeams: true, foliageDensity: 1.0, fogSteps: 8 },
+      ultra: { pixelRatio: 1.5, renderScale: 1.0, shadowQuality: 'high', shadows: true, shadowMapSize: 2048, rainCount: 1500, ashCount: 340, particleDensity: 1.2, textureSize: 768, maxDynamicLights: 7, postProcessing: true, volumetricFog: true, volumetricBeams: true, foliageDensity: 1.0, fogSteps: 12 }
     },
     world: {
       bounds: { minX: -65, maxX: 65, minZ: -68, maxZ: 68 }, groundY: 0,
@@ -79,7 +79,7 @@
       dialogueMode: 'subtitles_with_synth', suspendWhenPaused: true
     },
     quest: { curseDuration: 1800, warningThresholds: [900, 600, 300, 120, 60], ritualDuration: 18, escapeGraceSeconds: 120, journalCount: 8, relicCount: 3, companionCount: 3 },
-    settingsDefaults: { masterVolume: 0.8, musicVolume: 0.55, sfxVolume: 0.85, quality: 'high', renderScale: 1.0, shadowQuality: 'high', postFX: true, volumetricFog: true, volumetricBeams: true, particleDensity: 1.0, mouseSensitivity: 0.002, brightness: 1, fov: 75, subtitles: true, reducedMotion: false, reducedFlashes: false },
+    settingsDefaults: { masterVolume: 0.8, musicVolume: 0.55, sfxVolume: 0.85, quality: 'medium', renderScale: 1.0, shadowQuality: 'medium', postFX: true, volumetricFog: true, volumetricBeams: true, particleDensity: 0.75, mouseSensitivity: 0.002, brightness: 1, fov: 75, subtitles: true, reducedMotion: false, reducedFlashes: false },
     input: { forward: ['KeyW', 'ArrowUp'], backward: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], run: ['ShiftLeft', 'ShiftRight'], crouch: ['ControlLeft', 'KeyC'], interact: ['KeyE'], breath: ['Space'], flashlight: ['KeyF'], talisman: ['KeyQ'], reloadBattery: ['KeyR'], heal: ['KeyH'], inventory: ['Tab'], journal: ['KeyJ'], pause: ['Escape'], skip: ['Enter'] }
   });
 
