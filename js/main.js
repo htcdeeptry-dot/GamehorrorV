@@ -14,7 +14,7 @@
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       await G.ModelsFactory.prepareCharacters();
       this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
-      this.renderer.outputEncoding = THREE.sRGBEncoding; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.05 * this.settings.brightness; this.renderer.shadowMap.enabled = this.settings.quality !== 'low'; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.outputEncoding = THREE.sRGBEncoding; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.08 * this.settings.brightness; this.renderer.shadowMap.enabled = this.settings.shadowQuality !== 'off'; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       this.post = new G.PostProcessor(this.renderer); this.bindUI(); this.bindEvents(); this.createWorld(G.createNewSession()); this.resize(); this.applySettings();
       el('loading-progress').value = 100; el('version-label').textContent = 'BẢN ' + G.Config.version; el('btn-continue').disabled = !G.Storage.load().ok;
       this.setState('menu'); this.camera.position.set(8, 3.3, 54); this.camera.lookAt(0, 2, 35); this.running = true; this.lastFrame = performance.now(); this.tick = now => this.loop(now); this.frame = requestAnimationFrame(this.tick);
@@ -52,20 +52,65 @@
       ['btn-settings', 'btn-pause-settings'].forEach(id => bind(id, () => { this.openScreen('settings'); this.populateSettings(); }));
       bind('btn-help', () => this.openScreen('help')); bind('btn-credits', () => this.openScreen('credits'));
       ['inventory', 'journal', 'puzzle', 'settings', 'help', 'credits'].forEach(name => bind('btn-close-' + name, () => this.closeScreen()));
-      this.listen(el('settings-form'), 'submit', e => { e.preventDefault(); const source = {}; const form = el('settings-form'); Object.keys(G.Config.settingsDefaults).forEach(key => { const input = form.elements.namedItem(key); source[key] = input.type === 'checkbox' ? input.checked : input.tagName === 'SELECT' ? input.value : Number(input.value); }); this.settings = G.normalizeSettings(source); G.Storage.saveSettings(this.settings); this.applySettings(); this.closeScreen(); this.toast('Đã lưu thiết lập. Độ nét texture áp dụng khi bắt đầu hoặc tải lại lượt chơi.'); });
+      this.listen(el('settings-form'), 'submit', e => { e.preventDefault(); const source = {}; const form = el('settings-form'); Object.keys(G.Config.settingsDefaults).forEach(key => { const input = form.elements.namedItem(key); if (!input) return; source[key] = input.type === 'checkbox' ? input.checked : input.tagName === 'SELECT' ? input.value : Number(input.value); }); this.settings = G.normalizeSettings(source); G.Storage.saveSettings(this.settings); this.applySettings(); this.closeScreen(); this.toast('Đã lưu thiết lập. Độ nét texture áp dụng khi bắt đầu hoặc tải lại lượt chơi.'); });
+      this.listen(el('setting-quality'), 'change', e => {
+        const q = G.Config.quality[e.target.value]; const form = el('settings-form'); if (!q || !form) return;
+        form.elements.namedItem('renderScale').value = q.renderScale;
+        form.elements.namedItem('shadowQuality').value = q.shadowQuality;
+        form.elements.namedItem('particleDensity').value = q.particleDensity;
+        form.elements.namedItem('postFX').checked = q.postProcessing;
+        form.elements.namedItem('volumetricFog').checked = q.volumetricFog;
+        form.elements.namedItem('volumetricBeams').checked = q.volumetricBeams;
+        this.syncSettingBadges();
+      });
+      ['setting-render-scale', 'setting-particles'].forEach(id => this.listen(el(id), 'input', () => this.syncSettingBadges()));
       this.listen(el('btn-skip-cutscene'), 'pointerdown', e => { e.preventDefault(); this.skipDown = true; el('btn-skip-cutscene').setPointerCapture(e.pointerId); });
       ['pointerup', 'pointercancel'].forEach(type => this.listen(el('btn-skip-cutscene'), type, () => { this.skipDown = false; this.skipTime = 0; }));
     }
-    populateSettings() { Object.keys(this.settings).forEach(key => { const input = el('settings-form').elements.namedItem(key); if (!input) return; if (input.type === 'checkbox') input.checked = this.settings[key]; else input.value = this.settings[key]; }); }
+    syncSettingBadges() {
+      const form = el('settings-form'); if (!form) return;
+      const rs = el('render-scale-val'), pd = el('particles-val');
+      if (rs) rs.textContent = Math.round(Number(form.elements.namedItem('renderScale').value) * 100) + '%';
+      if (pd) pd.textContent = Math.round(Number(form.elements.namedItem('particleDensity').value) * 100) + '%';
+    }
+    populateSettings() { Object.keys(this.settings).forEach(key => { const input = el('settings-form').elements.namedItem(key); if (!input) return; if (input.type === 'checkbox') input.checked = this.settings[key]; else input.value = this.settings[key]; }); this.syncSettingBadges(); }
     applySettings() {
-      const s = this.settings, q = G.Config.quality[s.quality]; document.body.classList.toggle('reduced-motion', s.reducedMotion); document.body.classList.toggle('reduced-flashes', s.reducedFlashes); document.body.dataset.quality = s.quality;
-      this.sound.applySettings(s); if (!this.renderer) return; this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio)); this.renderer.shadowMap.enabled = q.shadows; this.renderer.toneMappingExposure = 1.05 * s.brightness;
+      const s = this.settings, q = G.Config.quality[s.quality] || G.Config.quality.high;
+      document.body.classList.toggle('reduced-motion', s.reducedMotion); document.body.classList.toggle('reduced-flashes', s.reducedFlashes); document.body.dataset.quality = s.quality;
+      this.sound.applySettings(s); if (!this.renderer) return;
+      const ratio = G.Utils.clamp((window.devicePixelRatio || 1) * s.renderScale, 0.5, q.pixelRatio * s.renderScale);
+      this.renderer.setPixelRatio(ratio);
+      const shadowsOn = s.shadowQuality !== 'off';
+      const shadowSizes = { off: 512, low: 512, medium: 1024, high: 2048 };
+      const smSize = shadowSizes[s.shadowQuality] || 1024;
+      this.renderer.shadowMap.enabled = shadowsOn;
+      this.renderer.toneMappingExposure = 1.08 * s.brightness;
       if (this.camera && this.state !== 'cutscene') { this.camera.fov = s.fov; this.camera.updateProjectionMatrix(); }
-      if (this.world) { this.world.settings = s; this.world.moonLight.castShadow = q.shadows; this.world.rainGeo.setDrawRange(0, Math.min(this.world.rainCount, q.rainCount) * 2); this.world.ashGeo.setDrawRange(0, Math.min(this.world.ashCount, q.ashCount)); }
-      if (this.player) this.player.flashlight.castShadow = q.shadows; this.resize(); this.bus.emit(G.EventNames.SETTINGS_CHANGED, s);
+      if (this.world) {
+        this.world.settings = s;
+        this.world.moonLight.castShadow = shadowsOn;
+        if (this.world.moonLight.shadow.mapSize.x !== smSize) {
+          this.world.moonLight.shadow.mapSize.set(smSize, smSize);
+          if (this.world.moonLight.shadow.map) { this.world.moonLight.shadow.map.dispose(); this.world.moonLight.shadow.map = null; }
+        }
+        const rainTarget = Math.min(this.world.rainCount, Math.round(q.rainCount * s.particleDensity));
+        const ashTarget = Math.min(this.world.ashCount, Math.round(q.ashCount * s.particleDensity));
+        this.world.rainGeo.setDrawRange(0, rainTarget * 2);
+        this.world.ashGeo.setDrawRange(0, ashTarget);
+        if (this.world.setBeamsVisible) this.world.setBeamsVisible(s.volumetricBeams);
+      }
+      if (this.player) {
+        this.player.flashlight.castShadow = shadowsOn;
+        const flSize = Math.min(1024, smSize);
+        if (this.player.flashlight.shadow.mapSize.x !== flSize) {
+          this.player.flashlight.shadow.mapSize.set(flSize, flSize);
+          if (this.player.flashlight.shadow.map) { this.player.flashlight.shadow.map.dispose(); this.player.flashlight.shadow.map = null; }
+        }
+      }
+      this.resize(); this.bus.emit(G.EventNames.SETTINGS_CHANGED, s);
     }
     createWorld(session) {
-      this.destroyWorld(); this.session = session; this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, .08, 180);
+      this.destroyWorld(); this.session = session; this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, .08, 260);
       this.textures = new G.TextureFactory(this.settings.quality); this.models = new G.ModelsFactory(this.textures); this.world = new G.WorldBuilder(this.scene, this.textures, this.models, this.bus, this.settings).build(); this.world.sync(session);
       this.player = new G.PlayerController(this, session);this.world.player=this.player; this.ghost = new G.GhostAI(this); this.quest = new G.QuestSystem(this); this.autosave = 0; this.dialogueQueue = []; this.subtitle = null; this.cutscene = null; this.skipDown = false; this.skipTime = 0;
       this.resize(); this.applySettings(); this.updateHUD();
@@ -118,7 +163,11 @@
       let u = b.time === a.time ? 0 : G.Utils.clamp((t - a.time) / (b.time - a.time), 0, 1); u = u * u * (3 - 2 * u);
       const toWorld = (frame, key) => { const v = new THREE.Vector3().fromArray(frame[key]); if (cut.config.relativeToGhost) v.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.ghost.model.rotation.y).add(this.ghost.position); return v; };
       const positionKey = cut.config.relativeToGhost ? 'offset' : 'position', targetKey = cut.config.relativeToGhost ? 'targetOffset' : 'target';
-      this.camera.position.copy(toWorld(a, positionKey).lerp(toWorld(b, positionKey), u)); this.world.resolveCamera(this.camera.position,.18); this.camera.lookAt(toWorld(a, targetKey).lerp(toWorld(b, targetKey), u)); this.camera.fov = G.Utils.lerp(a.fov, b.fov, u); this.camera.updateProjectionMatrix();
+      const camTarget = toWorld(a, targetKey).lerp(toWorld(b, targetKey), u);
+      this.camera.position.copy(toWorld(a, positionKey).lerp(toWorld(b, positionKey), u));
+      this.world.resolveCamera(this.camera.position, .22, camTarget);
+      this.camera.lookAt(camTarget);
+      this.camera.fov = G.Utils.lerp(a.fov, b.fov, u); this.camera.updateProjectionMatrix();
       if (cut.config.id === 'jumpscare' && !this.settings.reducedMotion) this.camera.rotateZ(Math.sin(t * 37) * .035 * (1 - t / cut.config.duration));
       if (cut.config.id === 'ritual') {
         const t = storyTime;
@@ -190,7 +239,8 @@
         else if (this.state === 'menu') { this.models.update(this.time, this.settings.reducedMotion, this.camera, this.settings.quality); }
         this.hudClock += dt; if (this.hudClock >= .08) { this.hudClock = 0; this.updateHUD(); }
         if (this.scene && this.camera && !['loading', 'error'].includes(this.state)) {
-          if (G.Config.quality[this.settings.quality].postProcessing) this.post.render(this.scene, this.camera, this.time, this.player ? Math.max(0, 1 - this.player.data.sanity / 30) : 0, this.player ? this.player.damageFlash : 0, this.settings.reducedMotion || this.settings.reducedFlashes, this.ghostThreat());
+          const qCfg = G.Config.quality[this.settings.quality] || G.Config.quality.high;
+          if (this.settings.postFX) this.post.render(this.scene, this.camera, this.time, this.player ? Math.max(0, 1 - this.player.data.sanity / 30) : 0, this.player ? this.player.damageFlash : 0, this.settings.reducedMotion || this.settings.reducedFlashes, this.ghostThreat(), this.settings.volumetricFog, qCfg.fogSteps || 14);
           else this.renderer.render(this.scene, this.camera);
         }
       } catch (error) { console.error(error); this.setState('error'); el('error-title').textContent = 'Game gặp lỗi'; el('error-message').textContent = error.message || String(error); this.running = false; return; }

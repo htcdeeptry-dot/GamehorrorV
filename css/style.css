@@ -260,7 +260,9 @@ progress::-moz-progress-bar { background: var(--bar-color, var(--gold)); }
 #puzzle-feedback { min-height: 1.7em; margin: 18px 0 0; color: #dba18d; }
 fieldset { border: 0; border-top: 1px solid var(--line); padding: 16px 0 20px; margin: 0; }
 legend { color: var(--gold); font-family: "LeThon Noto", sans-serif; padding-right: 10px; }
-.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 43px; font-size: .85rem; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 40px; font-size: .85rem; }
+.setting-val { color: var(--gold); margin-left: 8px; font-variant-numeric: tabular-nums; font-size: .78rem; }
+.panel.wide-settings { width: min(640px, 100%); }
 input[type="range"] { width: 44%; accent-color: var(--gold); }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blood); }
 select { padding: 7px 10px; border: 1px solid var(--line); color: var(--text); background: #211c1d; }

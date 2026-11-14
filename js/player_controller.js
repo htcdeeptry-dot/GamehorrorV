@@ -8,17 +8,72 @@
       this.breathExhausted = false; this.regenDelay = 0; this.invulnerability = 0; this.talismanCooldown = 0; this.damageFlash = 0; this.stepDistance = 0; this.bobPhase = 0; this.healTimer = 0;
       this.direction = new THREE.Vector3(); this.lookEuler = new THREE.Euler(0, 0, 0, 'YXZ'); this.flashDirection = new THREE.Vector3(0, 0, -1);
       const cfg = G.Config.player.flashlight;
-      this.flashlight = new THREE.SpotLight(0xffe8c0, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay); this.flashlight.castShadow = app.settings.quality !== 'low'; this.flashlight.shadow.mapSize.set(1024, 1024); this.flashlight.shadow.bias = -.0004; this.flashlight.shadow.normalBias = .025;
+      const shMapSize = { low: 512, medium: 1024, high: 2048 }[app.settings.shadowQuality || 'medium'] || 1024;
+      this.flashlight = new THREE.SpotLight(0xffe8c0, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay); this.flashlight.castShadow = app.settings.shadowQuality !== 'off'; this.flashlight.shadow.mapSize.set(shMapSize, shMapSize); this.flashlight.shadow.bias = -.0004; this.flashlight.shadow.normalBias = .025;
       this.flashTarget = new THREE.Object3D(); this.flashlight.target = this.flashTarget; app.scene.add(this.flashlight, this.flashTarget);
       this.fillLight = new THREE.PointLight(0xb1b7b9, .14, 3); app.scene.add(this.fillLight);
       this.hand = new THREE.Group(); this.camera.add(this.hand); app.scene.add(this.camera);
-      const body = app.models.cylinder(this.hand, .035, .04, .18, [.19, -.17, -.3], app.models.mat(0x34393a, .4, .6)); body.rotation.x = Math.PI / 2;
-      const lens = app.models.cylinder(this.hand, .055, .035, .055, [.19, -.17, -.40], app.models.mat(0xc0bea2, .15, .65)); lens.rotation.x = Math.PI / 2;
-      const handSkin=app.models.sharedMaterial('first-person-skin',{map:app.textures.skin(false),color:0xb2987e,roughness:.7});
-      app.models.curve(this.hand,[[.33,-.46,-.08],[.25,-.29,-.19],[.20,-.22,-.28]],.035,app.textures.material('cloth',0x465653),14);
-      app.models.ellipsoid(this.hand,[.20,-.21,-.29],[.039,.03,.052],handSkin);
-      for(let i=0;i<4;i++)app.models.curve(this.hand,[[.17,-.21,-.32+i*.02],[.151,-.177,-.32+i*.02],[.17,-.141,-.32+i*.02],[.195,-.137,-.32+i*.02]],.008,handSkin,10);
-      app.models.curve(this.hand,[[.225,-.22,-.29],[.235,-.18,-.33],[.22,-.155,-.35]],.011,handSkin,10);
+      // Detailed tactical vintage metal flashlight
+      const gunmetal = app.textures.material('iron', 0x2b2f32);
+      const brass = app.models.mat(0x9a7d44, .35, .82);
+      const gripMat = app.models.mat(0x181b1c, .88, .05);
+      const flashPivot = app.models.joint(this.hand, [.19, -.17, -.31]);
+      flashPivot.rotation.set(.04, .03, 0);
+      const body = app.models.cylinder(flashPivot, .025, .026, .19, [0, 0, .01], gunmetal, 24); body.rotation.x = Math.PI / 2;
+      const grip = app.models.cylinder(flashPivot, .0265, .0265, .105, [0, 0, .015], gripMat, 24); grip.rotation.x = Math.PI / 2;
+      [-.035, -.01, .015, .04].forEach(z => app.models.mesh(flashPivot, 'TorusGeometry', [.0265, .0022, 6, 20], gunmetal, [0, 0, z]));
+      const tailCap = app.models.cylinder(flashPivot, .027, .024, .025, [0, 0, .11], gunmetal, 20); tailCap.rotation.x = Math.PI / 2;
+      const bezel = app.models.cylinder(flashPivot, .042, .027, .058, [0, 0, -.105], gunmetal, 24); bezel.rotation.x = Math.PI / 2;
+      const rim = app.models.cylinder(flashPivot, .044, .044, .014, [0, 0, -.136], brass, 24); rim.rotation.x = Math.PI / 2;
+      app.models.box(flashPivot, [.012, .009, .026], [0, .028, -.055], brass);
+      this.lensMat = app.models.sharedMaterial('fp-flash-lens', {
+        color: 0xe6dec5, emissive: 0xffe4ad, emissiveIntensity: .85, roughness: .12, metalness: .15
+      });
+      const lensDisc = app.models.mesh(flashPivot, 'CircleGeometry', [.038, 24], this.lensMat, [0, 0, -.140], [Math.PI, 0, 0]);
+      lensDisc.castShadow = false;
+
+      // Sculpted rain-jacket sleeve, folded cuff & articulated gripping hand
+      const sleeveMat = app.textures.material('cloth', 0x354442);
+      const cuffMat = app.textures.material('cloth', 0x26312f);
+      const handSkin = app.models.sharedMaterial('first-person-skin', app.textures.createSkinSssMaterial({
+        map: app.textures.skin(false),
+        normalMap: app.textures.skinMicro(),
+        normalScale: new THREE.Vector2(.28, .28),
+        roughness: .56,
+        color: 0xd0ac92,
+        skinning: false,
+        morphTargets: false,
+        ghost: false
+      }));
+      const nailMat = app.models.mat(0xc29e8d, .42, 0);
+      app.models.curve(this.hand, [[.36, -.48, -.04], [.28, -.31, -.16], [.22, -.22, -.245]], .040, sleeveMat, 14);
+      const cuff = app.models.cylinder(this.hand, .036, .040, .032, [.216, -.216, -.248], cuffMat, 18);
+      cuff.rotation.set(-.58, -.45, .18);
+      app.models.cylinder(this.hand, .025, .028, .045, [.214, -.208, -.265], handSkin, 14).rotation.set(-.52, -.42, .16);
+      app.models.ellipsoid(this.hand, [.210, -.196, -.288], [.033, .027, .048], handSkin);
+      app.models.ellipsoid(this.hand, [.220, -.186, -.296], [.020, .016, .030], handSkin);
+      for (let i = 0; i < 4; i++) {
+        const z = -.272 - i * .0175, reach = [.002, -.001, 0, .003][i];
+        app.models.curve(this.hand, [
+          [.188, -.198, z],
+          [.161, -.180, z - .002],
+          [.162 + reach, -.151, z - .002],
+          [.184 + reach, -.144, z]
+        ], [.0082, .0084, .0080, .0070][i], handSkin, 12);
+        app.models.ellipsoid(this.hand, [.161, -.179, z - .002], [.009, .008, .008], handSkin);
+        app.models.ellipsoid(this.hand, [.184 + reach, -.140, z], [.005, .0025, .0055], nailMat);
+      }
+      // Thumb poised cleanly near flashlight switch
+      app.models.curve(this.hand, [[.224, -.195, -.284], [.228, -.166, -.316], [.212, -.146, -.346]], .0095, handSkin, 10);
+      app.models.ellipsoid(this.hand, [.210, -.142, -.349], [.006, .003, .0065], nailMat);
+      app.models.bakeRigid(this.hand);
+      const beamGeo = new THREE.CylinderGeometry(1.42, .038, 7.2, 24, 1, true);
+      beamGeo.rotateX(-Math.PI / 2);
+      this.flashBeam = new THREE.Mesh(beamGeo, app.textures.createBeamMaterial(0xffe4ad, .10));
+      this.flashBeam.position.set(0, 0, -3.74);
+      this.flashBeam.castShadow = this.flashBeam.receiveShadow = false;
+      this.flashBeam.renderOrder = 2;
+      flashPivot.add(this.flashBeam);
       this.burningTalisman = app.models.item('talisman'); this.burningTalisman.position.set(-.22, -.22, -.45); this.burningTalisman.scale.setScalar(.65); this.burningTalisman.visible = false; this.camera.add(this.burningTalisman);
       this.burnLight = new THREE.PointLight(0xff8338, 0, 5, 2); this.camera.add(this.burnLight); this.burnTimer = 0;
       this.onMouse = e => { if (this.app.state !== 'playing' || document.pointerLockElement !== this.canvas) return; const sensitivity = this.app.settings.mouseSensitivity; this.yaw -= e.movementX * sensitivity; this.pitch = G.Utils.clamp(this.pitch - e.movementY * sensitivity, -1.48, 1.48); };
@@ -118,9 +173,20 @@
       this.camera.getWorldDirection(this.direction); if (!dt) this.flashDirection.copy(this.direction); else this.flashDirection.lerp(this.direction, 1 - Math.exp(-8 * dt)).normalize();
       const offset = new THREE.Vector3(.18, -.15, -.25).applyQuaternion(this.camera.quaternion); this.flashlight.position.copy(this.camera.position).add(offset); this.flashTarget.position.copy(this.flashlight.position).addScaledVector(this.flashDirection, 12);
       const flicker = this.data.battery < 15 && !this.app.settings.reducedFlashes ? .55 + .45 * Math.abs(Math.sin(time * 27) * Math.sin(time * 13)) : 1;
-      this.flashlight.intensity = c.flashlight.intensity * flicker; this.flashlight.visible = this.data.flashlightOn && this.data.battery > 0 && !this.hiddenSpot; this.hand.visible = !this.hiddenSpot;
-      this.hand.rotation.z = reduced ? 0 : Math.sin(this.bobPhase) * .018 * Math.min(speed, 1); this.fillLight.position.copy(this.camera.position); this.fillLight.visible = !this.hiddenSpot;
+      const lightOn = this.data.flashlightOn && this.data.battery > 0 && !this.hiddenSpot;
+      this.flashlight.intensity = c.flashlight.intensity * flicker; this.flashlight.visible = lightOn; this.hand.visible = !this.hiddenSpot;
+      if (this.lensMat) this.lensMat.emissiveIntensity = lightOn ? .88 * flicker : 0;
+      if (this.flashBeam) {
+        this.flashBeam.visible = lightOn && this.app.settings.volumetricBeams !== false;
+        this.flashBeam.material.uniforms.uTime.value = time;
+        this.flashBeam.material.uniforms.uOpacity.value = .09 * flicker;
+      }
+      const swayX = reduced ? 0 : Math.cos(this.bobPhase) * .007 * Math.min(speed, 1);
+      const swayY = reduced ? 0 : Math.abs(Math.sin(this.bobPhase)) * -.008 * Math.min(speed, 1) + Math.sin(time * 1.9) * .0025;
+      this.hand.position.set(swayX, swayY, 0);
+      this.hand.rotation.set(reduced ? 0 : Math.sin(time * 1.9) * .006, 0, reduced ? 0 : Math.sin(this.bobPhase) * .018 * Math.min(speed, 1));
+      this.fillLight.position.copy(this.camera.position); this.fillLight.visible = !this.hiddenSpot;
     }
-    dispose() { document.removeEventListener('mousemove', this.onMouse); document.removeEventListener('keydown', this.onDown); document.removeEventListener('keyup', this.onUp); this.camera.remove(this.hand, this.burningTalisman, this.burnLight); this.app.scene.remove(this.flashlight, this.flashTarget, this.fillLight); if (this.flashlight.shadow.map) this.flashlight.shadow.map.dispose(); }
+    dispose() { document.removeEventListener('mousemove', this.onMouse); document.removeEventListener('keydown', this.onDown); document.removeEventListener('keyup', this.onUp); this.camera.remove(this.hand, this.burningTalisman, this.burnLight); this.app.scene.remove(this.flashlight, this.flashTarget, this.fillLight); if (this.flashlight.shadow.map) this.flashlight.shadow.map.dispose(); if (this.flashBeam) { this.flashBeam.geometry.dispose(); this.flashBeam.material.dispose(); } }
   };
 }(window.Game = window.Game || {}));
