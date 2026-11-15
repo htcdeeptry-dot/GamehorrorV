@@ -1,24 +1,22 @@
-# HUYẾT LỆ THÔN — The Weeping Village
+# HUYẾT LỆ THÔN: OÁN LINH
 
-Game kinh dị sinh tồn góc nhìn thứ nhất, xây dựng bằng Three.js và Web Audio API. Phiên bản 0.6.0.
+Game kinh dị sinh tồn góc nhìn thứ nhất chạy trực tiếp trong trình duyệt. Bối cảnh: mùa thu 1994, làng Âm Linh ở vùng cao phía Bắc, mắc kẹt trong một đêm trăng máu lặp lại mỗi sáu mươi năm.
 
 ## Chạy game
 
-Tải repository về máy, giải nén và mở `index.html` bằng trình duyệt Chrome hoặc Edge trên máy tính. Không cần cài dependency hay chạy server. Three.js được tải từ CDN và có bản dự phòng nhúng để sử dụng khi mất kết nối.
+Tải repository về, mở `index.html` bằng Chrome, Edge hoặc Firefox bản mới. Không cần server, không cần mạng, không có thư viện hay tài nguyên ngoài: toàn bộ hình khối, texture, nhân vật và âm thanh được sinh bằng code khi tải game.
 
-Nhấn bắt đầu để kích hoạt âm thanh và điều khiển chuột. Các phím điều khiển được hiển thị trong game.
+Bảng phím và ghi chú nằm trong `DOC_TRUOC.txt` và mục Điều khiển trong menu. Cấu hình đồ hoạ (Thấp / Trung bình / Cao / Cực cao, tự dò theo GPU, độ phân giải động) nằm trong mục Thiết lập.
 
 ## Cấu trúc
 
-- `index.html`: khởi động và giao diện.
-- `css/style.css`: giao diện, hiệu ứng và font tiếng Việt nhúng.
-- `js/`: cấu hình, texture, âm thanh, model, bản đồ, điều khiển, AI, giải đố và game loop.
-
-## Tài nguyên và ghi công
-
-- Three.js r128: MIT, thông tin bản quyền được giữ trong bản thư viện nhúng.
-- Mesh, trang phục, tóc và texture nhân vật từ MakeHuman system assets (CC0): https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html
-- Font Noto Sans: SIL Open Font License; nội dung giấy phép được lưu trong `css/style.css`.
-- Lồng tiếng Minh, Lan và Tuấn được tạo bằng ElevenLabs. Hùng hiện dùng phụ đề.
-
-Các model, texture, font và âm thanh cần thiết được nhúng trong mã để hỗ trợ mở trực tiếp bằng `file://`.
+- `index.html`, `css/style.css`: giao diện, HUD, khung cắt cảnh.
+- `js/config.js`, `js/story.js`: hằng số, cấu hình đồ hoạ, 16 trang nhật ký, lời thoại, ba kết thúc.
+- `js/engine.js`, `js/shaders.js`: engine WebGL2 tự viết (gộp lưới tĩnh, instancing, skinning và biến hình trên GPU, hậu kỳ).
+- `js/procedural_assets.js`: nhiễu Perlin/Worley và texture PBR thủ tục.
+- `js/audio.js`: âm thanh tổng hợp bằng Web Audio API, định vị 3D.
+- `js/models.js`, `js/world.js`: kiến trúc, cây cối, bản đồ năm khu, va chạm.
+- `js/characters.js`: nhân vật người (khung xương, khuôn mặt, khẩu hình, biểu cảm, chuyển động).
+- `js/player.js`, `js/ai.js`, `js/puzzles.js`: người chơi, Lệ Nương và đạo diễn nhịp sợ, câu đố.
+- `js/cutscenes.js`: hệ cắt cảnh điện ảnh.
+- `js/main.js`: vòng lặp, thiết lập, lưu/tải.
