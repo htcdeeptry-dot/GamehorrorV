@@ -580,6 +580,7 @@
       var d = Math.max(eye, mo);
       return [(1 - d) * (1 - tear * 0.45), (1 - d) * (1 - tear * 0.95), (1 - d) * (1 - tear * 0.95), 0];
     });
+    if (H.Chars) hg = H.Chars.headGeo({ ghost: true, jaw: 0.9, lip: 1.1 }).xf(0, 0, 0, 0, 0, 0, 1.3);
     var head = neck.add(new Node(R.mesh(hg), skin)); head.set(0, 0.13, 0.01);
     for (k = -1; k <= 1; k += 2) {
       var ey = head.add(new Node(R.mesh(Geo.sphere(0.011, 8, 6)), eyeM)); ey.set(k * 0.042, 0.018, 0.094);

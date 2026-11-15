@@ -450,6 +450,11 @@
     gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 48, 32);
     var ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, n > 65535 ? new Uint32Array(geo.i) : new Uint16Array(geo.i), gl.STATIC_DRAW);
+    if (geo.extra) { // thuộc tính bổ sung: trọng số xương (skin) hoặc mục tiêu biến hình (morph)
+      var xb = gl.createBuffer(), st = 0, off = 0; gl.bindBuffer(gl.ARRAY_BUFFER, xb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geo.extra.data), gl.STATIC_DRAW);
+      geo.extra.layout.forEach(function (l) { st += l[1]; });
+      geo.extra.layout.forEach(function (l) { gl.enableVertexAttribArray(l[0]); gl.vertexAttribPointer(l[0], l[1], gl.FLOAT, false, st * 4, off * 4); off += l[1]; });
+    }
     gl.bindVertexArray(null);
     var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
     return { vao: vao, count: geo.i.length, type: n > 65535 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, center: [cx, cy, cz], radius: Math.hypot(x1 - cx, y1 - cy, z1 - cz) };
@@ -527,7 +532,7 @@
   };
 
   var lightPos = new Float32Array(16 * 4), lightCol = new Float32Array(16 * 3), lightN = 0, roofU = new Float32Array(24);
-  var _c = [0, 0, 0], opaque = [], transp = [];
+  var _c = [0, 0, 0], opaque = [], transp = [], opSkin = [], opMorph = [], _bm = M.create();
 
   function setFrame(pr) {
     var e = R.env, cam = R.cam;
@@ -555,6 +560,7 @@
     gl.uniform4f(U(pr, 'uMat'), mat.rough === undefined ? 1 : mat.rough, mat.nscale === undefined ? 1 : mat.nscale, mat.skin || 0, mat.unlit || 0);
     gl.uniform1f(U(pr, 'uUVScale'), (mat.uv || 1) * (tm.uv || 1));
     gl.uniform1f(U(pr, 'uCloth'), mat.cloth || 0);
+    gl.uniform4f(U(pr, 'uMat2'), mat.sss || 0, mat.rim || 0, 0, 0);
   }
   var STATIC_MATS = {};
   R.staticMat = function (name) { return STATIC_MATS[name] || (STATIC_MATS[name] = { tex: name }); };
@@ -566,7 +572,7 @@
       var sc = Math.max(Math.abs(n.scl[0]), Math.abs(n.scl[1]), Math.abs(n.scl[2]));
       if (visible(_c, n.mesh.radius * sc * 1.5 + 0.5)) {
         var m = n.mat;
-        if (m.additive || m.blend || (m.tint && m.tint[3] < 0.995)) transp.push(n); else opaque.push(n);
+        if (m.additive || m.blend || (m.tint && m.tint[3] < 0.995)) transp.push(n); else if (n.skin) opSkin.push(n); else if (n.morph) opMorph.push(n); else opaque.push(n);
       }
     }
     for (var k = 0; k < n.children.length; k++) collect(n.children[k]);
@@ -629,10 +635,22 @@
       drawMesh(s.mesh);
     }
     // ---- node động
-    opaque.length = 0; transp.length = 0;
+    opaque.length = 0; transp.length = 0; opSkin.length = 0; opMorph.length = 0;
     for (k = 0; k < R.nodes.length; k++) collect(R.nodes[k]);
     for (k = 0; k < opaque.length; k++) {
       var n = opaque[k]; setMat(pl, n.mat); gl.uniformMatrix4fv(U(pl, 'uModel'), false, n.world); drawMesh(n.mesh);
+    }
+    if (opSkin.length) { // thân nhân vật: linear blend skinning trên GPU
+      var pk = prog('lit', S.litVS, S.litFS, defs + '#define SKIN\n'); gl.useProgram(pk.p); setFrame(pk);
+      for (k = 0; k < opSkin.length; k++) {
+        n = opSkin[k]; var sk = n.skin;
+        for (var b = 0; b < sk.joints.length; b++) { M.mul(_bm, sk.joints[b].world, sk.inv[b]); sk.data.set(_bm, b * 16); }
+        gl.uniformMatrix4fv(U(pk, 'uBones[0]'), false, sk.data); setMat(pk, n.mat); drawMesh(n.mesh);
+      }
+    }
+    if (opMorph.length) { // khuôn mặt: 6 mục tiêu biến hình (khẩu hình + biểu cảm)
+      var pm = prog('lit', S.litVS, S.litFS, defs + '#define MORPH\n'); gl.useProgram(pm.p); setFrame(pm);
+      for (k = 0; k < opMorph.length; k++) { n = opMorph[k]; gl.uniform1fv(U(pm, 'uMorph[0]'), n.morph); setMat(pm, n.mat); gl.uniformMatrix4fv(U(pm, 'uModel'), false, n.world); drawMesh(n.mesh); }
     }
     // ---- instancing (tre)
     if (R.instGroups.length) {
@@ -708,7 +726,7 @@
     }
     // ---- uber-shader hậu kỳ
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, R.canvas.width, R.canvas.height);
-    var pd = (q.bloom ? '#define BLOOM\n' : '') + (q.chroma ? '#define CHROMA\n' : '') + (q.mistNoise ? '#define MISTNOISE\n' : '');
+    var pd = (q.bloom ? '#define BLOOM\n' : '') + (q.chroma ? '#define CHROMA\n' : '') + (q.mistNoise ? '#define MISTNOISE\n' : '') + (q.sharpen ? '#define SHARP\n' : '') + (q.ssao ? '#define SSAO\n' : '');
     var pf = prog('post', S.fullVS, S.postFS, pd);
     gl.useProgram(pf.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rt.tex);
@@ -725,6 +743,7 @@
     gl.uniform4f(U(pf, 'uFx3'), e.flHaze, e.flScreen[0], e.flScreen[1], e.xenon[0]);
     gl.uniform4f(U(pf, 'uFx4'), po.fade, po.desat, po.white, po.scan);
     gl.uniform4f(U(pf, 'uFx5'), po.sepia || 0, 0, 0, 0);
+    gl.uniform4f(U(pf, 'uPx'), 1 / rt.w, 1 / rt.h, 0.07, far);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
   };

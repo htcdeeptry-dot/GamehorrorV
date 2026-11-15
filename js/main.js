@@ -39,6 +39,7 @@
     ['dpr', 'Giới hạn độ nét (DPR)', 'range', 1, 2, 0.25, function (v) { return v + 'x'; }],
     ['tex', 'Texture (cần tải lại)', 'select', [256, 512, 1024]],
     ['aniso', 'Lọc bất đẳng hướng', 'select', [1, 2, 4, 8]],
+    ['sharpen', 'Làm nét hình ảnh', 'check'], ['ssao', 'Đổ bóng khe (SSAO)', 'check'],
     ['bloom', 'Bloom (quầng sáng)', 'check'], ['normal', 'Normal map', 'check'], ['chroma', 'Sắc sai / méo ống kính', 'check'],
     ['mistNoise', 'Sương cuộn (noise)', 'check'], ['grain', 'Hạt phim', 'check'], ['dynRes', 'Độ phân giải động', 'check'],
     ['targetFps', 'FPS mục tiêu', 'range', 30, 120, 5, function (v) { return v; }],
@@ -296,7 +297,7 @@
       // độ phân giải động: giữ FPS mục tiêu bằng cách co giãn buffer kết xuất
       if (S.dynRes && (Main.state === 'play' || Main.state === 'menu')) {
         dynT++;
-        if (fps < S.targetFps * 0.88) R.dynScale = Math.max(0.5, R.dynScale - (fps < S.targetFps * 0.6 ? 0.12 : 0.06));
+        if (fps < S.targetFps * 0.88) R.dynScale = Math.max(0.65, R.dynScale - (fps < S.targetFps * 0.6 ? 0.12 : 0.06));
         else if (fps > S.targetFps * 1.12 && R.dynScale < 1 && dynT % 4 === 0) R.dynScale = Math.min(1, R.dynScale + 0.05);
       } else if (!S.dynRes) R.dynScale = 1;
       if (S.showFps) $('fps').textContent = fps.toFixed(0) + ' FPS  ' + Math.round(R.sceneRT ? R.sceneRT.w : 0) + 'x' + (R.sceneRT ? R.sceneRT.h : 0) + '\n' + R.stats.draws + ' draw  ' + Math.round(R.stats.tris / 1000) + 'k tri'; else if ($('fps').textContent) $('fps').textContent = '';

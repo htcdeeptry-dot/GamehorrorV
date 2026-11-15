@@ -8,17 +8,17 @@
 
   CFG.VERSION = '1.0';
   CFG.SAVE_KEY = 'HuyetLeThon_save_v1';
-  CFG.SET_KEY = 'HuyetLeThon_settings_v1';
+  CFG.SET_KEY = 'HuyetLeThon_settings_v2';
 
   /* ---------- Cấu hình đồ hoạ: máy yếu -> máy mạnh ---------- */
   CFG.QUALITY = {
-    low:    { label: 'Thấp',       scale: 0.5,  tex: 256,  lights: 3,  bloom: false, normal: false, chroma: false, mistNoise: false, rain: 1200, bamboo: 0.25, view: 70,  aniso: 1, dpr: 1 },
-    medium: { label: 'Trung bình', scale: 0.7,  tex: 512,  lights: 5,  bloom: true,  normal: true,  chroma: true,  mistNoise: true,  rain: 3000, bamboo: 0.5,  view: 95,  aniso: 2, dpr: 1 },
-    high:   { label: 'Cao',        scale: 0.85, tex: 1024, lights: 8,  bloom: true,  normal: true,  chroma: true,  mistNoise: true,  rain: 6000, bamboo: 0.75, view: 130, aniso: 4, dpr: 1.5 },
-    ultra:  { label: 'Cực cao',    scale: 1.0,  tex: 1024, lights: 12, bloom: true,  normal: true,  chroma: true,  mistNoise: true,  rain: 9000, bamboo: 1.0,  view: 170, aniso: 8, dpr: 2 }
+    low:    { label: 'Thấp',       sharpen: false, ssao: false, scale: 0.6,  tex: 256,  lights: 3,  bloom: false, normal: false, chroma: false, mistNoise: false, rain: 1200, bamboo: 0.25, view: 70,  aniso: 1, dpr: 1 },
+    medium: { label: 'Trung bình', sharpen: true, ssao: false, scale: 0.85,  tex: 512,  lights: 5,  bloom: true,  normal: true,  chroma: true,  mistNoise: true,  rain: 3000, bamboo: 0.5,  view: 95,  aniso: 2, dpr: 1 },
+    high:   { label: 'Cao',        sharpen: true, ssao: true, scale: 1.0, tex: 1024, lights: 8,  bloom: true,  normal: true,  chroma: true,  mistNoise: true,  rain: 6000, bamboo: 0.75, view: 130, aniso: 4, dpr: 1.5 },
+    ultra:  { label: 'Cực cao',    sharpen: true, ssao: true, scale: 1.0,  tex: 1024, lights: 12, bloom: true,  normal: true,  chroma: true,  mistNoise: true,  rain: 9000, bamboo: 1.0,  view: 170, aniso: 8, dpr: 2 }
   };
   CFG.DEFAULT_SETTINGS = {
-    preset: 'medium', scale: 0.7, tex: 512, lights: 5, bloom: true, normal: true, chroma: true, mistNoise: true,
+    preset: 'medium', sharpen: true, ssao: false, scale: 0.85, tex: 512, lights: 5, bloom: true, normal: true, chroma: true, mistNoise: true,
     rain: 3000, bamboo: 0.5, view: 95, aniso: 2, dpr: 1,
     dynRes: true, targetFps: 50, fov: 72, sens: 1.0, volume: 0.8, showFps: false, grain: true
   };

@@ -22,7 +22,7 @@ CỐT TRUYỆN & CẮT CẢNH (bản mở rộng)
     Nhấn Enter để bỏ qua bất kỳ cắt cảnh nào.
   - 16 trang nhật ký (trước là 8), 3 kết thúc: Vòng Lặp Vĩnh Cửu, Siêu Thoát, và
     kết thúc ẩn Đoàn Viên (cần tìm thêm một vật sau khi rời Nghĩa Địa).
-  - Việc phụ không bắt buộc: chiếc ba lô bên giếng; tiếng thút thít trong tủ ở ngôi
+  - Việc phụ không bắt buộc: chiếc ba lô bên giếng; người ngồi co ro trong góc ngôi
     nhà phía đông bắc (sau khi qua giếng).
 
 GHI CHÚ KỸ THUẬT: js/story.js và js/cutscenes.js chứa cốt truyện mở rộng và hệ cắt cảnh.
