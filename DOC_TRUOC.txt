@@ -1,0 +1,30 @@
+HUYẾT LỆ THÔN: OÁN LINH
+=======================
+CÁCH CHẠY: nhấp đúp index.html (Chrome / Edge / Firefox bản mới). Không cần server, không cần mạng.
+Nên đeo tai nghe (âm thanh HRTF 3D) và chơi toàn màn hình.
+
+ĐIỀU KHIỂN
+  W A S D ........ di chuyển          Shift ...... chạy
+  Ctrl hoặc X .... cúi, đi khẽ        F .......... đèn pin
+  C .............. nâng/hạ máy ảnh    Chuột trái . chụp (đèn Xenon)
+  giữ R .......... soi gương đồng     E .......... tương tác / trốn
+  giữ Space ...... nín thở khi trốn   Tab ........ túi đồ, nhật ký
+  Esc / P ........ tạm dừng
+  (Trình duyệt dành Ctrl+W để đóng tab: khi đi khẽ về phía trước hãy dùng X.)
+
+ĐỒ HOẠ: Menu > Thiết lập đồ hoạ. Có 4 cấu hình Thấp / Trung bình / Cao / Cực cao,
+nút "Tự dò" theo GPU, và "Độ phân giải động" tự hạ độ phân giải khi tụt FPS.
+Đổi chất lượng texture cần tải lại trang.
+
+CỐT TRUYỆN & CẮT CẢNH (bản mở rộng)
+  - 10 cắt cảnh điện ảnh dựng trong game (mở đầu, cổng làng, giếng, 3 hồi ức 1874,
+    Huyết Thư, gặp Hà, hồn Phó Bảy, đêm cháy Đình) + máy quay riêng cho kết thúc.
+    Nhấn Enter để bỏ qua bất kỳ cắt cảnh nào.
+  - 16 trang nhật ký (trước là 8), 3 kết thúc: Vòng Lặp Vĩnh Cửu, Siêu Thoát, và
+    kết thúc ẩn Đoàn Viên (cần tìm thêm một vật sau khi rời Nghĩa Địa).
+  - Việc phụ không bắt buộc: chiếc ba lô bên giếng; tiếng thút thít trong tủ ở ngôi
+    nhà phía đông bắc (sau khi qua giếng).
+
+GHI CHÚ KỸ THUẬT: js/story.js và js/cutscenes.js chứa cốt truyện mở rộng và hệ cắt cảnh.
+js/engine.js là engine WebGL2 tự viết thay cho Three.js, để game
+không phụ thuộc bất kỳ file hay CDN bên ngoài nào khi chạy qua file://.

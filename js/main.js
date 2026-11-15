@@ -1,351 +1,384 @@
-(function (G) {
+/* HUYẾT LỆ THÔN — main.js
+   Vòng lặp engine, nạp tài nguyên theo bước, bộ chuyển cấu hình đồ hoạ + độ phân giải động,
+   HUD/giao diện, nhập liệu, lưu/tải và điều phối sự kiện. */
+(function () {
   'use strict';
-  const el = id => document.getElementById(id);
-  G.App = class App {
-    constructor(options) {
-      this.canvas = options.canvas; this.state = 'boot'; this.settings = G.Storage.loadSettings(); this.bus = new G.EventBus(); this.session = null;
-      this.renderer = null; this.scene = null; this.camera = null; this.player = null; this.ghost = null; this.quest = null; this.world = null; this.textures = null; this.models = null;
-      this.sound = new G.SoundSystem(this.settings); this.post = null; this.time = 0; this.lastFrame = 0; this.frame = 0; this.autosave = 0; this.hudClock = 0;
-      this.screenHistory = []; this.cutscene = null; this.skipDown = false; this.skipTime = 0; this.dialogueQueue = []; this.subtitle = null; this.toasts = []; this.listeners = []; this.running = false; this.saveNoticeTime = 0;
-    }
-    async init() {
-      this.setState('loading'); el('loading-status').textContent = 'Đang dựng vật liệu và dấu tích Lệ Thôn…'; el('loading-progress').value = 10;
-      await Promise.all([document.fonts.load('400 18px "LeThon Noto"'),document.fonts.load('600 18px "LeThon Noto"'),document.fonts.load('700 18px "LeThon Noto"')]);await document.fonts.ready;
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      await G.ModelsFactory.prepareCharacters();
-      this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
-      this.renderer.outputEncoding = THREE.sRGBEncoding; this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.08 * this.settings.brightness; this.renderer.shadowMap.enabled = this.settings.shadowQuality !== 'off'; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.post = new G.PostProcessor(this.renderer); this.bindUI(); this.bindEvents(); this.createWorld(G.createNewSession()); this.resize(); this.applySettings();
-      el('loading-progress').value = 100; el('version-label').textContent = 'BẢN ' + G.Config.version; el('btn-continue').disabled = !G.Storage.load().ok;
-      this.setState('menu'); this.camera.position.set(8, 3.3, 54); this.camera.lookAt(0, 2, 35); this.running = true; this.lastFrame = performance.now(); this.tick = now => this.loop(now); this.frame = requestAnimationFrame(this.tick);
-    }
-    listen(node, type, fn) { node.addEventListener(type, fn); this.listeners.push(() => node.removeEventListener(type, fn)); }
-    bindEvents() {
-      this.bus.on('sound:cue', e => this.sound.cue(e.name, e.position)); this.bus.on('weather:thunder', e => this.sound.thunder(e.delay));
-      this.bus.on(G.EventNames.PLAYER_DIED, () => this.die());
-      this.bus.on(G.EventNames.GHOST_STATE, e => { if (e.state === 'chase') this.say('firstGhost', true); });
-      this.listen(window, 'resize', () => this.resize());
-      this.listen(window, 'blur', () => { if (this.state === 'playing') this.pause(); if (this.player) this.player.clearInput(); this.skipDown = false; });
-      this.listen(document, 'visibilitychange', () => { if (document.hidden && this.state === 'playing') this.pause(); });
-      this.listen(document, 'pointerlockchange', () => { if (document.pointerLockElement !== this.canvas && this.state === 'playing') this.pause(); });
-      this.listen(this.canvas, 'click', () => { if (this.state === 'playing') { this.sound.unlock(); this.player.requestPointerLock(); } });
-      this.listen(this.canvas, 'webglcontextlost', e => { e.preventDefault(); this.pause(); el('error-title').textContent = 'WebGL bị gián đoạn'; el('error-message').textContent = 'Trình duyệt đã mất kết nối đồ họa. Tải lại trang để tiếp tục từ điểm lưu gần nhất.'; this.setState('error'); });
-      this.listen(document, 'keydown', e => {
-        if (this.state === 'cutscene' && e.code === 'Enter') { this.skipDown = true; e.preventDefault(); return; }
-        if (e.repeat) return;
-        if (e.code === 'Escape') {
-          if (this.state === 'playing') this.pause(); else if (this.state === 'paused') this.resume(); else if (['settings', 'help', 'credits', 'inventory', 'journal', 'puzzle'].includes(this.state)) this.closeScreen(); return;
-        }
-        if (this.state !== 'playing') return;
-        if (e.code === 'Tab') { e.preventDefault(); this.openScreen('inventory'); this.quest.renderInventory(); }
-        if (e.code === 'KeyJ') { this.openScreen('journal'); this.quest.renderJournal(); }
-        if (e.code === 'KeyE') this.quest.interact();
-      });
-      this.listen(document, 'keyup', e => { if (e.code === 'Enter') { this.skipDown = false; this.skipTime = 0; } });
-      this.listen(window, 'pagehide', () => { if (this.session && this.session.flags.introSeen && !['dead', 'ending', 'cutscene'].includes(this.state)) this.save(false); });
-    }
-    bindUI() {
-      const bind = (id, fn) => this.listen(el(id), 'click', fn);
-      bind('btn-new-game', () => this.startNew()); bind('btn-restart', () => this.startNew()); bind('btn-continue', () => this.continueGame()); bind('btn-retry', () => this.continueGame());
-      bind('btn-resume', () => this.resume()); bind('btn-save', () => this.save(true));
-      ['btn-main-menu', 'btn-ending-menu', 'btn-death-menu'].forEach(id => bind(id, () => this.returnToMenu()));
-      ['btn-settings', 'btn-pause-settings'].forEach(id => bind(id, () => { this.openScreen('settings'); this.populateSettings(); }));
-      bind('btn-help', () => this.openScreen('help')); bind('btn-credits', () => this.openScreen('credits'));
-      ['inventory', 'journal', 'puzzle', 'settings', 'help', 'credits'].forEach(name => bind('btn-close-' + name, () => this.closeScreen()));
-      this.listen(el('settings-form'), 'submit', e => { e.preventDefault(); const source = {}; const form = el('settings-form'); Object.keys(G.Config.settingsDefaults).forEach(key => { const input = form.elements.namedItem(key); if (!input) return; source[key] = input.type === 'checkbox' ? input.checked : input.tagName === 'SELECT' ? input.value : Number(input.value); }); this.settings = G.normalizeSettings(source); G.Storage.saveSettings(this.settings); this.applySettings(); this.closeScreen(); this.toast('Đã lưu thiết lập. Độ nét texture áp dụng khi bắt đầu hoặc tải lại lượt chơi.'); });
-      this.listen(el('setting-quality'), 'change', e => {
-        const q = G.Config.quality[e.target.value]; const form = el('settings-form'); if (!q || !form) return;
-        form.elements.namedItem('renderScale').value = q.renderScale;
-        form.elements.namedItem('shadowQuality').value = q.shadowQuality;
-        form.elements.namedItem('particleDensity').value = q.particleDensity;
-        form.elements.namedItem('postFX').checked = q.postProcessing;
-        form.elements.namedItem('volumetricFog').checked = q.volumetricFog;
-        form.elements.namedItem('volumetricBeams').checked = q.volumetricBeams;
-        this.syncSettingBadges();
-      });
-      ['setting-render-scale', 'setting-particles'].forEach(id => this.listen(el(id), 'input', () => this.syncSettingBadges()));
-      this.listen(el('btn-skip-cutscene'), 'pointerdown', e => { e.preventDefault(); this.skipDown = true; el('btn-skip-cutscene').setPointerCapture(e.pointerId); });
-      ['pointerup', 'pointercancel'].forEach(type => this.listen(el('btn-skip-cutscene'), type, () => { this.skipDown = false; this.skipTime = 0; }));
-    }
-    syncSettingBadges() {
-      const form = el('settings-form'); if (!form) return;
-      const rs = el('render-scale-val'), pd = el('particles-val');
-      if (rs) rs.textContent = Math.round(Number(form.elements.namedItem('renderScale').value) * 100) + '%';
-      if (pd) pd.textContent = Math.round(Number(form.elements.namedItem('particleDensity').value) * 100) + '%';
-    }
-    populateSettings() { Object.keys(this.settings).forEach(key => { const input = el('settings-form').elements.namedItem(key); if (!input) return; if (input.type === 'checkbox') input.checked = this.settings[key]; else input.value = this.settings[key]; }); this.syncSettingBadges(); }
-    applySettings() {
-      const s = this.settings, q = G.Config.quality[s.quality] || G.Config.quality.high;
-      document.body.classList.toggle('reduced-motion', s.reducedMotion); document.body.classList.toggle('reduced-flashes', s.reducedFlashes); document.body.dataset.quality = s.quality;
-      this.sound.applySettings(s); if (!this.renderer) return;
-      const shadowsOn = s.shadowQuality !== 'off';
-      const shadowSizes = { off: 512, low: 512, medium: 1024, high: 2048 };
-      const smSize = shadowSizes[s.shadowQuality] || 1024;
-      this.renderer.shadowMap.enabled = shadowsOn;
-      this.renderer.toneMappingExposure = 1.08 * s.brightness;
-      if (this.camera && this.state !== 'cutscene') { this.camera.fov = s.fov; this.camera.updateProjectionMatrix(); }
-      if (this.models && this.scene) this.models.attachLightPool(this.scene, s.quality);
-      if (this.world) {
-        this.world.settings = s;
-        this.world.moonLight.castShadow = shadowsOn;
-        if (this.world.moonLight.shadow.mapSize.x !== smSize) {
-          this.world.moonLight.shadow.mapSize.set(smSize, smSize);
-          if (this.world.moonLight.shadow.map) { this.world.moonLight.shadow.map.dispose(); this.world.moonLight.shadow.map = null; }
-        }
-        const rainTarget = Math.min(this.world.rainCount, Math.round(q.rainCount * s.particleDensity));
-        const ashTarget = Math.min(this.world.ashCount, Math.round(q.ashCount * s.particleDensity));
-        this.world.rainGeo.setDrawRange(0, rainTarget * 2);
-        this.world.ashGeo.setDrawRange(0, ashTarget);
-        if (this.world.setBeamsVisible) this.world.setBeamsVisible(s.volumetricBeams);
-        if (this.world.applyQuality) this.world.applyQuality(s, q);
-      }
-      if (this.player) {
-        this.player.flashlight.castShadow = shadowsOn && q.spotShadows !== false;
-        const flSize = q.flShadowSize || (s.shadowQuality === 'high' ? 1024 : 512);
-        if (this.player.flashlight.shadow.mapSize.x !== flSize) {
-          this.player.flashlight.shadow.mapSize.set(flSize, flSize);
-          if (this.player.flashlight.shadow.map) { this.player.flashlight.shadow.map.dispose(); this.player.flashlight.shadow.map = null; }
-        }
-      }
-      this.resize();
-      this.prewarmShaders();
-      this.bus.emit(G.EventNames.SETTINGS_CHANGED, s);
-    }
-    prewarmShaders() {
-      if (!this.renderer || !this.scene || !this.camera) return;
-      const restored = [];
-      const reveal = obj => { if (obj && !obj.visible) { obj.visible = true; restored.push(obj); } };
-      if (this.ghost) reveal(this.ghost.hallucination);
-      if (this.player) reveal(this.player.burningTalisman);
-      if (this.world && this.world.ritualRelics) this.world.ritualRelics.forEach(reveal);
-      this.renderer.compile(this.scene, this.camera);
-      for (let i = 0; i < restored.length; i++) restored[i].visible = false;
-      if (this.post && this.settings.postFX) this.renderer.compile(this.post.scene, this.post.camera);
-    }
-    createWorld(session) {
-      this.destroyWorld(); this.session = session; this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, G.Config.camera.near, G.Config.camera.far);
-      this.textures = new G.TextureFactory(this.settings.quality); this.models = new G.ModelsFactory(this.textures); this.world = new G.WorldBuilder(this.scene, this.textures, this.models, this.bus, this.settings).build(); this.world.sync(session);
-      this.player = new G.PlayerController(this, session);this.world.player=this.player; this.ghost = new G.GhostAI(this); this.quest = new G.QuestSystem(this); this.autosave = 0; this.dialogueQueue = []; this.subtitle = null; this.cutscene = null; this.skipDown = false; this.skipTime = 0; this._hudPrev = {};
-      this.resize(); this.applySettings(); this.updateHUD();
-    }
-    destroyWorld() { if(this.sound)this.sound.stopSpeech(); if (this.quest) this.quest.dispose(); if (this.player) this.player.dispose(); if (this.ghost) this.ghost.dispose(); if (this.world) this.world.dispose(); if (this.models) this.models.dispose(); if (this.textures) this.textures.dispose(); this.quest = this.player = this.ghost = this.world = this.models = this.textures = null; }
-    async startNew() {
-      this.setState('loading'); el('loading-status').textContent = 'Màn sương đang mở lối…';
-      await this.sound.unlock(); await new Promise(resolve => requestAnimationFrame(resolve));
-      this.createWorld(G.createNewSession()); this.screenHistory = []; this.playCutscene('intro', () => { this.session.flags.introSeen = true; this.say('awakening'); this.save(false); });
-    }
-    async continueGame() {
-      const loaded = G.Storage.load(); if (!loaded.ok) { this.toast(loaded.reason === 'empty' ? 'Chưa có điểm lưu. Hãy bắt đầu lượt chơi mới.' : G.UIText.messages.corruptSave, 'warning'); return; }
-      this.setState('loading'); await this.sound.unlock(); await new Promise(resolve => requestAnimationFrame(resolve)); this.createWorld(loaded.data); this.screenHistory = []; this.setState('playing'); this.player.requestPointerLock();
-    }
-    setState(state) {
-      const old = this.state; this.state = state; document.body.dataset.state = state;
-      document.querySelectorAll('.screen').forEach(screen => { screen.hidden = screen.id !== (state === 'boot' ? 'loading' : state === 'paused' ? 'pause' : state === 'dead' ? 'death' : state) + '-screen'; });
-      el('hud').hidden = state !== 'playing'; el('cinematic-bars').hidden = state !== 'cutscene'; el('btn-skip-cutscene').hidden = state !== 'cutscene' || !this.cutscene || !this.cutscene.config.skippable;
-      if (state !== 'playing') { if (this.player) this.player.clearInput(); if (document.pointerLockElement === this.canvas) document.exitPointerLock(); }
-      if (!['playing', 'cutscene'].includes(state)) { el('subtitle-container').hidden = true; this.sound.pause(true); } else this.sound.pause(false);
-      this.bus.emit(G.EventNames.STATE_CHANGED, { previous: old, state: state });
-      const panel = document.querySelector('.screen:not([hidden])'); if (panel && state !== 'loading') { const focusable = panel.querySelector('button:not(:disabled), input'); if (focusable) focusable.focus({ preventScroll: true }); }
-    }
-    openScreen(state) { this.screenHistory.push(this.state); this.setState(state); if (this.quest) { this.quest.hold = null; el('interaction-progress').hidden = true; } }
-    closeScreen(lock) { const previous = this.screenHistory.pop() || (this.session && this.session.flags.introSeen ? 'paused' : 'menu'); this.setState(previous); if (previous === 'playing' && lock !== false) { this.sound.unlock(); this.player.requestPointerLock(); } }
-    pause() { if (this.state !== 'playing') return; this.setState('paused'); }
-    resume() { this.setState('playing'); this.sound.unlock(); this.player.requestPointerLock(); }
-    returnToMenu() { this.sound.stopSpeech();if(this.cutscene)this.world.endCinematic(this.cutscene.config.id); if (this.session && this.session.flags.introSeen && !['dead', 'ending'].includes(this.state)) this.save(false); this.screenHistory = []; this.cutscene = null; this.dialogueQueue = []; this.subtitle = null; this.setState('menu'); el('btn-continue').disabled = !G.Storage.load().ok; this.camera.position.set(8, 3.3, 54); this.camera.lookAt(0, 2, 35); }
-    save(notify) {
-      if (!this.session || !this.session.flags.introSeen || ['dead', 'ending'].includes(this.state)) return false;
-      this.session.player.position = this.player.position.toArray(); this.session.player.yaw = this.player.yaw; this.session.player.pitch = this.player.pitch;
-      const snapshot = G.Utils.clone(this.session); if (this.player.hiddenSpot) snapshot.player.position = this.player.hiddenSpot.exit.toArray();
-      const result = G.Storage.save(snapshot); if (result.ok) { this.saveNoticeTime = 2; el('save-indicator').hidden = false; if (notify) this.toast(G.UIText.messages.saved); } else if (notify) this.toast(G.UIText.messages.saveUnavailable, 'warning'); return result.ok;
-    }
-    playCutscene(id, onComplete) {
-      this.sound.stopSpeech();
-      const config = G.Cutscenes[id]; this.cutscene = { config: config, elapsed: 0, fired: new Set(), onComplete: onComplete }; this.skipTime = 0; this.skipDown = false; this.dialogueQueue = []; this.subtitle = null;
-      this.world.beginCinematic(id);
-      this.player.flashlight.visible = false; this.player.hand.visible = false; this.setState('cutscene'); if (config.dialogue && !config.cues) this.say(config.dialogue); if (id === 'jumpscare') this.sound.jumpscare(); this.updateCutscene(0);
-    }
-    updateCutscene(dt) {
-      const cut = this.cutscene; if (!cut) return; cut.elapsed += dt;
-      if (this.skipDown && cut.config.skippable) this.skipTime += dt; else this.skipTime = 0; el('skip-progress').value = this.skipTime / G.Config.runtime.skipHoldSeconds;
-      const t = Math.min(cut.elapsed, cut.config.duration), frames = cut.config.frames; let a = frames[0], b = frames[frames.length - 1];
-      const storyTime = t * (cut.config.id === 'intro' || cut.config.id === 'ritual' ? 18 / cut.config.duration : 1);
-      this.world.companions.forEach((c,id)=>c.model.userData.speechLevel=this.sound.speechLevel({lan:'lan',tuan:'tuấn',hung:'hùng'}[id]));this.world.updateCinematic(cut.config.id, storyTime);
-      (cut.config.cues || []).forEach((cue,i)=>{if(t>=cue.time&&!cut.fired.has(i)){cut.fired.add(i);if(cue.text&&t<cue.time+(cue.duration||4)){this.showSubtitle(cue.speaker||'',cue.text,(cue.duration||4)-(t-cue.time));this.sound.speak(cue.speaker||'',cue.text,t-cue.time);}if(cue.sound)this.sound.cue(cue.sound);}});
-      for (let i = 1; i < frames.length; i++) if (t <= frames[i].time) { a = frames[i - 1]; b = frames[i]; break; }
-      if (cut.config.shots) { const shot = cut.config.shots.find(s => t >= s.start && t < s.end) || cut.config.shots[cut.config.shots.length - 1]; a = Object.assign({time:shot.start},shot.from); b = Object.assign({time:shot.end},shot.to); }
-      let u = b.time === a.time ? 0 : G.Utils.clamp((t - a.time) / (b.time - a.time), 0, 1); u = u * u * (3 - 2 * u);
-      const toWorld = (frame, key) => { const v = new THREE.Vector3().fromArray(frame[key]); if (cut.config.relativeToGhost) v.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.ghost.model.rotation.y).add(this.ghost.position); return v; };
-      const positionKey = cut.config.relativeToGhost ? 'offset' : 'position', targetKey = cut.config.relativeToGhost ? 'targetOffset' : 'target';
-      const camTarget = toWorld(a, targetKey).lerp(toWorld(b, targetKey), u);
-      this.camera.position.copy(toWorld(a, positionKey).lerp(toWorld(b, positionKey), u));
-      this.world.resolveCamera(this.camera.position, .22, camTarget);
-      this.camera.lookAt(camTarget);
-      this.camera.fov = G.Utils.lerp(a.fov, b.fov, u); this.camera.updateProjectionMatrix();
-      if (cut.config.id === 'jumpscare' && !this.settings.reducedMotion) this.camera.rotateZ(Math.sin(t * 37) * .035 * (1 - t / cut.config.duration));
-      if (cut.config.id === 'ritual') {
-        const t = storyTime;
-        this.world.ritualRelics.forEach((m, i) => { m.visible = t >= 2 + i * 5; m.position.y = .97 + (t > 12 ? Math.sin((t - 12) / 6 * Math.PI) * .3 : 0); });
-        this.ghost.model.visible = t > 5 && t < 17; this.ghost.position.set(0, Math.min(.55, Math.max(0, t - 5) * .07), 0); this.ghost.model.rotation.y = 0; this.models.animatePerson(this.ghost.model, t, 0, 'idle');
-      }
-      if (t >= cut.config.duration || this.skipTime >= G.Config.runtime.skipHoldSeconds) {
-        this.sound.stopSpeech();this.world.endCinematic(cut.config.id); if (cut.config.id === 'ritual') this.ghost.model.visible = false;
-        this.cutscene = null; this.skipDown = false; this.skipTime = 0; this.dialogueQueue = []; this.subtitle = null; el('subtitle-container').hidden = true;
-        this.camera.fov = this.settings.fov; this.camera.updateProjectionMatrix(); this.player.updateCamera(0, this.time); this.setState('playing');
-        if (cut.onComplete) cut.onComplete();
-        if (this.state === 'playing') { this.setState('paused'); this.toast('Nhấn Trở lại để tiếp tục khám phá.'); }
-      }
-    }
-    say(key, once) {
-      if (!G.Dialogue[key]) return; if (once && this.session.triggeredDialogue.includes(key)) return;
-      if (once) this.session.triggeredDialogue.push(key); G.Dialogue[key].forEach(line => this.dialogueQueue.push(Object.assign({}, line)));
-    }
-    showSubtitle(speaker, text, duration) { this.subtitle = { speaker: speaker, text: text, remaining: duration }; }
-    updateDialogue(dt) {
-      if (this.subtitle) this.subtitle.remaining -= dt;
-      if ((!this.subtitle || this.subtitle.remaining <= 0) && this.dialogueQueue.length) { const line = this.dialogueQueue.shift(); const spoken=this.sound.speak(line.speaker,line.text);this.subtitle = { speaker: line.speaker, text: line.text, remaining: Math.max(line.duration,spoken+.15) }; if (line.cue) this.sound.cue(line.cue); }
-      const visible = this.settings.subtitles && this.subtitle && this.subtitle.remaining > 0; el('subtitle-container').hidden = !visible;
-      if (visible) { el('subtitle-speaker').textContent = this.subtitle.speaker; el('subtitle-text').textContent = this.subtitle.text; }
-    }
-    toast(text, kind, duration) { const node = document.createElement('div'); node.className = 'toast' + (kind ? ' ' + kind : ''); node.textContent = text; el('toast-container').appendChild(node); this.toasts.push({ node: node, remaining: duration || 4 }); while (this.toasts.length > 4) this.toasts.shift().node.remove(); }
-    updateToasts(dt) { this.toasts.forEach(t => { t.remaining -= dt; if (t.remaining < .35) t.node.classList.add('leaving'); if (t.remaining <= 0) t.node.remove(); }); this.toasts = this.toasts.filter(t => t.remaining > 0); this.saveNoticeTime -= dt; el('save-indicator').hidden = this.saveNoticeTime <= 0; }
-    updateTimers(dt) {
-      this.session.elapsed += dt;
-      if (this.session.flags.ritualComplete) {
-        this.session.escapeRemaining = Math.max(0, this.session.escapeRemaining - dt);
-        if (this.player.position.z >= G.Config.world.gate.escapeZ) { this.session.flags.escaped = true; this.bus.emit(G.EventNames.ESCAPED, {}); this.playCutscene('escape', () => this.showEnding()); return; }
-        if (this.session.escapeRemaining <= 0) this.curseEnds();
+  var H = window.HuyetLeThon = window.HuyetLeThon || {};
+  var CFG = H.CFG, R = H.R, M = H.M, W = H.World, P = H.Player, AI = H.AI, Pz = H.Puzzles, A = H.Audio, FX = H.FX;
+  var CS = H.Cutscenes;
+  var Main = H.Main = { state: 'loading', cinematic: false, time: 0, lastSave: null, locked: false };
+  var Input = H.Input = { keys: {}, pressed: {}, dx: 0, dy: 0, fire: false };
+  var $ = function (id) { return document.getElementById(id); };
+  var ENV0 = JSON.parse(JSON.stringify(R.env));
+
+  /* ===================== THIẾT LẬP ===================== */
+  var S = H.Settings = JSON.parse(JSON.stringify(CFG.DEFAULT_SETTINGS)), firstRun = true;
+  try { var sv = JSON.parse(localStorage.getItem(CFG.SET_KEY)); if (sv) { for (var kk in sv) if (kk in S) S[kk] = sv[kk]; firstRun = false; } } catch (e) { }
+  var bootTex = S.tex;
+  function saveSettings() { try { localStorage.setItem(CFG.SET_KEY, JSON.stringify(S)); } catch (e) { } }
+  function applyPreset(name) {
+    if (name === 'auto') name = detectPreset();
+    var q = CFG.QUALITY[name]; for (var k in q) if (k !== 'label') S[k] = q[k];
+    S.preset = name; R.dynScale = 1; saveSettings(); buildSettingsUI();
+  }
+  /* dò cấu hình theo tên GPU */
+  function detectPreset() {
+    var g = (R.gpuName || '').toLowerCase();
+    if (/swiftshader|llvmpipe|software|basic render|microsoft basic/.test(g)) return 'low';
+    if (/rtx\s?(30|40|50)[5-9]0|rx\s?(68|69|7[7-9]|9)\d\d|apple m[2-9] (max|ultra)/.test(g)) return 'ultra';
+    if (/rtx|gtx\s?(1[06-9]|16)\d\d|rx\s?(5[5-9]|6|7)\d\d|arc|apple m\d/.test(g)) return 'high';
+    if (/intel|uhd|iris|hd graphics|mali|adreno|powervr|gt\s?\d{3}|mx\d/.test(g)) return /iris xe|iris\(r\) xe/.test(g) ? 'medium' : 'low';
+    return 'medium';
+  }
+  var OPTS = [
+    ['scale', 'Tỉ lệ kết xuất', 'range', 0.4, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['view', 'Tầm nhìn xa', 'range', 60, 180, 5, function (v) { return v + ' m'; }],
+    ['rain', 'Mật độ mưa', 'range', 0, 9000, 300, function (v) { return v; }],
+    ['bamboo', 'Mật độ rừng tre', 'range', 0.15, 1, 0.05, function (v) { return Math.round(v * 2200); }],
+    ['lights', 'Số đèn động', 'range', 2, 12, 1, function (v) { return v; }],
+    ['dpr', 'Giới hạn độ nét (DPR)', 'range', 1, 2, 0.25, function (v) { return v + 'x'; }],
+    ['tex', 'Texture (cần tải lại)', 'select', [256, 512, 1024]],
+    ['aniso', 'Lọc bất đẳng hướng', 'select', [1, 2, 4, 8]],
+    ['bloom', 'Bloom (quầng sáng)', 'check'], ['normal', 'Normal map', 'check'], ['chroma', 'Sắc sai / méo ống kính', 'check'],
+    ['mistNoise', 'Sương cuộn (noise)', 'check'], ['grain', 'Hạt phim', 'check'], ['dynRes', 'Độ phân giải động', 'check'],
+    ['targetFps', 'FPS mục tiêu', 'range', 30, 120, 5, function (v) { return v; }],
+    ['fov', 'Góc nhìn (FOV)', 'range', 60, 95, 1, function (v) { return v + '°'; }],
+    ['sens', 'Độ nhạy chuột', 'range', 0.3, 2.5, 0.05, function (v) { return v.toFixed(2); }],
+    ['volume', 'Âm lượng', 'range', 0, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['showFps', 'Hiện FPS & thống kê', 'check']
+  ];
+  function buildSettingsUI() {
+    var g = $('settingsGrid'); g.innerHTML = '';
+    OPTS.forEach(function (o) {
+      var row = document.createElement('div'); row.className = 'opt';
+      var lab = document.createElement('span'); lab.textContent = o[1]; row.appendChild(lab);
+      var inp, out = document.createElement('output');
+      if (o[2] === 'range') {
+        inp = document.createElement('input'); inp.type = 'range'; inp.min = o[3]; inp.max = o[4]; inp.step = o[5]; inp.value = S[o[0]]; out.textContent = o[6](+S[o[0]]);
+        inp.oninput = function () { S[o[0]] = +inp.value; out.textContent = o[6](+inp.value); changed(o[0]); };
+      } else if (o[2] === 'check') {
+        inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!S[o[0]];
+        inp.onchange = function () { S[o[0]] = inp.checked; changed(o[0]); };
       } else {
-        this.session.curseRemaining = Math.max(0, this.session.curseRemaining - dt);
-        G.Config.quest.warningThresholds.forEach(threshold => { if (this.session.curseRemaining <= threshold && !this.session.warningsIssued.includes(threshold)) { this.session.warningsIssued.push(threshold); this.toast('Lời nguyền còn ' + G.Utils.formatTime(threshold) + '.', 'warning'); this.say('curseWarning'); this.bus.emit(G.EventNames.CURSE_WARNING, { remaining: threshold }); } });
-        if (this.session.curseRemaining <= 0) this.curseEnds();
+        inp = document.createElement('select');
+        o[3].forEach(function (v) { var op = document.createElement('option'); op.value = v; op.textContent = v; if (S[o[0]] === v) op.selected = true; inp.appendChild(op); });
+        inp.onchange = function () { S[o[0]] = +inp.value; changed(o[0]); };
       }
+      row.appendChild(inp); row.appendChild(out); g.appendChild(row);
+    });
+    [].forEach.call($('presets').children, function (b) { b.className = b.dataset.preset === S.preset ? 'on' : ''; });
+    $('btnReload').className = S.tex !== bootTex ? '' : 'hidden';
+  }
+  function changed(key) {
+    if (key !== 'fov' && key !== 'sens' && key !== 'volume' && key !== 'showFps' && key !== 'targetFps' && key !== 'dynRes') { S.preset = 'custom'; [].forEach.call($('presets').children, function (b) { b.className = ''; }); }
+    if (key === 'volume') A.setVolume(S.volume);
+    if (key === 'scale') R.dynScale = 1;
+    $('btnReload').className = S.tex !== bootTex ? '' : 'hidden';
+    saveSettings();
+  }
+
+  /* ===================== GIAO DIỆN ===================== */
+  var subT = 0, toastT = 0, saveT = 0, uiOpen = null, kp = null;
+  var UI = H.UI = {
+    subtitle: function (t, d) { var e = $('subtitle'); e.textContent = t; e.className = 'show'; subT = d || 4; },
+    toast: function (t) { var e = $('toast'); e.textContent = t; e.className = 'show'; toastT = 3; },
+    objective: function (t) { var e = $('objText'); if (e.textContent === t) return; e.textContent = t; var o = $('objective'); o.className = ''; void o.offsetWidth; o.className = 'flash'; },
+    prompt: function (t) { var e = $('prompt'); if (t) { if (e.textContent !== t) e.textContent = t; e.className = 'show'; } else e.className = ''; },
+    note: function (title, sub, text) { $('noteTitle').textContent = title; $('noteSub').textContent = sub; $('noteBody').textContent = text; openUI('note'); A.click(0.2); },
+    keypad: function (n, title, cb) {
+      kp = { n: n, code: '', cb: cb }; $('kpTitle').textContent = title; $('kpDisplay').className = ''; kpShow(); openUI('keypad');
+    },
+    choice: function (text, opts, cb) {
+      $('choiceText').textContent = text; var c = $('choiceBtns'); c.innerHTML = '';
+      opts.forEach(function (o, i) { var b = document.createElement('button'); b.textContent = o; b.onclick = function () { closeUI(true); cb(i); }; c.appendChild(b); });
+      openUI('choice');
     }
-    curseEnds() { this.session.flags.curseExpired = true; this.sound.cue('stinger'); this.showEnding(); }
-    die() { if (this.state !== 'playing') return; this.playCutscene('jumpscare', () => { this.setState('dead'); el('death-reason').textContent = 'Linh đã tìm thấy bạn trong màn sương.'; el('btn-retry').disabled = !G.Storage.load().ok; }); }
-    showEnding() {
-      const ending = G.selectEnding(this.session); if (!ending) return; this.setState('ending'); el('ending-screen').dataset.ending = ending.id; el('ending-label').textContent = ending.label; el('ending-title').textContent = ending.title;
-      const story = el('ending-story'); story.textContent = ''; ending.paragraphs.forEach(text => { const p = document.createElement('p'); p.textContent = text; story.appendChild(p); });
-      const stats = el('ending-stats'); stats.textContent = ''; const rows = [['Bạn bè đã cứu', Object.values(this.session.companions).filter(s => s === 'rescued').length + ' / 3'], ['Trang nhật ký', this.session.journals.length + ' / 8'], ['Thời gian khám phá', G.Utils.formatTime(this.session.elapsed)], ['Quãng đường', Math.round(this.session.stats.distanceWalked) + ' m'], ['Bùa đã dùng', this.session.stats.talismansUsed]];
-      rows.forEach(row => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = row[0]; dd.textContent = row[1]; stats.append(dt, dd); });
-    }
-    updateHUD() {
-      if (!this.player) return;
-      const p = this.player.data;
-      if (!this._hud) {
-        const curseClock = el('curse-clock');
-        this._hud = {
-          bars: ['health', 'stamina', 'sanity', 'battery'].map(name => ({
-            name, bar: el(name + '-bar'), val: el(name + '-value'), wrap: el(name + '-bar').parentElement
-          })),
-          location: el('location-name'),
-          curseTime: el('curse-time'),
-          curseClock,
-          curseLabel: curseClock.querySelector('span'),
-          items: ['talisman', 'battery', 'medicine'].map(id => ({ id, node: el(id + '-count') })),
-          journal: el('journal-count'),
-          companions: Array.from(document.querySelectorAll('[data-companion]')).map(node => ({
-            id: node.dataset.companion, node
-          })),
-          stealth: el('stealth-indicator'),
-          stealthLabel: el('stealth-label'),
-          breath: el('breath-meter'),
-          bloodFilter: el('blood-filter'),
-          sanityFilter: el('sanity-filter')
-        };
-      }
-      const h = this._hud, prev = this._hudPrev || (this._hudPrev = {});
-      for (let i = 0; i < h.bars.length; i++) {
-        const b = h.bars[i], raw = p[b.name], barV = Math.round(raw * 4) * .25, textV = String(Math.ceil(raw)), crit = raw < 20;
-        if (prev['bv_' + b.name] !== barV) { prev['bv_' + b.name] = barV; b.bar.value = raw; }
-        if (prev['tv_' + b.name] !== textV) { prev['tv_' + b.name] = textV; b.val.textContent = textV; }
-        if (prev['cr_' + b.name] !== crit) { prev['cr_' + b.name] = crit; b.wrap.classList.toggle('critical', crit); }
-      }
-      const loc = this.world.location(this.player.position);
-      if (prev.loc !== loc) { prev.loc = loc; h.location.textContent = loc; }
-      const seconds = this.session.flags.ritualComplete ? this.session.escapeRemaining : this.session.curseRemaining;
-      const timeStr = G.Utils.formatTime(seconds), cCrit = seconds < 120, cLab = this.session.flags.ritualComplete ? 'THOÁT KHỎI LÀNG' : 'NGUYỀN RỦA';
-      if (prev.timeStr !== timeStr) { prev.timeStr = timeStr; h.curseTime.textContent = timeStr; }
-      if (prev.cCrit !== cCrit) { prev.cCrit = cCrit; h.curseClock.classList.toggle('critical', cCrit); }
-      if (prev.cLab !== cLab) { prev.cLab = cLab; h.curseLabel.textContent = cLab; }
-      for (let i = 0; i < h.items.length; i++) {
-        const it = h.items[i], cnt = String(this.session.inventory[it.id] || 0);
-        if (prev['it_' + it.id] !== cnt) { prev['it_' + it.id] = cnt; it.node.textContent = cnt; }
-      }
-      const jStr = this.session.journals.length + '/8';
-      if (prev.jStr !== jStr) { prev.jStr = jStr; h.journal.textContent = jStr; }
-      for (let i = 0; i < h.companions.length; i++) {
-        const c = h.companions[i], status = this.session.companions[c.id];
-        if (prev['co_' + c.id] !== status) {
-          prev['co_' + c.id] = status;
-          c.node.dataset.status = status;
-          c.node.textContent = G.Lore.characters[c.id].name + ' · ' + (status === 'rescued' ? 'Đã cứu' : status === 'lost' ? 'Mất tích' : 'Bị giam');
-        }
-      }
-      const hid = !this.player.hiddenSpot, hold = this.player.holdingBreath, sLab = hold ? 'ĐANG NÍN THỞ' : 'ĐANG ẨN NẤP';
-      if (prev.hid !== hid) { prev.hid = hid; h.stealth.hidden = hid; }
-      if (!hid) {
-        if (prev.hold !== hold) { prev.hold = hold; h.stealth.classList.toggle('holding', hold); }
-        if (prev.sLab !== sLab) { prev.sLab = sLab; h.stealthLabel.textContent = sLab; }
-        const stamV = Math.round(p.stamina);
-        if (prev.stamV !== stamV) { prev.stamV = stamV; h.breath.value = p.stamina; }
-      }
-      const dmg = +this.player.damageFlash.toFixed(2);
-      const san = +((Math.max(Math.max(0, 1 - p.sanity / 30), this.ghostThreat()) * .45).toFixed(2));
-      if (prev.dmg !== dmg) {
-        prev.dmg = dmg;
-        h.bloodFilter.hidden = dmg <= .01;
-        h.bloodFilter.style.setProperty('--damage', String(dmg));
-      }
-      if (prev.san !== san) {
-        prev.san = san;
-        h.sanityFilter.hidden = san <= .01;
-        h.sanityFilter.style.setProperty('--sanity', String(san));
-      }
-    }
-    ghostThreat() { if (!this.ghost || !this.player || !['playing', 'cutscene'].includes(this.state) || ['dormant', 'banished'].includes(this.ghost.state)) return 0; return G.Utils.clamp(1 - this.ghost.position.distanceTo(this.player.position) / 15, 0, 1); }
-    resize() {
-      if (!this.renderer || !this.camera) return;
-      const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight);
-      const s = this.settings || G.Config.settingsDefaults;
-      const q = G.Config.quality[s.quality] || G.Config.quality.medium;
-      const dpr = Math.min(window.devicePixelRatio || 1, q.pixelRatio || 1.2);
-      let ratio = G.Utils.clamp(dpr * s.renderScale, .45, (q.pixelRatio || 1.2) * s.renderScale);
-      const maxPx = q.maxPixels || 1850000;
-      if (width * height * ratio * ratio > maxPx) ratio = Math.max(.45, Math.sqrt(maxPx / (width * height)));
-      this.renderer.setPixelRatio(ratio);
-      this.renderer.setSize(width, height, false);
-      this.camera.aspect = width / height;
-      this.camera.updateProjectionMatrix();
-      if (this.post) {
-        if (s.postFX) {
-          const size = this.renderer.getDrawingBufferSize(this._drawSize || (this._drawSize = new THREE.Vector2()));
-          this.post.resize(size.x, size.y);
-        } else {
-          this.post.resize(1, 1);
-        }
-      }
-    }
-    loop(now) {
-      if (!this.running) return; const dt = Math.min(.05, Math.max(0, (now - this.lastFrame) / 1000)); this.lastFrame = now; this.time += dt;
-      const speechMap = this._speechIds || (this._speechIds = { lan: 'lan', tuan: 'tuấn', hung: 'hùng' });
-      try {
-        this.updateToasts(dt);
-        if (this.state === 'playing') {
-          this.player.update(dt, this.time); this.ghost.update(dt, this.time);
-          if (this.state === 'playing') { this.quest.update(dt); this.updateTimers(dt); }
-          if (this.state === 'playing') { this.world.companions.forEach((c, id) => c.model.userData.speechLevel = this.sound.speechLevel(speechMap[id])); this.world.update(dt, this.time, this.camera); this.updateDialogue(dt); this.sound.update(dt, this.camera, this.player, this.ghost, this.time); this.autosave += dt; if (this.autosave >= 60 && this.ghost.state !== 'chase' && this.player.data.health > 0) { this.autosave = 0; this.save(false); } }
-        } else if (this.state === 'cutscene') { this.updateCutscene(dt); this.world.companions.forEach((c, id) => c.model.userData.speechLevel = this.sound.speechLevel(speechMap[id])); this.world.update(dt, this.time, this.camera); this.updateDialogue(dt); this.sound.update(dt, this.camera, null, this.ghost, this.time); }
-        else if (this.state === 'menu') { this.models.update(this.time, this.settings.reducedMotion, this.camera, this.settings.quality); }
-        this.hudClock += dt; if (this.hudClock >= .08) { this.hudClock = 0; this.updateHUD(); }
-        if (this.scene && this.camera && !['loading', 'error'].includes(this.state)) {
-          const qCfg = G.Config.quality[this.settings.quality] || G.Config.quality.high;
-          const fogSteps = qCfg.fogSteps !== undefined ? qCfg.fogSteps : 4;
-          if (this.settings.postFX) this.post.render(this.scene, this.camera, this.time, this.player ? Math.max(0, 1 - this.player.data.sanity / 30) : 0, this.player ? this.player.damageFlash : 0, this.settings.reducedMotion || this.settings.reducedFlashes, this.ghostThreat(), this.settings.volumetricFog, fogSteps);
-          else this.renderer.render(this.scene, this.camera);
-        }
-      } catch (error) { console.error(error); this.setState('error'); el('error-title').textContent = 'Game gặp lỗi'; el('error-message').textContent = error.message || String(error); this.running = false; return; }
-      this.frame = requestAnimationFrame(this.tick);
-    }
-    dispose() { this.running = false; cancelAnimationFrame(this.frame); this.listeners.forEach(off => off()); this.destroyWorld(); this.sound.dispose(); if (this.post) this.post.dispose(); if (this.renderer) this.renderer.dispose(); this.bus.clear(); }
   };
-}(window.Game = window.Game || {}));
+  function kpShow() { var s = ''; for (var i = 0; i < kp.n; i++) s += kp.code[i] || '·'; $('kpDisplay').textContent = s; }
+  function kpPress(d) {
+    if (!kp) return;
+    if (d === 'del') { kp.code = kp.code.slice(0, -1); A.click(0.2); return kpShow(); }
+    if (kp.code.length >= kp.n) return;
+    kp.code += d; A.beep(520 + (+d) * 40, 0.07); kpShow();
+    if (kp.code.length === kp.n) {
+      var k = kp;
+      setTimeout(function () {
+        if (k.cb(k.code)) { A.beep(990, 0.3); closeUI(); }
+        else { A.beep(140, 0.35); $('kpDisplay').className = 'bad'; setTimeout(function () { k.code = ''; $('kpDisplay').className = ''; if (kp === k) kpShow(); }, 380); }
+      }, 160);
+    }
+  }
+  (function () { var c = $('kpKeys'); ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0'].forEach(function (d) { var b = document.createElement('button'); b.textContent = d === 'del' ? '⌫' : d; b.onclick = function () { kpPress(d); }; c.appendChild(b); }); })();
+  function show(id, on) { $(id).classList.toggle('hidden', !on); }
+  /* mở bảng phủ trong lúc chơi (tạm ngưng mô phỏng) */
+  function openUI(id) {
+    if (uiOpen) show(uiOpen, false);
+    uiOpen = id; show(id, true);
+    if (Main.state === 'play') { Main.state = 'ui'; unlock(); }
+  }
+  function closeUI(keepState) {
+    if (!uiOpen) return; show(uiOpen, false); var was = uiOpen; uiOpen = null; kp = was === 'keypad' ? null : kp;
+    if (Main.state === 'ui') { Main.state = 'play'; lock(); }
+    else if (Main.back) { show(Main.back, true); Main.back = null; }
+  }
+  function openInventory() {
+    var it = $('invItems'), di = $('invDiaries'); it.innerHTML = ''; di.innerHTML = '';
+    var list = Pz.inventoryList();
+    if (!list.length) it.innerHTML = '<div class="inv-empty">Chưa có gì ngoài chiếc đèn pin.</div>';
+    list.forEach(function (o) { var d = document.createElement('div'); d.className = 'inv-item'; var b = document.createElement('b'); b.textContent = o.name; var s = document.createElement('span'); s.textContent = o.desc; d.appendChild(b); d.appendChild(s); it.appendChild(d); });
+    var ds = Pz.diaryList(); $('invCount').textContent = '(' + ds.length + '/' + CFG.DIARIES.length + ')';
+    if (!ds.length) di.innerHTML = '<div class="inv-empty">Chưa tìm thấy trang nào.</div>';
+    ds.forEach(function (o) { var d = document.createElement('div'); d.className = 'inv-item link'; var b = document.createElement('b'); b.textContent = o.title; var s = document.createElement('span'); s.textContent = o.sub; d.appendChild(b); d.appendChild(s); d.onclick = function () { UI.note(o.title, o.sub, o.text); }; di.appendChild(d); });
+    openUI('inventory');
+  }
+
+  /* ===================== NHẬP LIỆU ===================== */
+  var canvas = $('game'), expectUnlock = false;
+  function lock() { if (document.pointerLockElement !== canvas && canvas.requestPointerLock) { try { var p = canvas.requestPointerLock(); if (p && p.catch) p.catch(function () { }); } catch (e) { } } }
+  function unlock() { if (document.pointerLockElement) { expectUnlock = true; document.exitPointerLock(); } }
+  document.addEventListener('pointerlockchange', function () {
+    Main.locked = document.pointerLockElement === canvas;
+    if (!Main.locked && Main.state === 'play' && !expectUnlock) pause();
+    expectUnlock = false;
+  });
+  canvas.addEventListener('mousedown', function (e) {
+    if (Main.state !== 'play') return;
+    if (!Main.locked && !Main.noLock) { lock(); return; }
+    if (e.button === 0) Input.fire = true;
+  });
+  document.addEventListener('mousemove', function (e) { if ((Main.locked || Main.noLock) && Main.state === 'play') { Input.dx += e.movementX || 0; Input.dy += e.movementY || 0; } });
+  document.addEventListener('keydown', function (e) {
+    var c = e.code;
+    if (Main.state === 'play' || Main.state === 'ui' || Main.state === 'cutscene') { if (c === 'Tab' || c === 'Space' || c.indexOf('Arrow') === 0 || (e.ctrlKey && /Key[SDAFERPX]/.test(c))) e.preventDefault(); }
+    if (Main.state === 'intro') { skipIntro(); return; }
+    if (Main.state === 'cutscene') { if (c === 'Enter' || c === 'Space' || c === 'Escape') { e.preventDefault(); CS.skip(); } return; }
+    if (Main.state === 'ui') {
+      if (e.repeat) return;
+      if (uiOpen === 'keypad') { if (/^(Digit|Numpad)\d$/.test(c)) kpPress(c.slice(-1)); else if (c === 'Backspace') { kpPress('del'); e.preventDefault(); } }
+      if (c === 'Escape' || (c === 'KeyE' && uiOpen !== 'keypad' && uiOpen !== 'choice') || (c === 'Tab' && uiOpen === 'inventory')) { if (uiOpen !== 'choice') closeUI(); }
+      return;
+    }
+    if (Main.state === 'paused' && (c === 'Escape' || c === 'KeyP') && !uiOpen) { resume(); return; }
+    if (Main.state !== 'play') return;
+    if (!e.repeat) Input.pressed[c] = true;
+    Input.keys[c] = true;
+    if (c === 'KeyE' && !e.repeat) Pz.use();
+    if (c === 'Tab' && !e.repeat) openInventory();
+    if (c === 'KeyP' && !e.repeat) pause();
+  });
+  document.addEventListener('keyup', function (e) { Input.keys[e.code] = false; });
+  window.addEventListener('blur', function () { Input.keys = {}; if (Main.state === 'play') pause(); });
+  window.addEventListener('beforeunload', function (e) { if (Main.state === 'play' || Main.state === 'ui' || Main.state === 'cutscene') { e.preventDefault(); e.returnValue = ''; } });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  /* ===================== TRẠNG THÁI TRÒ CHƠI ===================== */
+  function pause() { if (Main.state !== 'play') return; Main.state = 'paused'; unlock(); show('pause', true); A.suspend(true); }
+  function resume() { show('pause', false); Main.state = 'play'; A.suspend(false); lock(); }
+  function resetEnv() { var e = R.env; for (var k in ENV0) e[k] = Array.isArray(ENV0[k]) ? ENV0[k].slice() : ENV0[k]; var p = R.post; p.fade = 0; p.white = 0; p.veins = 0; p.desat = 0; p.view = 0; p.scan = 0; p.exposure = 1.15; A.rainAmt = 1; W.mistMul = 1; W.lanterns.forEach(function (L) { L.blueT = 0; L.off = false; }); AI.calm = false; }
+  function hasSave() { try { return !!localStorage.getItem(CFG.SAVE_KEY); } catch (e) { return !!Main.lastSave; } }
+  Main.save = function (auto) {
+    var d = Pz.serialize(); Main.lastSave = JSON.parse(JSON.stringify(d));
+    try { localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(d)); } catch (e) { }
+    $('saveIcon').className = 'show'; saveT = 2.5; if (!auto) UI.toast(CFG.LINES.saved);
+  };
+  function loadSave() { try { var d = JSON.parse(localStorage.getItem(CFG.SAVE_KEY)); if (d && d.v === 1) return d; } catch (e) { } return Main.lastSave; }
+  function startGame(data) {
+    A.init(); A.setVolume(S.volume); A.suspend(false);
+    ['menu', 'death', 'ending', 'pause'].forEach(function (id) { show(id, false); });
+    resetEnv(); FX.list.length = 0;
+    if (AI.rig && AI.wasCalm) { location.reload(); return; }
+    Pz.load(data || {}); Main.lastSave = data ? JSON.parse(JSON.stringify(data)) : null;
+    show('hud', true); R.post.fade = 0;
+    if (!data) { Main.state = 'play'; R.post.fade = 1; lock(); Main.cutscene('intro', function () { Main.fadeIn = 2; UI.subtitle(CFG.LINES.start, 7); UI.objective(CFG.OBJECTIVES.o1); }); } else { Main.state = 'play'; Main.fadeIn = 1.5; lock(); UI.objective(CFG.OBJECTIVES[Pz.objective]); }
+  }
+  var introI = 0, introTimer = null;
+  function intro() {
+    Main.state = 'intro'; show('intro', true); introI = 0;
+    var el = $('introText');
+    (function next() {
+      if (Main.state !== 'intro') return;
+      if (introI >= CFG.LINES.intro.length) return skipIntro();
+      el.style.opacity = 0;
+      introTimer = setTimeout(function () { el.textContent = CFG.LINES.intro[introI++]; el.style.opacity = 1; introTimer = setTimeout(next, 3400); }, 700);
+    })();
+  }
+  function skipIntro() {
+    if (Main.state !== 'intro') return; clearTimeout(introTimer); show('intro', false); Main.state = 'play'; Main.fadeIn = 2.5; lock();
+    UI.subtitle(CFG.LINES.start, 7); UI.objective(CFG.OBJECTIVES.o1); W.strike(false);
+  }
+  $('intro').addEventListener('click', skipIntro);
+  function die() {
+    Main.state = 'dead'; unlock(); P.dead = false; show('death', true); UI.prompt(null); Input.keys = {};
+    A.tension = 0; A.hunt = 0;
+  }
+  function toMenu() {
+    ['pause', 'death', 'ending', 'hud', 'intro'].forEach(function (id) { show(id, false); });
+    $('cine').className = ''; CS.active = null;
+    if (uiOpen) { show(uiOpen, false); uiOpen = null; }
+    if (AI.wasCalm) { location.reload(); return; }
+    Main.state = 'menu'; Main.cinematic = false; resetEnv(); AI.reset(); A.suspend(false); A.tension = 0; A.hunt = 0;
+    R.env.flCol[0] = R.env.flCol[1] = R.env.flCol[2] = 0; R.env.flHaze = 0;
+    show('menu', true); show('btnContinue', hasSave());
+  }
+  /* ---------- cắt cảnh ---------- */
+  Main.cutscene = function (id, done, tries) {
+    if (Main.state !== 'play') { if ((tries || 0) < 240 && Main.state !== 'menu' && Main.state !== 'dead' && Main.state !== 'ending') setTimeout(function () { Main.cutscene(id, done, (tries || 0) + 1); }, 250); return; }
+    Main.state = 'cutscene'; show('hud', false); UI.prompt(null); Input.keys = {}; P.vel[0] = P.vel[1] = 0;
+    CS.play(id, function () { Main.state = 'play'; show('hud', true); Input.keys = {}; if (done) done(); });
+  };
+  /* ---------- kết thúc ---------- */
+  var endSeq = null;
+  Main.ending = function (type) {
+    Main.state = 'ending'; Main.cinematic = true; unlock(); UI.prompt(null);
+    endSeq = { type: type, t: 0, shown: -1, lines: CFG.ENDINGS[type].lines }; $('cine').className = 'show'; $('cineSub').className = ''; show('hud', false); $('cineSkip').style.display = 'none';
+    if (type !== 'bad') { AI.setCalm(); AI.wasCalm = true; Pz.fireWhite = true; A.bell(null, 196); setTimeout(function () { A.bell(null, 147); }, 2500); W.lanterns.forEach(function (L) { L.blueT = 0; }); }
+    else { AI.wasCalm = true; A.slam(null); A.scream(null, true); W.props.temple.door.target = 0; W.lanterns.forEach(function (L) { L.off = true; }); }
+  };
+  function endingUpdate(dt) {
+    var s = endSeq, e = R.env, p = R.post; s.t += dt;
+    if (s.type !== 'bad') {
+      var k = Math.min(1, s.t / 9);
+      e.moonTint[0] = M.lerp(1.0, 0.85, k); e.moonTint[1] = M.lerp(0.16, 0.9, k); e.moonTint[2] = M.lerp(0.1, 1.0, k);
+      e.moonCol[0] = M.lerp(0.11, 0.16, k); e.moonCol[1] = M.lerp(0.03, 0.18, k); e.moonCol[2] = M.lerp(0.03, 0.24, k);
+      e.rain = 1 - k; A.rainAmt = 1 - k; W.mistMul = 1 - k * 0.7; p.veins *= 0.9; p.desat = 0; A.tension = Math.max(0, 0.4 - k); A.stress = 0;
+      p.fade = M.smooth(11, 15, s.t); p.white = M.smooth(6, 8, s.t) * (1 - M.smooth(8, 9, s.t)) * 0.5;
+      AI.pos[1] += dt * 0.12 * M.smooth(5, 9, s.t);
+    } else {
+      W.props.temple.fireLight.intensity *= 0.8; p.fade = M.smooth(1.2, 3.2, s.t); p.veins = Math.min(1, s.t); A.tension = 1;
+    }
+    var start = s.type !== 'bad' ? 15 : 3.4, idx = Math.floor((s.t - start) / 5.2);
+    if (s.t > start && idx !== s.shown && idx <= s.lines.length) {
+      s.shown = idx; show('ending', true); show('hud', false);
+      var el = $('endText'), ti = $('endTitle');
+      if (idx < s.lines.length) { ti.textContent = ''; el.style.opacity = 0; setTimeout(function () { el.textContent = s.lines[idx]; el.style.opacity = 1; }, 600); }
+      else { el.style.opacity = 0; setTimeout(function () { el.textContent = ''; ti.textContent = CFG.ENDINGS[s.type].title; ti.className = 'title' + (s.type === 'bad' ? ' red' : ''); show('btnEndQuit', true); }, 700); try { if (s.type !== 'bad') localStorage.removeItem(CFG.SAVE_KEY); } catch (e2) { } }
+    }
+  }
+
+  /* ===================== HUD ===================== */
+  var hudAcc = 0;
+  function hud(dt) {
+    hudAcc += dt;
+    $('viewfinder').className = P.camAnim > 0.5 ? 'show' : '';
+    $('hideOverlay').className = P.hidden ? 'show' : '';
+    $('mirror').className = P.mirrorUp ? 'show' : '';
+    $('crosshair').style.opacity = P.camAnim > 0.5 || P.hidden ? 0 : 1;
+    if (P.mirrorUp) {
+      var m = Pz.mirror, g = $('mirrorGlow');
+      g.style.opacity = m.str; g.style.transform = 'translate(' + (-Math.sin(m.ang) * 70).toFixed(1) + 'px,' + (-Math.cos(m.ang) * 70).toFixed(1) + 'px) scale(' + (0.5 + m.str * 1.2).toFixed(2) + ')';
+      $('mirrorTxt').textContent = m.str <= 0 ? 'Mặt gương tối im.' : (m.dist < 16 ? 'Gương rực sáng — lễ vật ở rất gần!' : 'Vệt sáng chỉ hướng lễ vật...');
+    }
+    var hb = $('bpm').firstElementChild, beat = A.ready && A.beatAt !== undefined ? Math.exp(-Math.max(0, A.ctx.currentTime - A.beatAt) * 9) : 0;
+    hb.style.transform = 'scale(' + (1 + beat * 0.5).toFixed(2) + ')';
+    if (hudAcc < 0.1) return; hudAcc = 0;
+    function bar(id, v, low) { var b = $(id); b.querySelector('i').style.width = Math.max(0, Math.min(100, v)).toFixed(0) + '%'; b.classList.toggle('low', v < low); }
+    bar('bSanity', P.sanity, 30); bar('bStamina', P.stamina, 20); bar('bBattery', P.battery, 15);
+    $('bpmVal').textContent = Math.round(P.bpm);
+    $('vfFilm').textContent = P.film;
+    var vf = $('vfFlash'); vf.textContent = P.film <= 0 ? '✕ HẾT PHIM' : (P.flashCD > 0 ? '⚡ ĐANG NẠP...' : '⚡ SẴN SÀNG'); vf.className = P.flashCD > 0 ? 'charging' : '';
+    if (P.hidden) $('breath').querySelector('i').style.width = (P.breath / CFG.PLAYER.breathMax * 100).toFixed(0) + '%';
+    $('lockHint').className = !Main.locked && Main.state === 'play' && !Main.noLock ? 'show' : '';
+  }
+  function timers(dt) {
+    if (subT > 0) { subT -= dt; if (subT <= 0) $('subtitle').className = ''; }
+    if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').className = ''; }
+    if (saveT > 0) { saveT -= dt; if (saveT <= 0) $('saveIcon').className = ''; }
+  }
+
+  /* ===================== VÒNG LẶP ===================== */
+  var last = 0, fpsAcc = 0, fpsN = 0, fps = 60, fw = [0, 0, 0], dynT = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
+    fpsAcc += dt; fpsN++;
+    if (fpsAcc >= 0.5) {
+      fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0;
+      // độ phân giải động: giữ FPS mục tiêu bằng cách co giãn buffer kết xuất
+      if (S.dynRes && (Main.state === 'play' || Main.state === 'menu')) {
+        dynT++;
+        if (fps < S.targetFps * 0.88) R.dynScale = Math.max(0.5, R.dynScale - (fps < S.targetFps * 0.6 ? 0.12 : 0.06));
+        else if (fps > S.targetFps * 1.12 && R.dynScale < 1 && dynT % 4 === 0) R.dynScale = Math.min(1, R.dynScale + 0.05);
+      } else if (!S.dynRes) R.dynScale = 1;
+      if (S.showFps) $('fps').textContent = fps.toFixed(0) + ' FPS  ' + Math.round(R.sceneRT ? R.sceneRT.w : 0) + 'x' + (R.sceneRT ? R.sceneRT.h : 0) + '\n' + R.stats.draws + ' draw  ' + Math.round(R.stats.tris / 1000) + 'k tri'; else if ($('fps').textContent) $('fps').textContent = '';
+    }
+    var st = Main.state, e = R.env;
+    if (st === 'play') {
+      Main.time += dt; e.time = Main.time;
+      P.update(dt, Main.time); W.update(dt, Main.time, P.pos); AI.update(dt, Main.time); Pz.update(dt, Main.time); FX.update(dt, e.wind);
+      P.forward(fw); A.update(dt, R.cam.pos, fw); hud(dt); timers(dt);
+      if (Main.fadeIn > 0) { Main.fadeIn -= dt; R.post.fade = Math.max(0, Main.fadeIn / 2.5); }
+      if (P.dead) die();
+    } else if (st === 'ending') {
+      Main.time += dt; e.time = Main.time; Input.keys = {};
+      P.update(dt, Main.time); W.update(dt, Main.time, P.pos); AI.update(dt, Main.time); Pz.update(dt, Main.time); FX.update(dt, e.wind);
+      CS.endCam(endSeq.type, endSeq.t, Main.time);
+      P.forward(fw); A.update(dt, R.cam.pos, fw); endingUpdate(dt); timers(dt);
+    } else if (st === 'cutscene') {
+      Main.time += dt; e.time = Main.time;
+      CS.update(dt, Main.time); W.update(dt, Main.time, R.cam.pos); if (AI.ritual) AI.update(dt, Main.time); FX.update(dt, e.wind);
+      fw[0] = -Math.sin(R.cam.yaw); fw[1] = 0; fw[2] = -Math.cos(R.cam.yaw); A.update(dt, R.cam.pos, fw); timers(dt);
+    } else if (st === 'menu' || st === 'intro' || st === 'dead') {
+      Main.time += dt; e.time = Main.time;
+      if (st !== 'dead') { // camera lượn chậm trước cổng làng
+        var t = Main.time * 0.05, c = R.cam;
+        c.pos[0] = Math.sin(t) * 3.2; c.pos[2] = 66 + Math.cos(t * 0.7) * 4; c.pos[1] = W.terrainH(c.pos[0], c.pos[2]) + 2.1 + Math.sin(t * 1.3) * 0.25; c.yaw = Math.sin(t * 0.8) * 0.12 - c.pos[0] * 0.02; c.pitch = 0.12; c.roll = 0; c.fov = 62;
+        R.post.fade = st === 'intro' ? 1 : 0; R.post.vignette = 0.75; R.post.aberr = 0.003; R.post.barrel = 0.05; R.post.view = 0; R.post.scan = 0; R.post.veins = 0;
+      } else R.post.fade = 1;
+      W.update(dt, Main.time, c ? c.pos : null); FX.update(dt, e.wind);
+      if (A.ready) { fw[0] = 0; fw[1] = 0; fw[2] = -1; A.stress = 0; A.bpm = 60; A.update(dt, R.cam.pos, fw); }
+    }
+    if (st !== 'loading') R.render();
+    Input.pressed = {}; Input.dx = 0; Input.dy = 0; Input.fire = false;
+  }
+
+  /* ===================== KHỞI ĐỘNG ===================== */
+  function boot() {
+    if (!R.init(canvas)) { show('loading', false); show('fatal', true); return; }
+    R.q = S;
+    if (firstRun) { var pr = detectPreset(), q = CFG.QUALITY[pr]; for (var k in q) if (k !== 'label') S[k] = q[k]; S.preset = pr; bootTex = S.tex; saveSettings(); }
+    $('gpuInfo').textContent = 'GPU: ' + R.gpuName + '  ·  Cấu hình: ' + (CFG.QUALITY[S.preset] ? CFG.QUALITY[S.preset].label : 'Tuỳ chỉnh') + '  ·  v' + CFG.VERSION;
+    var steps = [], Aset = H.Assets;
+    Aset.list.forEach(function (t, i) { steps.push(['Dệt vật liệu: ' + ['gỗ lim cổ thụ', 'đá ong rêu phong', 'sân bùn ướt', 'ngói âm dương', 'vỏ cây đa', 'lụa điều', 'bùa chu sa'][i] + '...', function () { Aset.build(i, S.tex); }]); });
+    W.steps.forEach(function (s) { steps.push(s); });
+    steps.push(['Đánh thức Lệ Nương...', function () { AI.init(); P.reset(); CS.init(); Pz.init(); AI.reset(); }]);
+    var i = 0;
+    (function next() {
+      if (i >= steps.length) { ready(); return; }
+      $('loadText').textContent = steps[i][0]; $('loadFill').style.width = Math.round(i / steps.length * 100) + '%';
+      setTimeout(function () { try { steps[i][1](); } catch (err) { console.error('Lỗi bước tải ' + i, err); $('loadText').textContent = 'Lỗi: ' + err.message; throw err; } i++; requestAnimationFrame(next); }, 30);
+    })();
+  }
+  function ready() {
+    $('loadFill').style.width = '100%';
+    buildSettingsUI();
+    Main.state = 'menu'; show('loading', false); show('menu', true); show('btnContinue', hasSave());
+    requestAnimationFrame(function (t) { last = t; frame(t); });
+  }
+  // nút bấm
+  $('btnNew').onclick = function () { try { localStorage.removeItem(CFG.SAVE_KEY); } catch (e) { } startGame(null); };
+  $('btnContinue').onclick = function () { startGame(loadSave()); };
+  $('btnResume').onclick = resume;
+  $('btnSave').onclick = function () { Main.save(false); };
+  $('btnQuit').onclick = toMenu; $('btnDeathQuit').onclick = toMenu; $('btnEndQuit').onclick = toMenu;
+  $('btnRetry').onclick = function () { startGame(Main.lastSave || {}); };
+  $('btnReload').onclick = function () { location.reload(); };
+  $('btnFull').onclick = function () {
+    var d = document.documentElement;
+    if (!document.fullscreenElement) { (d.requestFullscreen || d.webkitRequestFullscreen).call(d); try { if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(['Escape', 'KeyW', 'Tab']).catch(function () { }); } catch (e) { } }
+    else document.exitFullscreen();
+  };
+  [].forEach.call(document.querySelectorAll('[data-open]'), function (b) {
+    b.onclick = function () { var from = b.closest('.screen').id; show(from, false); Main.back = from; uiOpen = b.dataset.open; show(uiOpen, true); if (uiOpen === 'settings') buildSettingsUI(); };
+  });
+  [].forEach.call(document.querySelectorAll('[data-close]'), function (b) { b.onclick = function () { closeUI(); }; });
+  [].forEach.call($('presets').children, function (b) { b.onclick = function () { applyPreset(b.dataset.preset); }; });
+  document.addEventListener('pointerlockerror', function () { Main.noLock = true; });
+
+  /* công cụ gỡ lỗi / kiểm thử */
+  H.debug = {
+    tp: function (x, z, yaw) { P.pos[0] = x; P.pos[2] = z; if (yaw !== undefined) P.yaw = yaw; P.gy = W.heightAt(x, z); },
+    give: function (id) { Pz.inv[id] = 1; }, flag: function (k) { Pz.flags[k] = 1; Pz.sync(); },
+    hunt: function () { AI.enabled = true; AI.forceHunt(P.pos[0] + 8, P.pos[2]); }, state: function () { return Main.state + ' / ' + AI.state; }
+  };
+  window.addEventListener('load', boot);
+})();
