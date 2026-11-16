@@ -51,7 +51,31 @@
 
   /* ---------- các bước dựng (rải qua nhiều frame cho thanh tải) ---------- */
   var P = CFG.POS;
+  /* texture thực vật có alpha (cutout): nhành lá, bụi cỏ, atlas tre */
+  function foliageTextures() {
+    function cv(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+    function leafShape(x, cx, cy, len, wid, ang, col, rib) {
+      x.save(); x.translate(cx, cy); x.rotate(ang); x.fillStyle = col; x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(len * 0.45, -wid, len, 0); x.quadraticCurveTo(len * 0.45, wid, 0, 0); x.fill();
+      x.strokeStyle = rib; x.lineWidth = 1.2; x.beginPath(); x.moveTo(0, 0); x.lineTo(len * 0.92, 0); x.stroke(); x.restore();
+    }
+    var rnd = H.rng(77), k, c = cv(256, 256), x = c.getContext('2d');
+    x.strokeStyle = 'rgb(70,52,34)'; x.lineWidth = 5; x.lineCap = 'round'; x.beginPath(); x.moveTo(128, 254); x.quadraticCurveTo(118, 140, 130, 24); x.stroke();
+    for (k = 0; k < 13; k++) { var t = k / 12, sd = k % 2 ? 1 : -1, g = 60 + rnd() * 36; leafShape(x, 126 + Math.sin(t * 2) * 4, 240 - t * 205, 78 + rnd() * 26, 20 + rnd() * 9, -Math.PI / 2 + sd * (0.75 + rnd() * 0.5), 'rgb(' + Math.round(g * 0.62) + ',' + Math.round(g) + ',' + Math.round(g * 0.5) + ')', 'rgba(120,140,80,0.6)'); }
+    leafShape(x, 130, 30, 60, 18, -Math.PI / 2, 'rgb(50,80,40)', 'rgba(120,140,80,0.6)');
+    R.materials.leaf = { alb: R.texData(256, 256, c, { clamp: true }), uv: 1 }; R.defineStaticMat('leaf', { tex: 'leaf', cutout: 1, rough: 0.55 });
+    c = cv(128, 256); x = c.getContext('2d');
+    for (k = 0; k < 30; k++) { var bx0 = 34 + rnd() * 60, tx = bx0 + (rnd() - 0.5) * 90, ty = 12 + rnd() * 130, w = 3 + rnd() * 3.5, gg = 58 + rnd() * 44, mx = (bx0 + tx) / 2 + (rnd() - 0.5) * 20;
+      x.fillStyle = 'rgb(' + Math.round(gg * (0.6 + rnd() * 0.25)) + ',' + Math.round(gg) + ',' + Math.round(gg * 0.42) + ')'; x.beginPath(); x.moveTo(bx0 - w, 256); x.quadraticCurveTo(mx - w * 0.5, 150, tx, ty); x.quadraticCurveTo(mx + w * 0.5, 150, bx0 + w, 256); x.fill(); }
+    R.materials.grass = { alb: R.texData(128, 256, c, { clamp: true }), uv: 1 };
+    c = cv(256, 256); x = c.getContext('2d');
+    var gr = x.createLinearGradient(0, 0, 64, 0); gr.addColorStop(0, 'rgb(48,72,30)'); gr.addColorStop(0.45, 'rgb(96,128,52)'); gr.addColorStop(1, 'rgb(52,78,32)'); x.fillStyle = gr; x.fillRect(0, 0, 66, 256);
+    for (k = 0; k < 40; k++) { x.fillStyle = 'rgba(' + (rnd() < 0.5 ? '20,30,10' : '150,160,80') + ',0.12)'; x.fillRect(rnd() * 64, 0, 1 + rnd() * 2, 256); }
+    for (k = 0; k <= 12; k++) { var ny = 256 - k / 12 * 256; x.fillStyle = 'rgba(205,200,150,0.75)'; x.fillRect(0, ny - 3.2, 66, 2.2); x.fillStyle = 'rgba(18,24,10,0.85)'; x.fillRect(0, ny - 1, 66, 2.2); }
+    for (k = 0; k < 9; k++) { var gl2 = 62 + rnd() * 40; leafShape(x, 72, 178, 120 + rnd() * 58, 9 + rnd() * 5, -0.95 + k / 8 * 1.5 + (rnd() - 0.5) * 0.15, 'rgb(' + Math.round(gl2 * 0.66) + ',' + Math.round(gl2) + ',' + Math.round(gl2 * 0.42) + ')', 'rgba(150,165,90,0.5)'); }
+    R.materials.bamboo = { alb: R.texData(256, 256, c, { clamp: true }), uv: 1 };
+  }
   function buildTerrain() {
+    foliageTextures();
     var A = H.Assets, CH = 25, N = 16, cx, cz, i, j;
     var paths = [[0, 96, 0, -54], [0, 30, 21, 30], [0, 22, -27, 22], [0, -14, 32, -14], [0, -6, -30, -6], [0, -44, 18, -44], [0, -45, -24, -45]];
     function pathness(x, z) {
@@ -165,6 +189,10 @@
     for (k = 0; k < posts.length; k++) Md.lanternPost(ctx, posts[k][0], posts[k][1], posts[k][2]);
     for (k = 0; k < 16; k++) Md.jar(ctx, (rnd() - 0.5) * 100, -70 + rnd() * 110, 0.8 + rnd() * 0.6);
     for (k = 0; k < 30; k++) Md.rock(ctx, (rnd() - 0.5) * 120, -78 + rnd() * 124, 0.25 + rnd() * 0.7, k * 1.7);
+    // hàng rào tre, đống củi, thúng mủng quanh nhà
+    Md.fence(ctx, 4.6, 44, 4.6, 35); Md.fence(ctx, -4.6, 36, -4.6, 27); Md.fence(ctx, 4.6, 21, 4.6, 12); Md.fence(ctx, -4.6, 14, -4.6, 2); Md.fence(ctx, 4.6, -20, 4.6, -30); Md.fence(ctx, -4.6, -18, -4.6, -30);
+    Md.woodpile(ctx, 27, 36.6, 0.2); Md.woodpile(ctx, -34.5, -0.4, 1.4); Md.woodpile(ctx, 22.5, -38.4, 0.1); Md.woodpile(ctx, 45.8, -20, 1.57);
+    [[-27.2, 19.2, 1], [-26.4, 19.9, 0.8], [19.5, 34.2, 1.1], [29.8, -8.2, 1], [30.6, -9, 0.75], [-29.6, -10.6, 1], [17.2, -40.4, 0.9], [7.2, 9.5, 1.1]].forEach(function (b) { Md.basket(ctx, b[0], b[1], b[2]); });
     // vài cây khô trong làng
     var tr = [[-48, 30, 3], [48, 34, 5], [50, -30, 8], [-14, -24, 13], [12, 46, 2], [-52, 8, 21], [30, 8, 17]];
     for (k = 0; k < tr.length; k++) Md.tree(ctx, tr[k][0], tr[k][1], { seed: tr[k][2] * 7 + 1, scale: 1.0 + (k % 3) * 0.2, levels: 3, leaves: k % 2 === 0, leafN: 30, trunk: 4.4, rad: 0.38 });
@@ -245,7 +273,7 @@
       }
       put(x, z); n++;
     }
-    var geo = Md.bambooGeo(), mat = { tex: 'plain', rough: 0.45, tint: [1, 1, 1, 1] };
+    var geo = Md.bambooGeo(), mat = { tex: 'bamboo', cutout: 1, rough: 0.5, tint: [1, 1, 1, 1] };
     for (var key in groups) {
       var arr = groups[key], cnt = arr.length / 8, order = [], cx = 0, cz = 0, cy = 0, rad = 0;
       for (k = 0; k < cnt; k++) { order.push(k); cx += arr[k * 8]; cy += arr[k * 8 + 1]; cz += arr[k * 8 + 2]; }
@@ -255,6 +283,38 @@
       for (k = 0; k < cnt; k++) { for (var q = 0; q < 8; q++) inst[k * 8 + q] = arr[order[k] * 8 + q]; rad = Math.max(rad, Math.hypot(arr[k * 8] - cx, arr[k * 8 + 2] - cz)); }
       R.addInstanced(geo, inst, cnt, mat, [cx, cy + 5, cz], rad + 12);
     }
+    // ---- thảm cỏ, dương xỉ và bụi cây thấp (instancing, chỉ vẽ ở gần)
+    function scatter(count, mat, maxDist, sMin, sMax, pick) {
+      var gs = {}, made = 0, tries = 0, gg = Md.grassGeo();
+      while (made < count && tries++ < count * 8) {
+        var q = pick(); if (!q) continue; var x = q[0], z = q[1], bad = false, i;
+        for (i = 0; i < W.floors.length && !bad; i++) { var f = W.floors[i]; bad = x > f[0] - 0.3 && x < f[2] + 0.3 && z > f[1] - 0.3 && z < f[3] + 0.3; }
+        for (i = 0; i < W.paving.length && !bad; i++) { var pv = W.paving[i]; bad = x > pv[0] && x < pv[2] && z > pv[1] && z < pv[3]; }
+        for (i = 0; i < W.circles.length && !bad; i++) { var ci = W.circles[i]; bad = Math.hypot(x - ci.x, z - ci.z) < ci.r + 0.15; }
+        if (bad) continue;
+        var key = Math.floor((x + 200) / 34) + '|' + Math.floor((z + 200) / 34), a = gs[key] || (gs[key] = []);
+        a.push(x, W.terrainH(x, z) - 0.03, z, sMin + rnd() * (sMax - sMin), rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 1.5, 0.7 + rnd() * 0.55); made++;
+      }
+      for (var key2 in gs) {
+        var arr = gs[key2], cnt = arr.length / 8, cx = 0, cz = 0, cy = 0, rad = 0, j;
+        for (j = 0; j < cnt; j++) { cx += arr[j * 8]; cy += arr[j * 8 + 1]; cz += arr[j * 8 + 2]; } cx /= cnt; cy /= cnt; cz /= cnt;
+        for (j = 0; j < cnt; j++) rad = Math.max(rad, Math.hypot(arr[j * 8] - cx, arr[j * 8 + 2] - cz));
+        R.addInstanced(gg, new Float32Array(arr), cnt, mat, [cx, cy, cz], rad + 2, maxDist);
+      }
+    }
+    var mainPaths = [[0, 96, 0, -54], [0, 30, 21, 30], [0, 22, -27, 22], [0, -14, 32, -14], [0, -6, -30, -6], [0, -44, 18, -44], [0, -45, -24, -45]];
+    function offPath(x, z, m) { for (var i = 0; i < mainPaths.length; i++) { var p = mainPaths[i], dx = p[2] - p[0], dz = p[3] - p[1], t = M.clamp(((x - p[0]) * dx + (z - p[1]) * dz) / (dx * dx + dz * dz), 0, 1); if (Math.hypot(x - p[0] - dx * t, z - p[1] - dz * t) < m) return false; } return true; }
+    scatter(9000, { tex: 'grass', cutout: 1, rough: 0.7, tint: [1, 1, 1, 1] }, 44, 0.7, 1.5, function () {
+      var x, z; if (rnd() < 0.86) { x = w.x0 + 1.5 + rnd() * (w.x1 - w.x0 - 3); z = w.z0 + 1.5 + rnd() * (w.z1 - w.z0 - 3); } else { x = (rnd() - 0.5) * 16.5; z = 51 + rnd() * 46; }
+      return offPath(x, z, 2.3 + rnd() * 1.2) ? [x, z] : null;
+    });
+    scatter(520, { tex: 'leaf', cutout: 1, rough: 0.55, tint: [0.9, 1, 0.85, 1] }, 75, 1.8, 3.2, function () {
+      var r = rnd(), x, z;
+      if (r < 0.55) { var sd = Math.floor(rnd() * 4), t = rnd(), d = 0.9 + rnd() * 2.2; if (sd === 0) { x = w.x0 + d; z = M.lerp(w.z0, w.z1, t); } else if (sd === 1) { x = w.x1 - d; z = M.lerp(w.z0, w.z1, t); } else if (sd === 2) { x = M.lerp(w.x0, w.x1, t); z = w.z0 + d; } else { x = M.lerp(w.x0, w.x1, t); z = w.z1 - d; if (Math.abs(x) < 5) return null; } }
+      else if (r < 0.75) { x = (rnd() < 0.5 ? -1 : 1) * (7.2 + rnd() * 1.2); z = 51 + rnd() * 46; }
+      else { x = w.x0 + 3 + rnd() * (w.x1 - w.x0 - 6); z = w.z0 + 3 + rnd() * (w.z1 - w.z0 - 6); if (!offPath(x, z, 5)) return null; }
+      return [x, z];
+    });
     // cây rừng ngoài tường
     for (k = 0; k < 34; k++) {
       var a = k / 34 * 6.283 + rnd() * 0.15, rr = 1.0 + rnd() * 0.22, tx = Math.cos(a) * 82 * rr, tz = -15 + Math.sin(a) * 84 * rr;

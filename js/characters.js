@@ -118,6 +118,19 @@
       for (r = 0; r < NR; r++) for (k = 0; k < NC; k++) { var a0 = r * (NC + 1) + k; sh.i.push(a0, a0 + NC + 1, a0 + NC + 2, a0, a0 + NC + 2, a0 + 1); }
       sh.computeNormals(); g.add(sh);
     }
+    // lọn tóc rời phủ lên khối tóc: mái, tóc mai, đuôi tóc — phá đường viền "mũ bảo hiểm"
+    var r2 = H.rng(Math.round((p.jaw || 1) * 977 + (st.long || 0) * 313 + 5)), ns = st.long ? 84 : 72;
+    for (k = 0; k < ns; k++) {
+      var fr = k < 16, lam2 = fr ? Math.PI + (r2() - 0.5) * 1.3 : (r2() < 0.5 ? 1 : -1) * (0.1 + r2() * (st.long ? 1.55 : 2.0)), cy2 = fr ? 0.64 + r2() * 0.2 : (st.long ? -0.2 + r2() * 1.0 : 0.3 + r2() * 0.65);
+      if (!fr) lam2 = lam2 < 0 ? lam2 + 2 * Math.PI : lam2;
+      if (fr && st.fringe < 0.05 && !st.long) continue;
+      var sr2 = Math.sqrt(Math.max(0, 1 - cy2 * cy2)), dxx = sr2 * Math.sin(lam2), dzz = -sr2 * Math.cos(lam2), b0 = skull(dxx, cy2, dzz, p), kk = 1.1 + st.vol * 0.05;
+      var P0 = [b0[0] * kk, b0[1] * kk + 0.008, b0[2] * kk - 0.006], ol = Math.hypot(b0[0], b0[2]) || 1, ox = b0[0] / ol, oz = b0[2] / ol;
+      var Ls = fr ? 0.012 + st.fringe * 0.022 * (0.6 + r2() * 0.6) : (st.long ? (st.long + 0.05) * (0.5 + r2() * 0.55) : 0.018 + r2() * 0.02);
+      pts = []; for (var q = 0; q <= 4; q++) { var t4 = q / 4, out = (fr ? 0.012 : 0.02) * Math.sqrt(t4); pts.push([P0[0] + ox * out + (fr ? (r2() - 0.5) * 0.004 : 0), P0[1] - Ls * t4 * (0.55 + 0.45 * t4), P0[2] + oz * out + (fr ? 0.004 * t4 : -0.01 * t4 * (st.long ? 1 : 0))]); }
+      var cs = 0.8 + r2() * 0.4, y0s = P0[1], sway = st.long && !fr ? 0.12 : 0;
+      (function (cs, y0s, Ls, sway) { g.add(Geo.tube(pts, function (t) { return 0.0058 - t * 0.0042; }, 3, true).colorFn(function (x, y) { return [p.hair[0] * cs, p.hair[1] * cs, p.hair[2] * cs, sq(M.clamp((y0s - y) / Ls, 0, 1)) * sway]; })); })(cs, y0s, Ls, sway);
+    }
     if (st.bun) g.add(Geo.sphere(0.04, 10, 8).xf(0, st.bun > 1 ? 0.118 : 0.05, st.bun > 1 ? -0.03 : -0.105, 0, 0, 0, 1, 0.9, 1).color(p.hair[0], p.hair[1], p.hair[2], 0));
     if (st.braid) { pts = []; for (k = 0; k <= 8; k++) pts.push([0.02 * Math.sin(k * 0.9), -0.06 - k * 0.045, -0.095 - 0.012 * Math.cos(k * 0.9) - k * 0.004]); g.add(Geo.tube(pts, function (t) { return 0.02 - t * 0.008; }, 6, true).colorFn(function (x, y) { var q = 0.7 + 0.5 * Math.sin(y * 150); return [p.hair[0] * q, p.hair[1] * q, p.hair[2] * q, sq(M.clamp((-0.06 - y) / 0.36, 0, 1)) * 0.12]; })); }
     return g;
@@ -151,7 +164,7 @@
       eye: { tex: 'plain', rough: 0.05, tint: t.slice(), emis: spirit ? [0.1, 0.14, 0.2] : [0.006, 0.006, 0.006] }, shadow: { tex: 'blob', unlit: 1, tint: [0, 0, 0, 0.7], blend: true } };
     if (!spirit) SHARED = m; return m;
   }
-  var BONES = ['hips', 'chest', 'neck', 'shL', 'elL', 'haL', 'shR', 'elR', 'haR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR'];
+  var BONES = ['hips', 'chest', 'neck', 'shL', 'elL', 'haL', 'shR', 'elR', 'haR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR', 'fiL', 'fiR'];
 
   /* ===================== DỰNG NHÂN VẬT ===================== */
   Ch.create = function (name, sp) {
@@ -163,7 +176,7 @@
     var hips = N(root, 'hips', 0, 0.95, 0), chest = N(hips, 'chest', 0, 0.13, 0), neck = N(chest, 'neck', 0, 0.335, -0.005);
     var bp = { hips: [0, 0.95, 0], chest: [0, 1.08, 0], neck: [0, 1.415, -0.005] };
     [-1, 1].forEach(function (sd) {
-      var S = sd < 0 ? 'L' : 'R', sh = N(chest, 'sh' + S, sd * sx, 0.258, 0), el = N(sh, 'el' + S, 0, -0.275, 0); N(el, 'ha' + S, 0, -0.25, 0);
+      var S = sd < 0 ? 'L' : 'R', sh = N(chest, 'sh' + S, sd * sx, 0.258, 0), el = N(sh, 'el' + S, 0, -0.275, 0), hn = N(el, 'ha' + S, 0, -0.25, 0); N(hn, 'fi' + S, 0, -0.087, 0); bp['fi' + S] = [sd * sx, 0.726, 0];
       bp['sh' + S] = [sd * sx, 1.338, 0]; bp['el' + S] = [sd * sx, 1.063, 0]; bp['ha' + S] = [sd * sx, 0.813, 0];
       if (!sp.skirt) { var th = N(hips, 'th' + S, sd * 0.088, -0.06, 0), kn = N(th, 'kn' + S, 0, -0.42, 0); N(kn, 'ft' + S, 0, -0.41, 0); bp['th' + S] = [sd * 0.088, 0.89, 0]; bp['kn' + S] = [sd * 0.088, 0.47, 0]; bp['ft' + S] = [sd * 0.088, 0.06, 0]; }
     });
@@ -183,12 +196,38 @@
     });
     add(tg, function (x, y) { return [0, 1, M.smooth(1.0, 1.15, y)]; });
     add(loft([[1.4, 0.052, 0.05], [1.46, 0.044, 0.046], [1.515, 0.047, 0.05, 0.004]], [skin[0] * 0.92, skin[1] * 0.9, skin[2] * 0.9], 12), function (x, y) { return [1, 2, M.smooth(1.4, 1.47, y)]; });
+    var dk = function (c0, f) { return [c0[0] * f, c0[1] * f, c0[2] * f]; }, fz = fem ? 0.1 : 0.106;
+    if (sp.jacket) { // cổ áo dựng, gấu áo, túi ngực có nắp, khuy kéo
+      add(loft([[1.385, 0.083, 0.078, -0.004], [1.415, 0.076, 0.072, -0.006], [1.447, 0.07, 0.068, -0.01]], dk(tc, 0.8), 16), function () { return [1, 2, 0.25]; });
+      add(loft([[0.948, 0.166, fem ? 0.118 : 0.121], [0.965, 0.17, fem ? 0.121 : 0.124], [0.985, 0.165, fem ? 0.117 : 0.12]], dk(tc, 0.72), 20), function () { return [0, 1, 0.1]; });
+      [-1, 1].forEach(function (sd) {
+        add(Geo.box(0.075, 0.085, 0.012).xf(sd * 0.085, 1.215, fz + (fem ? 0.022 : 0.012), -0.06, 0, 0).color(tc[0] * 0.86, tc[1] * 0.86, tc[2] * 0.86, 0), function () { return [1, 1, 1]; });
+        add(Geo.box(0.08, 0.028, 0.016).xf(sd * 0.085, 1.262, fz + (fem ? 0.026 : 0.015), -0.06, 0, 0).color(tc[0] * 0.7, tc[1] * 0.7, tc[2] * 0.7, 0), function () { return [1, 1, 1]; });
+      });
+      add(Geo.box(0.014, 0.022, 0.012).xf(0, 1.34, fz + 0.012).color(0.35, 0.33, 0.3, 0), function () { return [1, 1, 1]; });
+    } else if (!sp.skirt) { // thắt lưng + khoá
+      add(loft([[0.985, 0.147, 0.104], [1.0, 0.149, 0.106], [1.016, 0.146, 0.103]], [0.035, 0.028, 0.02], 20), function () { return [0, 1, 0.2]; });
+      add(Geo.box(0.04, 0.03, 0.012).xf(0, 1.0, 0.108).color(0.3, 0.26, 0.14, 0), function () { return [0, 1, 0.2]; });
+    }
+    if (sp.skirt) { // áo dài/áo the: hàng khuy vải chéo vạt, dải thắt lưng có nút và tua
+      for (var bq = 0; bq < 5; bq++) add(Geo.sphere(0.008, 6, 5).xf(0.012 + bq * 0.019, 1.36 - bq * 0.042, (fem ? 0.092 : 0.1) + bq * 0.004).color(0.02, 0.02, 0.02, 0), function () { return [1, 1, 1]; });
+      var sash = sp.sash || (fem ? [0.42, 0.05, 0.05] : [0.12, 0.1, 0.07]);
+      add(loft([[1.04, fem ? 0.125 : 0.142, 0.096], [1.07, fem ? 0.128 : 0.145, 0.099], [1.1, fem ? 0.125 : 0.142, 0.096]], sash, 20), function () { return [0, 1, 0.45]; });
+      add(Geo.sphere(0.022, 8, 6).xf(-0.06, 1.07, 0.1).color(sash[0], sash[1], sash[2], 0), function () { return [0, 1, 0.45]; });
+      var tails = Geo.box(0.035, 0.34, 0.008).xf(-0.072, 0.89, 0.108, 0, 0, 0.06); tails.add(Geo.box(0.035, 0.28, 0.008).xf(-0.045, 0.92, 0.112, 0, 0, -0.05));
+      tails.colorFn(function (x, y) { return [sash[0], sash[1], sash[2], sq(M.clamp((1.06 - y) / 0.34, 0, 1)) * 0.1]; }); add(tails, function () { return [0, 0, 1]; });
+    } else [-1, 1].forEach(function (sd) { // gấu quần
+      add(loft([[0.105, 0.041, 0.043, 0, sd * 0.088], [0.085, 0.043, 0.045, 0, sd * 0.088], [0.07, 0.041, 0.043, 0, sd * 0.088]], dk(bot, 0.75), 12), function () { return [B['kn' + (sd < 0 ? 'L' : 'R')], 0, 0]; });
+    });
     [-1, 1].forEach(function (sd) {
       var x0 = sd * sx, S = sd < 0 ? 'L' : 'R', sh = B['sh' + S], el = B['el' + S], ha = B['ha' + S];
       var ag = loft([[1.392, 0.018, 0.03, 0, x0 - sd * 0.02], [1.37, 0.044, 0.05, 0, x0 - sd * 0.004], [1.33, 0.051, 0.056, 0, x0 + sd * 0.006], [1.25, 0.046, 0.052, 0.002, x0 + sd * 0.004], [1.15, 0.041, 0.045, 0, x0], [1.075, 0.039, 0.042, -0.002, x0], [1.02, 0.041, 0.043, 0, x0], [0.93, 0.035, 0.036, 0, x0], [0.835, 0.027, 0.028, 0, x0]], null, 14, false, true);
       ag.colorFn(function (x, y) { var cl = (sp.shortSleeve ? y > 1.2 : y > 0.855) ? sleeve : skin; return [cl[0], cl[1], cl[2], 0]; });
       add(ag, function (x, y) { return y > 1.3 ? [1, sh, M.smooth(1.395, 1.315, y)] : [sh, el, M.smooth(1.11, 1.02, y)]; });
-      add(handGeo(skin).xf(x0, 0.815, 0, 0, 0, 0, -sd, 1, 1), function () { return [ha, ha, 1]; });
+      var fi = B['fi' + S];
+      add(handGeo(skin).xf(x0, 0.815, 0, 0, 0, 0, -sd, 1, 1), function (x, y) { return [ha, fi, Math.abs(x - x0) > 0.046 ? 0 : M.smooth(0.74, 0.712, y)]; });
+      // cổ tay áo / măng-sét
+      if (!sp.shortSleeve) add(loft([[0.875, 0.034, 0.035, 0, x0], [0.86, 0.036, 0.037, 0, x0], [0.842, 0.035, 0.036, 0, x0]], [sleeve[0] * 0.7, sleeve[1] * 0.7, sleeve[2] * 0.7], 12), function () { return [el, el, 1]; });
       if (!sp.skirt) {
         var lx = sd * 0.088, th = B['th' + S], kn = B['kn' + S], ft = B['ft' + S], shoe = sp.shoe || [0.03, 0.03, 0.035];
         add(loft([[0.97, 0.06, 0.07, 0, lx * 0.8], [0.9, 0.088, 0.094, 0, lx], [0.8, 0.085, 0.092, 0, lx], [0.65, 0.07, 0.076, 0, lx], [0.53, 0.058, 0.061, 0, lx], [0.47, 0.056, 0.058, 0.004, lx], [0.4, 0.052, 0.057, -0.006, lx], [0.32, 0.054, 0.062, -0.011, lx], [0.2, 0.043, 0.046, -0.004, lx], [0.085, 0.037, 0.039, 0, lx]], bot, 14, false, true),
@@ -244,13 +283,25 @@
   /* ===================== CHUYỂN ĐỘNG ===================== */
   function arm(T, S, rx, rz, el, ry) { var sd = S === 'L' ? -1 : 1; T['sh' + S][0] = rx; T['sh' + S][2] = sd * rz; T['sh' + S][1] = (ry || 0) * sd; T['el' + S][0] = el; }
   function leg(T, S, th, kn, ft) { if (!T['th' + S]) return; T['th' + S][0] = th; T['kn' + S][0] = kn; T['ft' + S][0] = ft || 0; }
+  var FING = { plead: 0.12, pound: -1.35, recoil: 0.1, cower: -0.9, bound: -1.2, boundStand: -1.2, point: 0.05, write: -1.0, crouch: -0.2 };
   var ANIM = {
-    idle: function (c, T, t) { T.hips[2] = Math.sin(t * 0.5) * 0.02; T.chest[2] = -Math.sin(t * 0.5) * 0.02; arm(T, 'L', 0.03 + Math.sin(t * 0.8) * 0.03, 0.05, -0.16); arm(T, 'R', 0.03 - Math.sin(t * 0.8) * 0.03, 0.05, -0.18); leg(T, 'L', -0.02, 0.04); leg(T, 'R', -0.02, 0.04); },
+    idle: function (c, T, t) {
+      var ws = Math.sin(t * 0.42), sh2 = M.smooth(-0.6, 0.6, Math.sin(t * 0.21 + c.ph)) * 2 - 1;       // dồn trọng tâm qua lại giữa hai chân
+      T.hips[2] = ws * 0.03 + sh2 * 0.035; T.chest[2] = -ws * 0.03 - sh2 * 0.03; T.hips[1] = sh2 * 0.05; T.chest[1] = -sh2 * 0.04 + Math.sin(t * 0.33) * 0.03;
+      arm(T, 'L', 0.03 + Math.sin(t * 0.8) * 0.035, 0.05 + sh2 * 0.015, -0.17 + Math.sin(t * 0.9 + 1) * 0.03); arm(T, 'R', 0.03 - Math.sin(t * 0.8) * 0.035, 0.05 - sh2 * 0.015, -0.19 + Math.sin(t * 0.7) * 0.03);
+      leg(T, 'L', -0.02 - sh2 * 0.03, 0.05 + Math.max(0, sh2) * 0.12); leg(T, 'R', -0.02 + sh2 * 0.03, 0.05 + Math.max(0, -sh2) * 0.12);
+      if (T.thL) { T.thL[2] = -T.hips[2]; T.thR[2] = -T.hips[2]; }
+      if (!c.look) { T.neck[1] = Math.sin(t * 0.27 + c.ph * 2) * 0.22 * M.smooth(0.2, 0.9, Math.sin(t * 0.11 + c.ph)); T.neck[0] = Math.sin(t * 0.19) * 0.04; }  // thỉnh thoảng nhìn quanh
+    },
     walk: function (c, T, t) {
       var p = c.walk, s = Math.sin(p), co = Math.cos(p);
-      leg(T, 'L', -s * 0.52 - 0.08, 0.12 + Math.max(0, co) * 0.75, Math.max(0, -s) * 0.2); leg(T, 'R', s * 0.52 - 0.08, 0.12 + Math.max(0, -co) * 0.75, Math.max(0, s) * 0.2);
-      arm(T, 'L', s * 0.42, 0.07, -0.28 - Math.max(0, s) * 0.2); arm(T, 'R', -s * 0.42, 0.07, -0.28 - Math.max(0, -s) * 0.2);
-      T.chest[1] = s * 0.07; T.hips[1] = -s * 0.05; T.chest[0] = 0.05; c.dy = -Math.abs(co) * 0.022;
+      leg(T, 'L', -s * 0.56 - 0.1, 0.1 + Math.max(0, co) * 0.85 + Math.max(0, -s) * 0.12, Math.max(0, -s) * 0.28 - Math.max(0, s) * 0.22);     // nhấc gót, đặt gót
+      leg(T, 'R', s * 0.56 - 0.1, 0.1 + Math.max(0, -co) * 0.85 + Math.max(0, s) * 0.12, Math.max(0, s) * 0.28 - Math.max(0, -s) * 0.22);
+      var al = Math.sin(p - 0.35), ar = Math.sin(p + Math.PI - 0.35);                                                                    // tay vung trễ pha so với chân
+      arm(T, 'L', al * 0.46, 0.06, -0.3 - Math.max(0, al) * 0.32); arm(T, 'R', ar * 0.46, 0.06, -0.3 - Math.max(0, ar) * 0.32);
+      T.hips[1] = -s * 0.09; T.hips[2] = co * 0.035; T.chest[1] = s * 0.13; T.chest[2] = -co * 0.03; T.chest[0] = 0.07; T.neck[1] += -s * 0.05; T.neck[2] = co * 0.012;
+      if (T.thL) { T.thL[2] = -T.hips[2]; T.thR[2] = -T.hips[2]; }
+      c.dy = -Math.abs(co) * 0.026 - 0.008;
     },
     kneel: function (c, T, t) { c.dy = -0.43; leg(T, 'L', -0.12, 1.72, 0.7); leg(T, 'R', -0.12, 1.72, 0.7); T.chest[0] = 0.08; arm(T, 'L', -0.25, 0.05, -0.5); arm(T, 'R', -0.25, 0.05, -0.5); },
     bound: function (c, T, t) { ANIM.kneel(c, T, t); arm(T, 'L', 0.55, -0.12, -0.75); arm(T, 'R', 0.55, -0.12, -0.75); T.chest[0] = 0.2 + Math.sin(t * 2.2) * 0.03; T.neck[0] = 0.32; T.chest[2] = Math.sin(t * 1.3) * 0.04; },
@@ -269,7 +320,8 @@
       var c = Ch.list[n]; if (!c.visible) continue;
       var T = c.T, J = c.J, k, t = time + c.ph;
       for (k in T) { T[k][0] = T[k][1] = T[k][2] = 0; }
-      c.dy = 0; (ANIM[c.anim] || ANIM.idle)(c, T, t);
+      c.dy = 0; T.fiL[0] = T.fiR[0] = -0.45 + Math.sin(t * 0.6) * 0.06; (ANIM[c.anim] || ANIM.idle)(c, T, t);
+      var fh = FING[c.anim]; if (fh !== undefined) { T.fiL[0] = fh; T.fiR[0] = c.anim === 'point' ? -0.4 : fh; }
       T.chest[0] += Math.sin(t * 1.5) * 0.012;                                    // nhịp thở
       if (c.talkT > 0) {                                                           // nói: gật đầu, đưa tay, mấp máy môi
         c.talkT -= dt; T.neck[0] += Math.sin(t * 5.3) * 0.035; T.head[1] += Math.sin(t * 2.1) * 0.07;
@@ -280,14 +332,18 @@
         var dx = c.look[0] - px, dz = c.look[2] - pz, yaw = M.clamp(M.angDiff(c.root.rot[1], Math.atan2(dx, dz)), -1.1, 1.1), pit = M.clamp(-Math.atan2(c.look[1] - py, Math.hypot(dx, dz)), -0.6, 0.6);
         T.neck[1] += yaw * 0.4; T.head[1] += yaw * 0.45; T.neck[0] += pit * 0.4; T.head[0] += pit * 0.45; T.chest[1] += yaw * 0.12;
         c.eyes[0].rot[1] = c.eyes[1].rot[1] = yaw * 0.25; c.eyes[0].rot[0] = c.eyes[1].rot[0] = pit * 0.3;
-      } else { c.eyes[0].rot[1] = c.eyes[1].rot[1] = Math.sin(t * 0.37) * 0.12; c.eyes[0].rot[0] = c.eyes[1].rot[0] = 0; }
+      } else { c.sacT = (c.sacT || 0) - dt; if (c.sacT <= 0) { c.sacT = 0.5 + Math.random() * 1.8; c.sacX = (Math.random() - 0.5) * 0.3; c.sacY = (Math.random() - 0.5) * 0.12; } c.eyes[0].rot[1] = c.eyes[1].rot[1] = c.sacX; c.eyes[0].rot[0] = c.eyes[1].rot[0] = c.sacY; }
       c.blink -= dt; var bl = c.blink < 0.13 ? 1 : 0; if (c.blink < 0) c.blink = 1.8 + Math.random() * 3.5;
       // biểu cảm + khẩu hình -> trọng số biến hình [há, bè, chúm, nhắm mắt, mày, cười]
       var ex = EXPR[c.expr || AEX[c.anim] || 'neutral'], mo = [ex[0], ex[1], ex[2], bl, ex[3], ex[4]], sp2 = c.speech;
       if (sp2) { sp2.t += dt; if (sp2.t >= sp2.dur) c.speech = null; else { var v = sp2.v[Math.min(sp2.v.length - 1, Math.floor(sp2.t / sp2.dur * sp2.v.length))]; mo[0] = Math.max(mo[0] * 0.4, v[0]); mo[1] += v[1]; mo[2] += v[2]; } }
       for (k = 0; k < 6; k++) c.morph[k] += (mo[k] - c.morph[k]) * Math.min(1, dt * (k === 3 ? 30 : 19));
-      var r = Math.min(1, dt * 8);
-      for (k in T) { var jr = J[k].rot, tr = T[k]; jr[0] += (tr[0] - jr[0]) * r; jr[1] += (tr[1] - jr[1]) * r; jr[2] += (tr[2] - jr[2]) * r; }
+      // khớp bám theo tư thế đích bằng lò xo giảm chấn -> có đà, có trễ, không giật cục
+      var V = c.V || (c.V = {}), h = Math.min(dt, 0.033), a3;
+      for (k in T) {
+        var jr = J[k].rot, tr = T[k], vv = V[k] || (V[k] = [0, 0, 0]), kS = k.charAt(0) === 'f' ? 90 : (k === 'head' || k === 'neck' ? 70 : 120), dS = 2 * Math.sqrt(kS) * 0.78;
+        for (a3 = 0; a3 < 3; a3++) { vv[a3] += (kS * (tr[a3] - jr[a3]) - dS * vv[a3]) * h; jr[a3] += vv[a3] * h; }
+      }
       J.hips.pos[1] += (0.95 + c.dy - J.hips.pos[1]) * Math.min(1, dt * 6);
       if (c.sp.spirit) c.root.pos[1] = c.baseY + 0.06 + Math.sin(t * 1.1) * 0.035;
     }
@@ -298,7 +354,7 @@
     var c = Ch.byName[name]; if (!c) return null;
     if (!c.visible) { c.visible = c.root.visible = true; for (var k in c.T) { c.J[k].rot[0] = c.J[k].rot[1] = c.J[k].rot[2] = 0; } c.snap = true; }
     c.root.set(x, y, z); c.baseY = y; c.root.rot[1] = ry; c.anim = anim || 'idle'; c.look = look || null;
-    if (c.snap) { c.snap = false; c.dy = 0; var T = c.T; for (k in T) T[k][0] = T[k][1] = T[k][2] = 0; (ANIM[c.anim] || ANIM.idle)(c, T, 0); for (k in T) { c.J[k].rot[0] = T[k][0]; c.J[k].rot[1] = T[k][1]; c.J[k].rot[2] = T[k][2]; } c.J.hips.pos[1] = 0.95 + c.dy; }
+    if (c.snap) { c.snap = false; c.V = {}; c.dy = 0; var T = c.T; for (k in T) T[k][0] = T[k][1] = T[k][2] = 0; (ANIM[c.anim] || ANIM.idle)(c, T, 0); for (k in T) { c.J[k].rot[0] = T[k][0]; c.J[k].rot[1] = T[k][1]; c.J[k].rot[2] = T[k][2]; } c.J.hips.pos[1] = 0.95 + c.dy; }
     return c;
   };
   /* đi bộ theo đoạn thẳng trong khoảng thời gian u = 0..1 */
@@ -334,7 +390,7 @@
     tuan: { male: 1, h: 1.79, jaw: 1.08, nose: 1.1, age: 0.2, tone: TAN, hairStyle: { fringe: 0.15, vol: 0.1 }, top: [0.05, 0.11, 0.2], jacket: [0.055, 0.12, 0.22], bot: [0.09, 0.08, 0.06], pack: [0.16, 0.2, 0.09], glasses: 1 },
     ha: { h: 1.57, jaw: 0.88, nose: 0.85, lip: 1.05, blush: 0.7, tone: [0.58, 0.4, 0.31], hairStyle: { fringe: 0.8, vol: 0.3, braid: 1 }, top: [0.5, 0.36, 0.05], jacket: [0.55, 0.4, 0.06], bot: [0.05, 0.06, 0.1], scarf: [0.5, 0.08, 0.08], shoe: [0.5, 0.45, 0.4] },
     // --- 1874 ---
-    le: { h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.085, 0.045, 0.028], sleeve: [0.085, 0.045, 0.028], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
+    le: { h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
     khai: { male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
     me: { h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
     cha: { male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },

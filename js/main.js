@@ -34,7 +34,7 @@
     ['scale', 'Tỉ lệ kết xuất', 'range', 0.4, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
     ['view', 'Tầm nhìn xa', 'range', 60, 180, 5, function (v) { return v + ' m'; }],
     ['rain', 'Mật độ mưa', 'range', 0, 9000, 300, function (v) { return v; }],
-    ['bamboo', 'Mật độ rừng tre', 'range', 0.15, 1, 0.05, function (v) { return Math.round(v * 2200); }],
+    ['bamboo', 'Mật độ cây cỏ', 'range', 0.15, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
     ['lights', 'Số đèn động', 'range', 2, 12, 1, function (v) { return v; }],
     ['dpr', 'Giới hạn độ nét (DPR)', 'range', 1, 2, 0.25, function (v) { return v + 'x'; }],
     ['tex', 'Texture (cần tải lại)', 'select', [256, 512, 1024]],

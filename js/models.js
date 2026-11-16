@@ -159,6 +159,24 @@
       wood.add(Geo.tube([[-W / 2 + k * bw, P + h - 0.1, D / 2], [-W / 2 + k * bw, P + h + 0.02, D / 2 + ov * 0.55], [-W / 2 + k * bw, P + h + 0.22, D / 2 + ov * 0.95]], function (t) { return 0.09 - t * 0.04; }, 5, true));
       wood.add(Geo.tube([[-W / 2 + k * bw, P + h - 0.1, -D / 2], [-W / 2 + k * bw, P + h + 0.02, -D / 2 - ov * 0.55], [-W / 2 + k * bw, P + h + 0.22, -D / 2 - ov * 0.95]], function (t) { return 0.09 - t * 0.04; }, 5, true));
     }
+    // --- chi tiết kiến trúc: đuôi rui dưới mái, chân tường đá, lan can hiên, câu đối, chùm ngô treo
+    var nr = Math.round(W / 0.6), k2, det = new Geo();
+    for (k2 = 0; k2 <= nr; k2++) { var rx = -W / 2 + k2 / nr * W; wood.add(Geo.box(0.07, 0.09, ov * 0.95).xf(rx, P + h + 0.15, D / 2 + ov * 0.46, 0.2, 0, 0).boxUV(0.5)); wood.add(Geo.box(0.07, 0.09, ov * 0.95).xf(rx, P + h + 0.15, -D / 2 - ov * 0.46, -0.2, 0, 0).boxUV(0.5)); }
+    nr = Math.round(D / 0.6);
+    for (k2 = 0; k2 <= nr; k2++) { var rz = -D / 2 + k2 / nr * D; wood.add(Geo.box(ov * 0.95, 0.09, 0.07).xf(W / 2 + ov * 0.46, P + h + 0.15, rz, 0, 0, -0.2).boxUV(0.5)); wood.add(Geo.box(ov * 0.95, 0.09, 0.07).xf(-W / 2 - ov * 0.46, P + h + 0.15, rz, 0, 0, 0.2).boxUV(0.5)); }
+    stone.add(bx(W + 0.14, 0.3, 0.2, 0, P + 0.15, -D / 2)); stone.add(bx(0.2, 0.3, D + 0.14, -W / 2, P + 0.15, 0)); stone.add(bx(0.2, 0.3, D + 0.14, W / 2, P + 0.15, 0));
+    stone.add(bx((W - dw) / 2 - 0.1, 0.3, 0.2, -(dw / 2 + (W - dw) / 4), P + 0.15, D / 2)); stone.add(bx((W - dw) / 2 - 0.1, 0.3, 0.2, dw / 2 + (W - dw) / 4, P + 0.15, D / 2));
+    if (o.porch) for (k2 = 0; k2 < nx; k2++) {
+      if (k2 === mid) continue;
+      var xa = -W / 2 + k2 * bw + 0.2, xb = xa + bw - 0.4, zp = D / 2 + 1.15, nb = Math.round((xb - xa) / 0.3);
+      wood.add(Geo.tube([[xa, P + 0.86, zp], [xb, P + 0.86, zp]], 0.04, 6)); wood.add(Geo.tube([[xa, P + 0.2, zp], [xb, P + 0.2, zp]], 0.03, 6));
+      for (var q2 = 0; q2 <= nb; q2++) wood.add(Geo.lathe([[0.018, 0], [0.034, 0.1], [0.02, 0.3], [0.034, 0.5], [0.02, 0.64]], 6).xf(xa + q2 / nb * (xb - xa), P + 0.2, zp));
+    }
+    for (k2 = -1; k2 <= 1; k2 += 2) {
+      F.put(ctx, 'paper', Geo.quad([k2 * bw / 2 - 0.11, P + 0.8, D / 2 + pr * 1.12 + 0.01], [k2 * bw / 2 + 0.11, P + 0.8, D / 2 + pr * 1.12 + 0.01], [k2 * bw / 2 + 0.11, P + 2.25, D / 2 + pr * 1.12 + 0.01], [k2 * bw / 2 - 0.11, P + 2.25, D / 2 + pr * 1.12 + 0.01]).color(1.7, 0.42, 0.34, 0).scaleUV(0.25, 1));
+      for (var q3 = 0; q3 < 2; q3++) { var hx = k2 * (bw * 0.5 + 0.9 + q3 * 0.55); det.add(Geo.tube([[hx, P + h - 0.02, D / 2 + ov * 0.4], [hx, P + h - 0.3, D / 2 + ov * 0.4]], 0.008, 4).color(0.2, 0.15, 0.08, 0)); det.add(Geo.lathe([[0, 0], [0.06, 0.05], [0.085, 0.2], [0.055, 0.36], [0.01, 0.44]], 8).xf(hx, P + h - 0.74, D / 2 + ov * 0.4).colorFn(function (px, py, pz, ii) { var w = 0.7 + 0.3 * Math.sin(ii * 2.3); return [0.42 * w, 0.3 * w, 0.06 * w, 0]; })); }
+    }
+    F.put(ctx, 'plain', det);
     F.put(ctx, 'stone', stone); F.put(ctx, 'wood', wood);
     // mái
     var rH = o.roofH || D * 0.4;
@@ -200,12 +218,13 @@
     var rnd = H.rng(o.seed || 7), y0 = ctx.h(x, z) - 0.4, levels = o.levels || 3, sc = o.scale || 1, A = H.Assets;
     var wood = new Geo(), leaf = new Geo();
     function norm(d) { var l = Math.hypot(d[0], d[1], d[2]) || 1; d[0] /= l; d[1] /= l; d[2] /= l; return d; }
-    function cluster(p, n, rad) {
+    function cluster(p, n, rad) { // tán lá: thẻ lá có alpha (cutout), mỗi thẻ là một nhành nhiều lá
+      n = Math.max(6, Math.round(n * 0.5));
       for (var k = 0; k < n; k++) {
-        var cx = p[0] + (rnd() - 0.5) * 2 * rad, cy = p[1] + (rnd() - 0.5) * rad * 1.2, cz = p[2] + (rnd() - 0.5) * 2 * rad;
-        var s = 0.16 + rnd() * 0.2, a = rnd() * 6.28, t = (rnd() - 0.5) * 1.2, dx = Math.cos(a) * s, dz = Math.sin(a) * s;
-        var q = Geo.quad([cx - dx, cy, cz - dz], [cx - dz * 0.5, cy + t * s - 0.05, cz + dx * 0.5], [cx + dx, cy - 0.1 * s, cz + dz], [cx + dz * 0.5, cy - t * s + 0.05, cz - dx * 0.5]);
-        var g = 0.5 + rnd() * 0.7; q.color(0.03 * g, 0.075 * g, 0.025 * g, 0.35 + rnd() * 0.3); leaf.add(q);
+        var cx = p[0] + (rnd() - 0.5) * 2.2 * rad, cy = p[1] + (rnd() - 0.5) * rad * 1.3, cz = p[2] + (rnd() - 0.5) * 2.2 * rad;
+        var s = 0.38 + rnd() * 0.34, a = rnd() * 6.28, t = (rnd() - 0.5) * 1.6, rx = Math.cos(a) * s, rz = Math.sin(a) * s, uy = Math.cos(t) * s, ux = -Math.sin(a) * Math.sin(t) * s, uz = Math.cos(a) * Math.sin(t) * s;
+        var q = Geo.quad([cx - rx - ux, cy - uy, cz - rz - uz], [cx + rx - ux, cy - uy, cz + rz - uz], [cx + rx + ux, cy + uy, cz + rz + uz], [cx - rx + ux, cy + uy, cz - rz + uz]);
+        var g = 0.75 + rnd() * 0.5; q.color(g, g, g * 0.9, 0.3 + rnd() * 0.3); leaf.add(q);
       }
     }
     function branch(p, dir, len, rad, lvl) {
@@ -241,24 +260,58 @@
     }
     branch([x, y0, z], norm([(rnd() - 0.5) * 0.25, 1, (rnd() - 0.5) * 0.25]), (o.trunk || 5) * sc, (o.rad || 0.45) * sc, 0);
     if (o.tint) wood.colorFn(function () { return o.tint; });
-    ctx.add('bark', wood); if (leaf.i.length) ctx.add('plain', leaf);
+    ctx.add('bark', wood); if (leaf.i.length) ctx.add('leaf', leaf);
     ctx.circle(x, z, (o.rad || 0.45) * sc * 1.25);
   };
 
   /* ---------- Tre (instancing) ---------- */
+  /* thân tre lấy dải trái của atlas 'bamboo' (đốt tre), lá lấy phần phải (nhành lá có alpha) */
   Md.bambooGeo = function () {
     var g = new Geo(), hgt = 9, pts = [], k, rnd = H.rng(31);
-    for (k = 0; k <= 9; k++) pts.push([0, k / 9 * hgt, 0]);
-    var st = Geo.tube(pts, function (t) { var nd = Math.abs((t * 9) % 1 - 0.5) > 0.44 ? 1.28 : 1; return 0.055 * (1 - 0.6 * t) * nd; }, 5, true);
-    st.colorFn(function (x, y) { var t = y / hgt, n = Math.abs((t * 9) % 1 - 0.5) > 0.42 ? 0.5 : 1; return [0.10 * n + t * 0.05, 0.15 * n + t * 0.06, 0.035 * n, t * t]; });
+    for (k = 0; k <= 12; k++) pts.push([0, k / 12 * hgt, 0]);
+    var st = Geo.tube(pts, function (t) { return 0.058 * (1 - 0.62 * t); }, 6, true);
+    for (k = 0; k < st.uv.length; k += 2) { st.uv[k] = 0.03 + 0.18 * st.uv[k]; st.uv[k + 1] = st.p[(k / 2) * 3 + 1] / hgt; }
+    st.colorFn(function (x, y) { var t = y / hgt; return [1, 1, 1, t * t]; });
     g.add(st);
-    for (k = 0; k < 16; k++) {
-      var y = hgt * (0.35 + rnd() * 0.63), a = rnd() * 6.28, L = 0.55 + rnd() * 0.5, c = Math.cos(a), s = Math.sin(a), w = 0.07;
-      var q = Geo.quad([0, y, 0], [c * L * 0.5 - s * w, y - L * 0.12, s * L * 0.5 + c * w], [c * L, y - L * 0.5, s * L], [c * L * 0.5 + s * w, y - L * 0.16, s * L * 0.5 - c * w]);
-      var gr = 0.6 + rnd() * 0.6, t = y / hgt; q.color(0.045 * gr, 0.10 * gr, 0.03 * gr, t * t + 0.08);
+    for (k = 0; k < 9; k++) {
+      var y = hgt * (0.3 + rnd() * 0.68), a = rnd() * 6.28, L = 0.9 + rnd() * 0.7, c = Math.cos(a), s = Math.sin(a), w = 0.42;
+      var q = Geo.quad([-s * w * 0.3, y - 0.05, c * w * 0.3], [c * L - s * w, y - L * 0.45, s * L + c * w], [c * L - s * w * 0.2, y - L * 0.45 + w * 1.5, s * L + c * w * 0.2], [s * w * 0.3, y + w * 1.3, -c * w * 0.3]);
+      for (var u = 0; u < 8; u += 2) q.uv[u] = 0.27 + 0.72 * q.uv[u];
+      var gr = 0.75 + rnd() * 0.45, t = y / hgt; q.color(gr, gr, gr * 0.9, t * t + 0.1);
       g.add(q);
     }
     return g;
+  };
+  /* bụi cỏ / dương xỉ: 3 thẻ bắt chéo, đỉnh trên đung đưa theo gió */
+  Md.grassGeo = function () {
+    var g = new Geo();
+    for (var k = 0; k < 3; k++) {
+      var a = k / 3 * Math.PI, c = Math.cos(a) * 0.3, s = Math.sin(a) * 0.3, q = Geo.quad([-c, 0, -s], [c, 0, s], [c * 1.15, 0.5, s * 1.15], [-c * 1.15, 0.5, -s * 1.15]);
+      q.c[3] = 0; q.c[7] = 0; q.c[11] = 0.45; q.c[15] = 0.45; g.add(q);
+    }
+    for (k = 0; k < g.n.length; k += 3) { g.n[k] = g.n[k] * 0.4; g.n[k + 1] = 0.9; g.n[k + 2] = g.n[k + 2] * 0.4; } // pháp tuyến hướng lên -> nhận sáng như mặt đất
+    return g;
+  };
+  Md.woodpile = function (ctx, x, z, ry) {
+    var y = ctx.h(x, z), g = new Geo(), rnd = H.rng(Math.abs(x * 13 + z * 7) + 2), r, k;
+    for (r = 0; r < 4; r++) for (k = 0; k < 6 - r; k++) { var lx = (k - (5 - r) / 2) * 0.19, rr = 0.08 + rnd() * 0.02; g.add(Geo.tube([[lx, 0.09 + r * 0.165, -0.45 - rnd() * 0.08], [lx, 0.09 + r * 0.165, 0.45 + rnd() * 0.08]], rr, 7, true).scaleUV(2, 1)); g.add(Geo.lathe([[0, 0], [rr, 0]], 7).xf(lx, 0.09 + r * 0.165, -0.45, Math.PI / 2, 0, 0).color(1.6, 1.3, 0.9, 0)); }
+    g.xf(x, y, z, 0, ry || 0, 0); ctx.add('bark', g); ctx.circle(x, z, 0.6, { low: true });
+  };
+  Md.basket = function (ctx, x, z, s) {
+    var y = ctx.h(x, z);
+    ctx.add('plain', Geo.lathe([[0, 0], [0.2, 0], [0.27, 0.12], [0.3, 0.3], [0.31, 0.33], [0.28, 0.33], [0.25, 0.14], [0.18, 0.03], [0, 0.03]], 14, 3).xf(x, y, z, 0, 0, 0, s).colorFn(function (px, py) { var w = 0.75 + 0.25 * Math.sin((py - y) * 110); return [0.2 * w, 0.14 * w, 0.06 * w, 0]; }));
+    ctx.circle(x, z, 0.32 * s, { low: true });
+  };
+  Md.fence = function (ctx, x0, z0, x1, z1) {
+    var len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.round(len / 1.1)), g = new Geo(), rnd = H.rng(Math.abs(x0 * 5 + z0 * 3) + 9), k, pts = [[], []];
+    for (k = 0; k <= n; k++) {
+      var x = M.lerp(x0, x1, k / n), z = M.lerp(z0, z1, k / n), y = ctx.h(x, z), hh = 1.0 + rnd() * 0.15, tl = (rnd() - 0.5) * 0.08;
+      g.add(Geo.tube([[x, y - 0.25, z], [x + tl, y + hh * 0.5, z], [x + tl * 2, y + hh, z + tl]], 0.035, 6, true));
+      pts[0].push([x, y + 0.35 + rnd() * 0.04, z]); pts[1].push([x, y + 0.78 + rnd() * 0.04, z]);
+    }
+    g.add(Geo.tube(pts[0], 0.024, 5)); g.add(Geo.tube(pts[1], 0.024, 5));
+    g.colorFn(function () { var t = 0.8 + rnd() * 0.4; return [0.26 * t, 0.2 * t, 0.09 * t, 0]; });
+    ctx.add('plain', g); ctx.box(Math.min(x0, x1) - 0.12, Math.min(z0, z1) - 0.12, Math.max(x0, x1) + 0.12, Math.max(z0, z1) + 0.12, { low: true });
   };
 
   /* ---------- Giếng Cổ Huyết Lệ ---------- */

@@ -460,14 +460,14 @@
     return { vao: vao, count: geo.i.length, type: n > 65535 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, center: [cx, cy, cz], radius: Math.hypot(x1 - cx, y1 - cy, z1 - cz) };
   };
   /* inst: Float32Array 8 số/instance: x,y,z,scale, rotY,phase,lean,tint */
-  R.addInstanced = function (geo, inst, count, mat, center, radius) {
+  R.addInstanced = function (geo, inst, count, mat, center, radius, maxDist) {
     var m = R.mesh(geo);
     gl.bindVertexArray(m.vao);
     var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(4, 1);
     gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(5, 1);
     gl.bindVertexArray(null);
-    R.instGroups.push({ mesh: m, count: count, mat: mat, center: center, radius: radius });
+    R.instGroups.push({ mesh: m, count: count, mat: mat, center: center, radius: radius, maxDist: maxDist || 0 });
   };
   R.addStatic = function (geo, matName) {
     if (!geo.i.length) return;
@@ -560,9 +560,10 @@
     gl.uniform4f(U(pr, 'uMat'), mat.rough === undefined ? 1 : mat.rough, mat.nscale === undefined ? 1 : mat.nscale, mat.skin || 0, mat.unlit || 0);
     gl.uniform1f(U(pr, 'uUVScale'), (mat.uv || 1) * (tm.uv || 1));
     gl.uniform1f(U(pr, 'uCloth'), mat.cloth || 0);
-    gl.uniform4f(U(pr, 'uMat2'), mat.sss || 0, mat.rim || 0, 0, 0);
+    gl.uniform4f(U(pr, 'uMat2'), mat.sss || 0, mat.rim || 0, mat.cutout ? 1 : 0, 0);
   }
   var STATIC_MATS = {};
+  R.defineStaticMat = function (name, m) { STATIC_MATS[name] = m; };
   R.staticMat = function (name) { return STATIC_MATS[name] || (STATIC_MATS[name] = { tex: name }); };
 
   function collect(n) {
@@ -660,7 +661,7 @@
         var g = R.instGroups[k];
         ddx = g.center[0] - cam.pos[0]; ddz = g.center[2] - cam.pos[2];
         var dd = Math.sqrt(ddx * ddx + ddz * ddz);
-        if (dd > vd + g.radius || !visible(g.center, g.radius)) continue;
+        if (dd > vd + g.radius || (g.maxDist && dd > g.maxDist + g.radius) || !visible(g.center, g.radius)) continue;
         var cnt = Math.max(1, Math.floor(g.count * q.bamboo * (dd > 60 ? 0.6 : 1)));
         setMat(pi, g.mat);
         gl.bindVertexArray(g.mesh.vao); gl.drawElementsInstanced(gl.TRIANGLES, g.mesh.count, g.mesh.type, 0, cnt);
