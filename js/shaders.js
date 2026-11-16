@@ -91,6 +91,7 @@
     'void main(){',
     '  vec2 uv=vUV*uUVScale; vec4 a=texture(uAlb,uv);',
     '  if(uMat2.z>0.0){ if(a.a<0.42) discard; a.a=0.8; }',
+    '  if(uMat2.w>0.0 && uMat2.w<0.999){ vec2 fc=floor(gl_FragCoord.xy); if(fract(52.9829189*fract(dot(fc,vec2(0.06711056,0.00583715))))>uMat2.w) discard; }',
     '  if(uMat.w>0.0){ float al=a.a*uTint.a;',
     '    if(uMat.z>0.0){ float rim=pow(1.0-abs(dot(normalize(vN),normalize(uCam-vW))),1.5); al*=0.12+rim*1.5; }',
     '    o=vec4(a.rgb*uTint.rgb*vCol.rgb*uMat.w+uEmis, al); return; }',

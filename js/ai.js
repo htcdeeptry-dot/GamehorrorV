@@ -235,6 +235,7 @@
     var vis = AI.alpha > 0.02; rig.root.visible = vis;
     rig.root.pos[0] = AI.pos[0]; rig.root.pos[1] = AI.pos[1]; rig.root.pos[2] = AI.pos[2]; rig.root.rot[1] = AI.yaw;
     rig.setAlpha(Math.min(1, AI.alpha));
+    if (H.Chars && H.Chars.ghostSync && H.Chars.ghostSync(rig, ps, Math.min(1, AI.alpha), vis, AI.calm)) rig.root.visible = false;
     glow.pos[0] = AI.pos[0] + Math.sin(AI.yaw) * 0.5; glow.pos[1] = AI.pos[1] + 1.7; glow.pos[2] = AI.pos[2] + Math.cos(AI.yaw) * 0.5;
     glow.intensity = AI.alpha * (AI.calm ? 0.6 : 1.7); glow.on = vis;
     if (AI.calm) { glow.color[0] = 0.8; glow.color[1] = 0.85; glow.color[2] = 1.0; }

@@ -167,7 +167,53 @@
   var BONES = ['hips', 'chest', 'neck', 'shL', 'elL', 'haL', 'shR', 'elR', 'haR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR', 'fiL', 'fiR'];
 
   /* ===================== DỰNG NHÂN VẬT ===================== */
+  /* nhân vật Rocketbox: khung điều khiển 17 khớp đặt đúng vị trí khớp Bip01 (tư thế tay buông) */
+  function createRB(name, sp) {
+    var XR = H.RBRig, rg = XR.rig(sp.rb), q = rg.q, I = rg.IDX, J = {}, k;
+    var c = { name: name, sp: sp, J: J, anim: 'idle', talkT: 0, look: null, ph: Math.random() * 9, walk: 0, blink: 2, T: {}, visible: false, morph: new Float32Array(6), speech: null, expr: null, manual: !!sp.manual };
+    function N(parent, id, o, geo, mat) { var n = new Node(geo ? R.mesh(geo) : null, mat || null); n.set(o[0], o[1], o[2]); parent.add(n); if (id) J[id] = n; return n; }
+    function d3(a, b) { a = q[I[a]]; b = q[I[b]]; return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+    var root = c.root = new Node(); root.visible = false; var s = (sp.h || 1.68) / rg.height; root.scl = [s, s, s]; c.hipY = q[I.Pelvis][1];
+    var hips = N(root, 'hips', q[I.Pelvis]), chest = N(hips, 'chest', d3('Spine1', 'Pelvis')), neck = N(chest, 'neck', d3('Neck', 'Spine1')); N(neck, 'head', d3('Head', 'Neck'));
+    [-1, 1].forEach(function (sd) {
+      var S = sd < 0 ? 'L' : 'R', rs = sd < 0 ? 'R ' : 'L ';
+      var sh = N(chest, 'sh' + S, d3(rs + 'UpperArm', 'Spine1')), el = N(sh, 'el' + S, d3(rs + 'Forearm', rs + 'UpperArm')), hn = N(el, 'ha' + S, d3(rs + 'Hand', rs + 'Forearm')); N(hn, 'fi' + S, [0, -0.08, 0]);
+      var th = N(hips, 'th' + S, d3(rs + 'Thigh', 'Pelvis')), kn = N(th, 'kn' + S, d3(rs + 'Calf', rs + 'Thigh')); N(kn, 'ft' + S, d3(rs + 'Foot', rs + 'Calf'));
+    });
+    c.eyes = [{ rot: [0, 0, 0] }, { rot: [0, 0, 0] }];
+    var m = mats(false);
+    if (!sp.spirit) N(root, null, [0, 0.03, 0.02], Geo.quad([-0.5, 0, -0.5], [0.5, 0, -0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5]), m.shadow);
+    var bg = new Geo(); for (k = 0; k < 4; k++) bg.add(Geo.lathe([[0.168, 0], [0.173, 0.016], [0.168, 0.03]], 14).xf(0, 0.0 + k * 0.07, 0, (k % 2) * 0.14 - 0.07, 0, 0, 1.18, 1, 0.8));
+    c.bind = N(chest, null, [0, 0, 0.01], bg.color(0.5, 0.02, 0.02, 0), m.cloth); c.bind.visible = false;
+    XR.attach(c, { id: sp.rb, tint: sp.tint, emis: sp.emis, fade: sp.fade });
+    for (k in J) c.T[k] = [0, 0, 0];
+    R.nodes.push(root); Ch.list.push(c); Ch.byName[name] = c;
+    return c;
+  }
+  function clipFor(c) {
+    if (c.manual) return null;
+    var fem = c.rb.rig.female, a = c.anim, talk = c.talkT > 0, sp = c.sp; c.rb.lockXZ = false;
+    if (a === 'idle') return talk ? (fem ? (sp.stress || c.expr === 'fear' ? 'f_gestic_talk_femalestressed_01' : 'f_gestic_talk_sad_01') : 'm_gestic_listen_angry_01') : (fem ? 'f_idle_' + (sp.idle === 'angry_01' ? 'breathe_01' : (sp.idle || 'breathe_01')) : 'm_idle_' + (sp.idle || 'breathe_01'));
+    if (a === 'cower' || a === 'crouch') return fem ? (talk ? 'f_crouch_gestic' : 'f_crouch_idle') : 'm_crouch_idle';
+    if (a === 'pound' && !fem) { c.rb.lockXZ = true; return 'm_knock_door'; }
+    return null;
+  }
+  /* oán linh Lệ Nương: AI điều khiển trực tiếp tư thế */
+  Ch.ghostSync = function (rig, ps, alpha, vis, calm) {
+    var c = Ch.byName.ghost; if (!c) return false;
+    c.visible = c.root.visible = vis; if (!vis) return true;
+    var J = c.J, rp = rig.root.pos, t = c.sp.tint, k;
+    c.root.set(rp[0], rp[1] + rig.body.pos[1] - 0.14, rp[2]); c.root.rot[1] = rig.root.rot[1];
+    J.chest.rot[0] = ps.lean; J.hips.rot[0] = ps.lean * 0.3; J.neck.rot[0] = rig.neck.rot[0]; J.neck.rot[1] = rig.neck.rot[1]; J.neck.rot[2] = rig.neck.rot[2] * 0.6; J.head.rot[2] = rig.neck.rot[2] * 0.5;
+    J.shL.rot[0] = rig.armL.sh.rot[0]; J.shR.rot[0] = rig.armR.sh.rot[0]; J.shL.rot[2] = -ps.spread - 0.08; J.shR.rot[2] = ps.spread + 0.08; J.elL.rot[0] = rig.armL.el.rot[0]; J.elR.rot[0] = rig.armR.el.rot[0];
+    J.haL.rot[0] = rig.armL.hand.rot[0]; J.haR.rot[0] = rig.armR.hand.rot[0]; J.fiL.rot[0] = J.fiR.rot[0] = calm ? -0.3 : -0.75;
+    J.thL.rot[0] = J.thR.rot[0] = 0.06 - ps.lean * 0.5; J.knL.rot[0] = 0.12; J.knR.rot[0] = 0.2; J.ftL.rot[0] = J.ftR.rot[0] = 0.75;
+    var open = M.clamp((ps.mouth - 0.45) / 2.3, 0, 1); c.morph[0] = open; c.morph[1] = open * 0.25; c.morph[2] = 0; c.morph[3] = 0; c.morph[4] = calm ? 0.3 : -1; c.morph[5] = calm ? 0.2 : -0.8;
+    for (k = 0; k < c.rb.mats.length; k++) { var mt = c.rb.mats[k]; mt.fade = alpha >= 0.999 ? 0 : Math.max(0.02, alpha); mt.tint[0] = calm ? 0.8 : t[0]; mt.tint[1] = calm ? 0.85 : t[1]; mt.tint[2] = calm ? 1 : t[2]; mt.emis = calm ? [0.03, 0.04, 0.07] : c.sp.emis; }
+    return true;
+  };
   Ch.create = function (name, sp) {
+    if (sp.rb && H.RBRig && H.RB && H.RB.chars[sp.rb]) return createRB(name, sp);
     var m = mats(sp.spirit), J = {}, c = { name: name, sp: sp, J: J, anim: 'idle', talkT: 0, look: null, ph: Math.random() * 9, walk: 0, blink: 2, T: {}, visible: false, morph: new Float32Array(6), speech: null, expr: null };
     var skin = sp.tone || [0.5, 0.33, 0.245], fem = !sp.male, k, top = sp.top, bot = sp.bot || top, sleeve = sp.sleeve || top, sx = fem ? 0.152 : 0.17;
     function N(parent, id, x, y, z, geo, mat) { var n = new Node(geo ? R.mesh(geo) : null, mat || null); n.set(x, y, z); parent.add(n); if (id) J[id] = n; return n; }
@@ -352,6 +398,7 @@
   Ch.update = function (dt, time) {
     for (var n = 0; n < Ch.list.length; n++) {
       var c = Ch.list[n]; if (!c.visible) continue;
+      if (c.manual) { if (!H.AI || !(H.AI.alpha > 0.02)) c.visible = c.root.visible = false; continue; }
       var T = c.T, J = c.J, k, t = time + c.ph;
       for (k in T) { T[k][0] = T[k][1] = T[k][2] = 0; }
       c.dy = 0; T.fiL[0] = T.fiR[0] = -0.45 + Math.sin(t * 0.6) * 0.06; (ANIM[c.anim] || ANIM.idle)(c, T, t);
@@ -365,8 +412,8 @@
         var px = c.root.pos[0], pz = c.root.pos[2], py = c.root.pos[1] + (c.hipY + c.dy + 0.57) * c.root.scl[1];
         var dx = c.look[0] - px, dz = c.look[2] - pz, yaw = M.clamp(M.angDiff(c.root.rot[1], Math.atan2(dx, dz)), -1.1, 1.1), pit = M.clamp(-Math.atan2(c.look[1] - py, Math.hypot(dx, dz)), -0.6, 0.6);
         T.neck[1] += yaw * 0.4; T.head[1] += yaw * 0.45; T.neck[0] += pit * 0.4; T.head[0] += pit * 0.45; T.chest[1] += yaw * 0.12;
-        c.eyes[0].rot[1] = c.eyes[1].rot[1] = yaw * 0.25; c.eyes[0].rot[0] = c.eyes[1].rot[0] = pit * 0.3;
-      } else { c.sacT = (c.sacT || 0) - dt; if (c.sacT <= 0) { c.sacT = 0.5 + Math.random() * 1.8; c.sacX = (Math.random() - 0.5) * 0.3; c.sacY = (Math.random() - 0.5) * 0.12; } c.eyes[0].rot[1] = c.eyes[1].rot[1] = c.sacX; c.eyes[0].rot[0] = c.eyes[1].rot[0] = c.sacY; }
+        c.eyes[0].rot[1] = c.eyes[1].rot[1] = yaw * 0.25; c.eyes[0].rot[0] = c.eyes[1].rot[0] = pit * 0.3; c.lookYaw = yaw; c.lookPit = pit;
+      } else { c.lookYaw = c.lookPit = 0; c.sacT = (c.sacT || 0) - dt; if (c.sacT <= 0) { c.sacT = 0.5 + Math.random() * 1.8; c.sacX = (Math.random() - 0.5) * 0.3; c.sacY = (Math.random() - 0.5) * 0.12; } c.eyes[0].rot[1] = c.eyes[1].rot[1] = c.sacX; c.eyes[0].rot[0] = c.eyes[1].rot[0] = c.sacY; }
       c.blink -= dt; var bl = c.blink < 0.13 ? 1 : 0; if (c.blink < 0) c.blink = 1.8 + Math.random() * 3.5;
       // biểu cảm + khẩu hình -> trọng số biến hình [há, bè, chúm, nhắm mắt, mày, cười]
       var ex = EXPR[c.expr || AEX[c.anim] || 'neutral'], mo = [ex[0], ex[1], ex[2], bl, ex[3], ex[4]], sp2 = c.speech;
@@ -379,6 +426,7 @@
         for (a3 = 0; a3 < 3; a3++) { vv[a3] += (kS * (tr[a3] - jr[a3]) - dS * vv[a3]) * h; jr[a3] += vv[a3] * h; }
       }
       J.hips.pos[1] += (c.hipY + c.dy - J.hips.pos[1]) * Math.min(1, dt * 6);
+      if (c.rb) { H.RBRig.play(c.rb, clipFor(c)); c.rb.clipT += dt; c.rb.fade = Math.min(1, c.rb.fade + dt / 0.38); }
       if (c.sp.spirit) c.root.pos[1] = c.baseY + 0.06 + Math.sin(t * 1.1) * 0.035;
     }
     if (Ch.worldTick) Ch.worldTick(dt, time);
@@ -388,6 +436,7 @@
     var c = Ch.byName[name]; if (!c) return null;
     if (!c.visible) { c.visible = c.root.visible = true; for (var k in c.T) { c.J[k].rot[0] = c.J[k].rot[1] = c.J[k].rot[2] = 0; } c.snap = true; }
     c.root.set(x, y, z); c.baseY = y; c.root.rot[1] = ry; c.anim = anim || 'idle'; c.look = look || null;
+    if (c.snap && c.rb) { H.RBRig.play(c.rb, clipFor(c), true); c.rb.fade = 1; }
     if (c.snap) { c.snap = false; c.V = {}; c.dy = 0; var T = c.T; for (k in T) T[k][0] = T[k][1] = T[k][2] = 0; (ANIM[c.anim] || ANIM.idle)(c, T, 0); for (k in T) { c.J[k].rot[0] = T[k][0]; c.J[k].rot[1] = T[k][1]; c.J[k].rot[2] = T[k][2]; } c.J.hips.pos[1] = c.hipY + c.dy; }
     return c;
   };
@@ -398,7 +447,7 @@
     if (c && moving) c.walk += dt * 6.2; return c;
   };
   Ch.hide = function (name) { var c = Ch.byName[name]; if (c) { c.visible = c.root.visible = false; c.bind.visible = false; c.talkT = 0; c.speech = null; c.expr = null; } };
-  Ch.hideAll = function () { for (var k in Ch.byName) Ch.hide(k); };
+  Ch.hideAll = function () { for (var k in Ch.byName) if (!Ch.byName[k].manual) Ch.hide(k); };
   /* khẩu hình: mỗi chữ cái của câu thoại -> [há, bè, chúm] */
   var VIS = { a: [0.85, 0.1, 0], e: [0.5, 0.55, 0], i: [0.2, 0.85, 0], y: [0.2, 0.85, 0], o: [0.6, 0, 0.75], u: [0.25, 0, 1], m: [0, 0, 0.1], b: [0, 0, 0.1], p: [0, 0, 0.1], v: [0.08, 0.25, 0], f: [0.08, 0.25, 0], ' ': [0.06, 0, 0] };
   var REST = [0, 0, 0], CONS = [0.18, 0.12, 0];
@@ -419,20 +468,21 @@
   var BLK = [0.018, 0.015, 0.014], TAN = [0.43, 0.28, 0.2], PALE = [0.56, 0.39, 0.3];
   Ch.CAST = {
     // --- 1994 ---
-    minh: { mh: { sex: 'male', full: 1, body: 'hung_body', cloth: 'male_male_casualsuit03', clothTex: 'male_casualsuit03', clothTint: [0.62, 0.8, 0.5], hair: 'male_short02', hairTex: 'short02', longSleeves: 1 }, male: 1, h: 1.75, jaw: 1.02, nose: 1.05, age: 0.12, tone: [0.47, 0.31, 0.23], hairStyle: { fringe: 0.5, vol: 0.4 }, top: [0.11, 0.13, 0.07], jacket: [0.13, 0.15, 0.08], collar: [0.09, 0.105, 0.06], bot: [0.035, 0.045, 0.075], shoe: [0.05, 0.035, 0.025], camera: 1 },
-    linh: { mh: { sex: 'female', full: 1, body: 'linh_body', cloth: 'female_female_elegantsuit01', clothTex: 'female_elegantsuit01', hair: 'female_long01', hairTex: 'long01', longSleeves: 1 }, h: 1.64, jaw: 0.92, nose: 0.9, lip: 1.1, tone: PALE, hairStyle: { long: 0.3, fringe: 0.25, vol: 0.2 }, top: [0.3, 0.025, 0.03], jacket: [0.33, 0.03, 0.035], collar: [0.25, 0.02, 0.025], bot: [0.03, 0.03, 0.035], shoe: [0.04, 0.03, 0.03] },
-    tuan: { mh: { sex: 'male', full: 1, body: 'tuan_body', cloth: 'male_male_casualsuit01', clothTex: 'male_casualsuit01', hair: 'male_short02', hairTex: 'short02', longSleeves: 1 }, male: 1, h: 1.79, jaw: 1.08, nose: 1.1, age: 0.2, tone: TAN, hairStyle: { fringe: 0.15, vol: 0.1 }, top: [0.05, 0.11, 0.2], jacket: [0.055, 0.12, 0.22], bot: [0.09, 0.08, 0.06], pack: [0.16, 0.2, 0.09], glasses: 1 },
-    ha: { mh: { sex: 'female', full: 1, body: 'lan_body', cloth: 'female_female_casualsuit01', clothTex: 'female_casualsuit01', hair: 'female_ponytail01', hairTex: 'ponytail01' }, h: 1.57, jaw: 0.88, nose: 0.85, lip: 1.05, blush: 0.7, tone: [0.58, 0.4, 0.31], hairStyle: { fringe: 0.8, vol: 0.3, braid: 1 }, top: [0.5, 0.36, 0.05], jacket: [0.55, 0.4, 0.06], bot: [0.05, 0.06, 0.1], scarf: [0.5, 0.08, 0.08], shoe: [0.5, 0.45, 0.4] },
+    minh: { rb: 'minh', idle: 'nervous_03', male: 1, h: 1.75, jaw: 1.02, nose: 1.05, age: 0.12, tone: [0.47, 0.31, 0.23], hairStyle: { fringe: 0.5, vol: 0.4 }, top: [0.11, 0.13, 0.07], jacket: [0.13, 0.15, 0.08], collar: [0.09, 0.105, 0.06], bot: [0.035, 0.045, 0.075], shoe: [0.05, 0.035, 0.025], camera: 1 },
+    linh: { rb: 'linh', h: 1.64, jaw: 0.92, nose: 0.9, lip: 1.1, tone: PALE, hairStyle: { long: 0.3, fringe: 0.25, vol: 0.2 }, top: [0.3, 0.025, 0.03], jacket: [0.33, 0.03, 0.035], collar: [0.25, 0.02, 0.025], bot: [0.03, 0.03, 0.035], shoe: [0.04, 0.03, 0.03] },
+    tuan: { rb: 'tuan', idle: 'look_around_01', male: 1, h: 1.79, jaw: 1.08, nose: 1.1, age: 0.2, tone: TAN, hairStyle: { fringe: 0.15, vol: 0.1 }, top: [0.05, 0.11, 0.2], jacket: [0.055, 0.12, 0.22], bot: [0.09, 0.08, 0.06], pack: [0.16, 0.2, 0.09], glasses: 1 },
+    ha: { rb: 'ha', idle: 'nervous_03', stress: 1, h: 1.57, jaw: 0.88, nose: 0.85, lip: 1.05, blush: 0.7, tone: [0.58, 0.4, 0.31], hairStyle: { fringe: 0.8, vol: 0.3, braid: 1 }, top: [0.5, 0.36, 0.05], jacket: [0.55, 0.4, 0.06], bot: [0.05, 0.06, 0.1], scarf: [0.5, 0.08, 0.08], shoe: [0.5, 0.45, 0.4] },
     // --- 1874 ---
-    le: { mh: { sex: 'female', body: 'linh_body', hair: 'female_long01', hairTex: 'long01' }, h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
-    khai: { mh: { sex: 'male', hairTint: [0.75, 1.05, 1.5], browCol: [0.12, 0.12, 0.12], body: 'hung_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
-    me: { mh: { sex: 'female', body: 'lan_body', hair: 'female_ponytail01', hairTex: 'ponytail01', hairTint: [0.5, 0.6, 0.75], browCol: [0.1, 0.1, 0.1] }, h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
-    cha: { mh: { sex: 'male', hairTint: [0.75, 1.05, 1.5], browCol: [0.12, 0.12, 0.12], body: 'tuan_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },
-    bay: { mh: { sex: 'male', body: 'hung_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.66, jaw: 1.05, age: 0.5, tone: TAN, hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], shortSleeve: 1, bot: [0.06, 0.05, 0.04], shoe: TAN },
-    tran: { mh: { sex: 'male', body: 'tuan_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
+    le: { rb: 'le', tint: [0.82, 0.76, 0.7], stress: 1, h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
+    khai: { rb: 'khai', tint: [0.8, 0.74, 0.68], idle: 'angry_01', male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
+    me: { rb: 'me', tint: [0.8, 0.74, 0.68], stress: 1, h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
+    cha: { rb: 'cha', tint: [0.8, 0.74, 0.68], male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },
+    bay: { rb: 'bay', tint: [0.8, 0.74, 0.68], idle: 'look_around_01', male: 1, h: 1.66, jaw: 1.05, age: 0.5, tone: TAN, hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], shortSleeve: 1, bot: [0.06, 0.05, 0.04], shoe: TAN },
+    tran: { rb: 'tran', tint: [0.8, 0.74, 0.68], idle: 'look_around_01', male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
     // --- linh hồn ---
-    bayHon: { mh: { sex: 'male', hairTint: [0.75, 1.05, 1.5], browCol: [0.12, 0.12, 0.12], body: 'hung_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
-    khang: { mh: { sex: 'male', body: 'tuan_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.73, jaw: 0.98, nose: 1.0, tone: PALE, hairStyle: { bun: 2, fringe: 0.1 }, top: [0.42, 0.42, 0.4], skirt: [0.4, 0.4, 0.38], collar: [0.5, 0.5, 0.48], bot: [0.4, 0.4, 0.38], spirit: 1 }
+    bayHon: { rb: 'bayHon', tint: [0.5, 0.72, 1.0], emis: [0.03, 0.06, 0.1], fade: 0.8, male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
+    ghost: { rb: 'ghost', h: 1.66, tint: [0.6, 0.6, 0.68], emis: [0.014, 0.006, 0.008], manual: 1, spirit: 1 },
+    khang: { rb: 'khang', tint: [0.9, 0.95, 0.85], emis: [0.05, 0.06, 0.04], fade: 0.86, male: 1, h: 1.73, jaw: 0.98, nose: 1.0, tone: PALE, hairStyle: { bun: 2, fringe: 0.1 }, top: [0.42, 0.42, 0.4], skirt: [0.4, 0.4, 0.38], collar: [0.5, 0.5, 0.48], bot: [0.4, 0.4, 0.38], spirit: 1 }
   };
   Ch.init = function () {
     R.materials.fabric = { alb: R.textures.white, nrm: R.materials.silk ? R.materials.silk.nrm : R.textures.flat, uv: 7 };

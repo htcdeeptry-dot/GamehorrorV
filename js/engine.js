@@ -578,7 +578,7 @@
     gl.uniform4f(U(pr, 'uMat'), mat.rough === undefined ? 1 : mat.rough, mat.nscale === undefined ? 1 : mat.nscale, mat.skin || 0, mat.unlit || 0);
     gl.uniform1f(U(pr, 'uUVScale'), (mat.uv || 1) * (tm.uv || 1));
     gl.uniform1f(U(pr, 'uCloth'), mat.cloth || 0);
-    gl.uniform4f(U(pr, 'uMat2'), mat.sss || 0, mat.rim || 0, mat.cutout ? 1 : 0, 0);
+    gl.uniform4f(U(pr, 'uMat2'), mat.sss || 0, mat.rim || 0, mat.cutout ? 1 : 0, mat.fade || 0);
   }
   var STATIC_MATS = {};
   R.defineStaticMat = function (name, m) { STATIC_MATS[name] = m; };
@@ -667,9 +667,16 @@
         gl.uniformMatrix4fv(U(pk, 'uBones[0]'), false, sk.data); setMat(pk, n.mat); drawMesh(n.mesh);
       }
     }
-    if (opSkin4.length) { // nhân vật MakeHuman: 163 xương, 4 trọng số/đỉnh, ma trận xương đọc từ texture float
-      var p4 = prog('lit', S.litVS, S.litFS, defs + '#define SKIN4\n'); gl.useProgram(p4.p); setFrame(p4); gl.uniform1i(U(p4, 'uBoneTex'), 2);
-      for (k = 0; k < opSkin4.length; k++) { n = opSkin4[k]; H.MHRig.update(n.skin4); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, n.skin4.bt.tex); setMat(p4, n.mat); drawMesh(n.mesh); }
+    if (opSkin4.length) { // nhân vật có xương đầy đủ: 4 trọng số/đỉnh, ma trận xương đọc từ texture float (+ biến hình khuôn mặt)
+      for (var pass = 0; pass < 2; pass++) {
+        var p4 = null;
+        for (k = 0; k < opSkin4.length; k++) {
+          n = opSkin4[k]; if ((n.morph ? 1 : 0) !== pass) continue;
+          if (!p4) { p4 = prog('lit', S.litVS, S.litFS, defs + '#define SKIN4\n' + (pass ? '#define MORPH\n' : '')); gl.useProgram(p4.p); setFrame(p4); gl.uniform1i(U(p4, 'uBoneTex'), 2); }
+          n.skin4.update(n.skin4); if (pass) gl.uniform1fv(U(p4, 'uMorph[0]'), n.morph);
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, n.skin4.bt.tex); setMat(p4, n.mat); drawMesh(n.mesh);
+        }
+      }
       gl.activeTexture(gl.TEXTURE0);
     }
     if (opMorph.length) { // khuôn mặt: 6 mục tiêu biến hình (khẩu hình + biểu cảm)
