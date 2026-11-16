@@ -20,3 +20,8 @@ Bảng phím và ghi chú nằm trong `DOC_TRUOC.txt` và mục Điều khiển 
 - `js/player.js`, `js/ai.js`, `js/puzzles.js`: người chơi, Lệ Nương và đạo diễn nhịp sợ, câu đố.
 - `js/cutscenes.js`: hệ cắt cảnh điện ảnh.
 - `js/main.js`: vòng lặp, thiết lập, lưu/tải.
+
+## Nhân vật & giấy phép tài nguyên
+- `js/mh_assets.js`: lưới thân người, khung xương 163 khớp, quần áo, tóc, giày và texture từ **MakeHuman** (CC0 — https://github.com/makehumancommunity/makehuman/blob/master/LICENSE.ASSETS.md), nhúng base64 để chạy được qua `file://`.
+- `js/mh_rig.js`: skinning 4 trọng số trên GPU (ma trận xương trong texture float), nắn tư thế A, xương mặt cho khẩu hình / chớp mắt / lông mày / ánh nhìn.
+- Bốn nhân vật 1994 dùng trọn bộ MakeHuman; các nhân vật 1874 và linh hồn dùng đầu + tay + tóc MakeHuman trên trang phục cổ dựng bằng mã.

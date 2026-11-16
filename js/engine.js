@@ -432,6 +432,24 @@
     return t;
   };
 
+  /* texture ma trận xương (RGBA32F, 4 texel/xương) */
+  R.boneTexture = function (count) {
+    var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, count * 4, 1, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return { tex: t, count: count };
+  };
+  R.updateBoneTexture = function (bt, data) { gl.bindTexture(gl.TEXTURE_2D, bt.tex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, bt.count * 4, 1, gl.RGBA, gl.FLOAT, data); };
+  /* nạp ảnh nhúng (data URI) thành texture, thu nhỏ về maxSize; trong lúc chờ dùng texture trắng */
+  R.texFromURI = function (uri, maxSize, into, key) {
+    var img = new Image();
+    img.onload = function () {
+      var s = Math.min(1, maxSize / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(4, Math.round(img.width * s)); c.height = Math.max(4, Math.round(img.height * s));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); into[key] = R.texData(c.width, c.height, c);
+    };
+    img.src = uri;
+  };
   R.mesh = function (geo) {
     var n = geo.p.length / 3, d = new Float32Array(n * 12), p = geo.p, nn = geo.n, uv = geo.uv, c = geo.c;
     var x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
@@ -532,7 +550,7 @@
   };
 
   var lightPos = new Float32Array(16 * 4), lightCol = new Float32Array(16 * 3), lightN = 0, roofU = new Float32Array(24);
-  var _c = [0, 0, 0], opaque = [], transp = [], opSkin = [], opMorph = [], _bm = M.create();
+  var _c = [0, 0, 0], opaque = [], transp = [], opSkin = [], opMorph = [], opSkin4 = [], _bm = M.create();
 
   function setFrame(pr) {
     var e = R.env, cam = R.cam;
@@ -573,7 +591,7 @@
       var sc = Math.max(Math.abs(n.scl[0]), Math.abs(n.scl[1]), Math.abs(n.scl[2]));
       if (visible(_c, n.mesh.radius * sc * 1.5 + 0.5)) {
         var m = n.mat;
-        if (m.additive || m.blend || (m.tint && m.tint[3] < 0.995)) transp.push(n); else if (n.skin) opSkin.push(n); else if (n.morph) opMorph.push(n); else opaque.push(n);
+        if (m.additive || m.blend || (m.tint && m.tint[3] < 0.995)) transp.push(n); else if (n.skin4) opSkin4.push(n); else if (n.skin) opSkin.push(n); else if (n.morph) opMorph.push(n); else opaque.push(n);
       }
     }
     for (var k = 0; k < n.children.length; k++) collect(n.children[k]);
@@ -583,7 +601,7 @@
   R.render = function () {
     var S = H.Shaders, q = R.q, e = R.env, cam = R.cam, po = R.post, k;
     R.resize();
-    R.stats.draws = 0; R.stats.tris = 0;
+    R.stats.draws = 0; R.stats.tris = 0; R.frameId = (R.frameId || 0) + 1;
     var rt = R.sceneRT, far = q.view * 1.4 + 60;
     M.perspective(proj, cam.fov * Math.PI / 180, R.canvas.width / R.canvas.height, 0.07, far);
     M.compose(camW, cam.pos[0], cam.pos[1], cam.pos[2], cam.pitch, cam.yaw, cam.roll, 1, 1, 1);
@@ -636,7 +654,7 @@
       drawMesh(s.mesh);
     }
     // ---- node động
-    opaque.length = 0; transp.length = 0; opSkin.length = 0; opMorph.length = 0;
+    opaque.length = 0; transp.length = 0; opSkin.length = 0; opMorph.length = 0; opSkin4.length = 0;
     for (k = 0; k < R.nodes.length; k++) collect(R.nodes[k]);
     for (k = 0; k < opaque.length; k++) {
       var n = opaque[k]; setMat(pl, n.mat); gl.uniformMatrix4fv(U(pl, 'uModel'), false, n.world); drawMesh(n.mesh);
@@ -648,6 +666,11 @@
         for (var b = 0; b < sk.joints.length; b++) { M.mul(_bm, sk.joints[b].world, sk.inv[b]); sk.data.set(_bm, b * 16); }
         gl.uniformMatrix4fv(U(pk, 'uBones[0]'), false, sk.data); setMat(pk, n.mat); drawMesh(n.mesh);
       }
+    }
+    if (opSkin4.length) { // nhân vật MakeHuman: 163 xương, 4 trọng số/đỉnh, ma trận xương đọc từ texture float
+      var p4 = prog('lit', S.litVS, S.litFS, defs + '#define SKIN4\n'); gl.useProgram(p4.p); setFrame(p4); gl.uniform1i(U(p4, 'uBoneTex'), 2);
+      for (k = 0; k < opSkin4.length; k++) { n = opSkin4[k]; H.MHRig.update(n.skin4); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, n.skin4.bt.tex); setMat(p4, n.mat); drawMesh(n.mesh); }
+      gl.activeTexture(gl.TEXTURE0);
     }
     if (opMorph.length) { // khuôn mặt: 6 mục tiêu biến hình (khẩu hình + biểu cảm)
       var pm = prog('lit', S.litVS, S.litFS, defs + '#define MORPH\n'); gl.useProgram(pm.p); setFrame(pm);

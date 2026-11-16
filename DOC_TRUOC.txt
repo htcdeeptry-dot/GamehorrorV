@@ -28,3 +28,9 @@ CỐT TRUYỆN & CẮT CẢNH (bản mở rộng)
 GHI CHÚ KỸ THUẬT: js/story.js và js/cutscenes.js chứa cốt truyện mở rộng và hệ cắt cảnh.
 js/engine.js là engine WebGL2 tự viết thay cho Three.js, để game
 không phụ thuộc bất kỳ file hay CDN bên ngoài nào khi chạy qua file://.
+
+NHÂN VẬT (bản mới)
+- Đầu, mặt, bàn tay, tóc và trang phục hiện đại dùng lưới + texture của MakeHuman (giấy phép CC0, miễn phí,
+  dùng thương mại được). Dữ liệu nhúng sẵn trong js/mh_assets.js (~12 MB) nên game vẫn chạy bằng cách mở index.html.
+- Khung xương 163 khớp, da 4 trọng số trên GPU; khẩu hình, chớp mắt, lông mày, liếc mắt chạy bằng xương mặt.
+- Thân áo the / áo tứ thân của tuyến 1874 vẫn dựng bằng mã (chưa có trang phục cổ miễn phí phù hợp).

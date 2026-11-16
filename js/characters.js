@@ -173,7 +173,19 @@
     function N(parent, id, x, y, z, geo, mat) { var n = new Node(geo ? R.mesh(geo) : null, mat || null); n.set(x, y, z); parent.add(n); if (id) J[id] = n; return n; }
     var root = c.root = new Node(); root.visible = false; var s = (sp.h || 1.68) / 1.70; root.scl = [s, s, s];
     // ----- khung xương
-    var hips = N(root, 'hips', 0, 0.95, 0), chest = N(hips, 'chest', 0, 0.13, 0), neck = N(chest, 'neck', 0, 0.335, -0.005);
+    var mh = sp.mh && H.MHRig ? sp.mh : null, rg = mh ? H.MHRig.rig(mh.sex) : null, full = !!(mh && mh.full), hips, chest, neck, cA, hA; c.hipY = 0.95;
+    if (full) { // khung điều khiển đặt đúng vị trí khớp MakeHuman (tư thế tay buông)
+      var q = rg.q, I = H.MHRig.IDX, d3 = function (a, b) { return [q[I[a]][0] - q[I[b]][0], q[I[a]][1] - q[I[b]][1], q[I[a]][2] - q[I[b]][2]]; }, NN = function (par, id, o) { return N(par, id, o[0], o[1], o[2]); };
+      s = (sp.h || 1.68) / (fem ? 1.7 : 1.775); root.scl = [s, s, s]; c.hipY = q[I.root][1];
+      hips = NN(root, 'hips', q[I.root]); chest = NN(hips, 'chest', d3('spine03', 'root')); neck = NN(chest, 'neck', d3('neck01', 'spine03'));
+      [-1, 1].forEach(function (sd) {
+        var S = sd < 0 ? 'L' : 'R', ms = sd < 0 ? '.R' : '.L';
+        var sh = NN(chest, 'sh' + S, d3('upperarm01' + ms, 'spine03')), el = NN(sh, 'el' + S, d3('lowerarm01' + ms, 'upperarm01' + ms)), hn = NN(el, 'ha' + S, d3('wrist' + ms, 'lowerarm01' + ms)); N(hn, 'fi' + S, 0, -0.08, 0);
+        var th = NN(hips, 'th' + S, d3('upperleg01' + ms, 'root')), kn = NN(th, 'kn' + S, d3('lowerleg01' + ms, 'upperleg01' + ms)); NN(kn, 'ft' + S, d3('foot' + ms, 'lowerleg01' + ms));
+      });
+      var cn = d3('neck01', 'spine03'); cA = N(chest, null, cn[0], cn[1] - 0.335, cn[2] + 0.005 + (mh.chestZ || 0));
+    } else {
+    hips = N(root, 'hips', 0, 0.95, 0); chest = N(hips, 'chest', 0, 0.13, 0); neck = N(chest, 'neck', 0, 0.335, -0.005); cA = chest;
     var bp = { hips: [0, 0.95, 0], chest: [0, 1.08, 0], neck: [0, 1.415, -0.005] };
     [-1, 1].forEach(function (sd) {
       var S = sd < 0 ? 'L' : 'R', sh = N(chest, 'sh' + S, sd * sx, 0.258, 0), el = N(sh, 'el' + S, 0, -0.275, 0), hn = N(el, 'ha' + S, 0, -0.25, 0); N(hn, 'fi' + S, 0, -0.087, 0); bp['fi' + S] = [sd * sx, 0.726, 0];
@@ -195,7 +207,7 @@
       return [cc[0] * f, cc[1] * f, cc[2] * f, 0];
     });
     add(tg, function (x, y) { return [0, 1, M.smooth(1.0, 1.15, y)]; });
-    add(loft([[1.4, 0.052, 0.05], [1.46, 0.044, 0.046], [1.515, 0.047, 0.05, 0.004]], [skin[0] * 0.92, skin[1] * 0.9, skin[2] * 0.9], 12), function (x, y) { return [1, 2, M.smooth(1.4, 1.47, y)]; });
+    if (!mh) add(loft([[1.4, 0.052, 0.05], [1.46, 0.044, 0.046], [1.515, 0.047, 0.05, 0.004]], [skin[0] * 0.92, skin[1] * 0.9, skin[2] * 0.9], 12), function (x, y) { return [1, 2, M.smooth(1.4, 1.47, y)]; });
     var dk = function (c0, f) { return [c0[0] * f, c0[1] * f, c0[2] * f]; }, fz = fem ? 0.1 : 0.106;
     if (sp.jacket) { // cổ áo dựng, gấu áo, túi ngực có nắp, khuy kéo
       add(loft([[1.385, 0.083, 0.078, -0.004], [1.415, 0.076, 0.072, -0.006], [1.447, 0.07, 0.068, -0.01]], dk(tc, 0.8), 16), function () { return [1, 2, 0.25]; });
@@ -225,7 +237,7 @@
       ag.colorFn(function (x, y) { var cl = (sp.shortSleeve ? y > 1.2 : y > 0.855) ? sleeve : skin; return [cl[0], cl[1], cl[2], 0]; });
       add(ag, function (x, y) { return y > 1.3 ? [1, sh, M.smooth(1.395, 1.315, y)] : [sh, el, M.smooth(1.11, 1.02, y)]; });
       var fi = B['fi' + S];
-      add(handGeo(skin).xf(x0, 0.815, 0, 0, 0, 0, -sd, 1, 1), function (x, y) { return [ha, fi, Math.abs(x - x0) > 0.046 ? 0 : M.smooth(0.74, 0.712, y)]; });
+      if (!mh) add(handGeo(skin).xf(x0, 0.815, 0, 0, 0, 0, -sd, 1, 1), function (x, y) { return [ha, fi, Math.abs(x - x0) > 0.046 ? 0 : M.smooth(0.74, 0.712, y)]; });
       // cổ tay áo / măng-sét
       if (!sp.shortSleeve) add(loft([[0.875, 0.034, 0.035, 0, x0], [0.86, 0.036, 0.037, 0, x0], [0.842, 0.035, 0.036, 0, x0]], [sleeve[0] * 0.7, sleeve[1] * 0.7, sleeve[2] * 0.7], 12), function () { return [el, el, 1]; });
       if (!sp.skirt) {
@@ -247,11 +259,18 @@
     body.extra = { data: skw, layout: [[6, 4]] };
     var bn = new Node(R.mesh(body), m.body); root.add(bn);
     bn.skin = { joints: BONES.map(function (b) { return J[b] || hips; }), inv: BONES.map(function (b) { var q = bp[b] || bp.hips, mm = M.create(); mm[12] = -q[0]; mm[13] = -q[1]; mm[14] = -q[2]; return mm; }), data: new Float32Array(16 * BONES.length) };
+    }
     if (!sp.spirit) N(root, null, 0, 0.03, 0.02, Geo.quad([-0.5, 0, -0.5], [0.5, 0, -0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5]), m.shadow);
     // đầu, mắt, mí, miệng, tai, tóc
     var hp = { male: sp.male, jaw: sp.jaw || 1, nose: sp.nose || 1, lip: sp.lip || 1, age: sp.age || 0, brow: sp.brow || 1, blush: sp.blush === undefined ? (fem ? 0.5 : 0.15) : sp.blush, tone: skin, hair: sp.hair || [0.02, 0.016, 0.014] };
     if (sp.lipCol) hp.lipCol = sp.lipCol;
-    var head = N(neck, 'head', 0, 0.105, 0.012, Ch.headGeo(hp), m.skin); head.morph = c.morph;
+    var head;
+    if (mh) {
+      if (full) { var hq = d3('head', 'neck01'), ey = rg.eye, hp0 = rg.q[I.head]; head = N(neck, 'head', hq[0], hq[1], hq[2]); hA = N(head, null, 0, ey[1] - hp0[1] - 0.0215, ey[2] - hp0[2] - 0.0585); }
+      else head = hA = N(neck, 'head', 0, 0.105, 0.012);
+      c.eyes = [{ rot: [0, 0, 0] }, { rot: [0, 0, 0] }];
+    } else {
+    head = hA = N(neck, 'head', 0, 0.105, 0.012, Ch.headGeo(hp), m.skin); head.morph = c.morph;
     var eg = Geo.sphere(0.0116, 14, 10).xf(0, 0, 0, PI / 2, 0, 0);
     eg.colorFn(function (x, y, z) { var a = Math.acos(M.clamp(z / 0.0116, -1, 1)); return a < 0.2 ? [0, 0, 0, 0] : (a < 0.5 ? [0.09 * (1 - a), 0.045 * (1 - a), 0.02, 0] : [0.72, 0.7, 0.68, 0]); });
     var em = R.mesh(eg), lm = R.mesh(Geo.sphere(0.0136, 8, 6).color(skin[0] * 0.8, skin[1] * 0.78, skin[2] * 0.78, 0));
@@ -261,20 +280,35 @@
     c.eyes.forEach(function (e) { e.mesh = em; e.mat = m.eye; });
     var ear = Geo.sphere(1, 8, 6).xf(0, 0, 0, 0, 0, 0, 0.008, 0.026, 0.015).color(skin[0] * 0.95, skin[1] * 0.9, skin[2] * 0.9, 0);
     N(head, null, -0.074, 0.008, -0.006, ear, m.skin); N(head, null, 0.074, 0.008, -0.006, ear, m.skin);
+    }
     var hs = sp.hairStyle || {}; hs.vol = hs.vol || 0; hs.fringe = hs.fringe || 0;
-    if (!sp.bald) N(head, null, 0, 0, 0, hairGeo(hp, hs), m.hair);
-    if (sp.turban) N(head, null, 0, 0.062, -0.006, Geo.lathe([[0.07, -0.022], [0.092, -0.012], [0.097, 0.006], [0.088, 0.024], [0.07, 0.03], [0.05, 0.034], [0, 0.036]], 18, 2).xf(0, 0, 0, -0.16, 0, 0, 1, 1, 1.12).color(sp.turban[0], sp.turban[1], sp.turban[2], 0), m.cloth);
-    if (sp.scarfHead) N(head, null, 0, 0, 0, headGrid(28, 22, function (dx, cy, dz) { var q = skull(dx, cy, dz, hp); return [q[0] * 1.13, q[1] * 1.1 + 0.012 + (dz > 0.3 && cy > 0.5 ? 0.018 * (1 - Math.abs(dx) * 3) : 0), q[2] * 1.13 - 0.008, sp.scarfHead[0], sp.scarfHead[1], sp.scarfHead[2]]; }, function (X, Y, Z) { return Z > 0.02 ? Y > 0.07 - Math.abs(X) * 0.5 : Y > -0.13; }), m.cloth);
-    if (sp.beard) N(head, null, 0, 0, 0, Geo.lathe([[0.004, -0.19], [0.016, -0.16], [0.024, -0.125], [0.02, -0.105]], 8).xf(0, 0, 0.068, 0.25, 0, 0, 1, 1, 0.6).color(sp.beard[0], sp.beard[1], sp.beard[2], 0), m.hair);
-    if (sp.glasses) { var gg = new Geo(); for (k = -1; k <= 1; k += 2) { var ring = []; for (var q = 0; q <= 12; q++) ring.push([k * 0.031 + Math.cos(q / 12 * 2 * PI) * 0.0175, 0.022 + Math.sin(q / 12 * 2 * PI) * 0.014, 0.079]); gg.add(Geo.tube(ring, 0.0016, 4)); gg.add(Geo.tube([[k * 0.049, 0.024, 0.078], [k * 0.076, 0.026, 0.0]], 0.0014, 4)); } gg.add(Geo.tube([[-0.0135, 0.025, 0.08], [0.0135, 0.025, 0.08]], 0.0015, 4)); N(head, null, 0, 0, 0, gg.color(0.03, 0.03, 0.035, 0), m.hair); }
+    if (!sp.bald && !mh) N(head, null, 0, 0, 0, hairGeo(hp, hs), m.hair);
+    if (sp.turban) N(hA, null, 0, 0.062, -0.006, Geo.lathe([[0.07, -0.022], [0.092, -0.012], [0.097, 0.006], [0.088, 0.024], [0.07, 0.03], [0.05, 0.034], [0, 0.036]], 18, 2).xf(0, 0, 0, -0.16, 0, 0, 1, 1, 1.12).color(sp.turban[0], sp.turban[1], sp.turban[2], 0), m.cloth);
+    if (sp.scarfHead && !mh) N(hA, null, 0, 0, 0, headGrid(28, 22, function (dx, cy, dz) { var q = skull(dx, cy, dz, hp); return [q[0] * 1.13, q[1] * 1.1 + 0.012 + (dz > 0.3 && cy > 0.5 ? 0.018 * (1 - Math.abs(dx) * 3) : 0), q[2] * 1.13 - 0.008, sp.scarfHead[0], sp.scarfHead[1], sp.scarfHead[2]]; }, function (X, Y, Z) { return Z > 0.02 ? Y > 0.07 - Math.abs(X) * 0.5 : Y > -0.13; }), m.cloth);
+    if (sp.beard) N(hA, null, 0, 0, 0, Geo.lathe([[0.004, -0.19], [0.016, -0.16], [0.024, -0.125], [0.02, -0.105]], 8).xf(0, 0, 0.068, 0.25, 0, 0, 1, 1, 0.6).color(sp.beard[0], sp.beard[1], sp.beard[2], 0), m.hair);
+    if (sp.glasses) { var gg = new Geo(); for (k = -1; k <= 1; k += 2) { var ring = []; for (var q = 0; q <= 12; q++) ring.push([k * 0.031 + Math.cos(q / 12 * 2 * PI) * 0.0175, 0.022 + Math.sin(q / 12 * 2 * PI) * 0.014, 0.079]); gg.add(Geo.tube(ring, 0.0016, 4)); gg.add(Geo.tube([[k * 0.049, 0.024, 0.078], [k * 0.076, 0.026, 0.0]], 0.0014, 4)); } gg.add(Geo.tube([[-0.0135, 0.025, 0.08], [0.0135, 0.025, 0.08]], 0.0015, 4)); N(hA, null, 0, 0, 0, gg.color(0.03, 0.03, 0.035, 0), m.hair); }
     // phụ kiện theo vai
-    if (sp.camera) { var cg = new Geo(); cg.add(Geo.box(0.13, 0.085, 0.06).xf(0, 0.1, 0.135).color(0.04, 0.04, 0.045, 0)); cg.add(Geo.lathe([[0, 0], [0.034, 0], [0.036, 0.05], [0, 0.045]], 10).xf(0, 0.1, 0.16, PI / 2, 0, 0).color(0.08, 0.08, 0.1, 0)); cg.add(Geo.tube([[-0.06, 0.13, 0.12], [-0.1, 0.3, 0.04], [-0.05, 0.345, -0.05], [0.05, 0.345, -0.05], [0.1, 0.3, 0.04], [0.06, 0.13, 0.12]], 0.006, 4).color(0.1, 0.07, 0.04, 0)); N(chest, null, 0, 0, 0, cg, m.hair); }
-    if (sp.pack) N(chest, null, 0, 0.12, -0.15, Geo.sphere(1, 10, 8).xf(0, 0, 0, 0, 0, 0, 0.15, 0.2, 0.09).color(sp.pack[0], sp.pack[1], sp.pack[2], 0), m.cloth);
-    if (sp.scarf) N(chest, null, 0, 0.33, 0.005, Geo.lathe([[0.06, -0.03], [0.085, -0.015], [0.088, 0.012], [0.068, 0.03], [0.05, 0.028]], 14).xf(0, 0, 0, 0.12, 0, 0, 1, 1, 0.95).color(sp.scarf[0], sp.scarf[1], sp.scarf[2], 0), m.cloth);
-    if (sp.yem) N(chest, null, 0, 0, 0, loft([[-0.02, 0.1, 0.02, 0.085], [0.14, 0.11, 0.03, 0.105], [0.27, 0.06, 0.02, 0.085]], sp.yem, 8, true, true), m.cloth);
+    if (sp.camera) { var cg = new Geo(); cg.add(Geo.box(0.13, 0.085, 0.06).xf(0, 0.1, 0.135).color(0.04, 0.04, 0.045, 0)); cg.add(Geo.lathe([[0, 0], [0.034, 0], [0.036, 0.05], [0, 0.045]], 10).xf(0, 0.1, 0.16, PI / 2, 0, 0).color(0.08, 0.08, 0.1, 0)); cg.add(Geo.tube([[-0.06, 0.13, 0.12], [-0.1, 0.3, 0.04], [-0.05, 0.345, -0.05], [0.05, 0.345, -0.05], [0.1, 0.3, 0.04], [0.06, 0.13, 0.12]], 0.006, 4).color(0.1, 0.07, 0.04, 0)); N(cA, null, 0, 0, 0, cg, m.hair); }
+    if (sp.pack) N(cA, null, 0, 0.12, -0.15, Geo.sphere(1, 10, 8).xf(0, 0, 0, 0, 0, 0, 0.15, 0.2, 0.09).color(sp.pack[0], sp.pack[1], sp.pack[2], 0), m.cloth);
+    if (sp.scarf) N(cA, null, 0, 0.33, 0.005, Geo.lathe([[0.06, -0.03], [0.085, -0.015], [0.088, 0.012], [0.068, 0.03], [0.05, 0.028]], 14).xf(0, 0, 0, 0.12, 0, 0, 1, 1, 0.95).color(sp.scarf[0], sp.scarf[1], sp.scarf[2], 0), m.cloth);
+    if (sp.yem) N(cA, null, 0, 0, 0, loft([[-0.02, 0.1, 0.02, 0.085], [0.14, 0.11, 0.03, 0.105], [0.27, 0.06, 0.02, 0.085]], sp.yem, 8, true, true), m.cloth);
     // dải lụa điều trói (ẩn mặc định)
     var bg = new Geo(); for (k = 0; k < 4; k++) bg.add(Geo.lathe([[0.168, 0], [0.173, 0.016], [0.168, 0.03]], 14).xf(0, 0.03 + k * 0.07, 0, (k % 2) * 0.14 - 0.07, 0, 0, 1.12, 1, 0.74));
-    c.bind = N(chest, null, 0, 0, 0, bg.color(0.5, 0.02, 0.02, 0), m.cloth); c.bind.visible = false;
+    c.bind = N(cA, null, 0, 0, 0, bg.color(0.5, 0.02, 0.02, 0), m.cloth); c.bind.visible = false;
+    if (mh) {
+      var XR = H.MHRig, tm = function (a, b2) { return [a[0] * b2[0], a[1] * b2[1], a[2] * b2[2], 1]; }, st = mh.skinTint || [Math.min(1, skin[0] / 0.56) * 0.86, Math.min(1, skin[1] / 0.39) * 0.72, Math.min(1, skin[2] / 0.3) * 0.62], ht = mh.hairTint || (sp.hair ? [sp.hair[0] * 9, sp.hair[1] * 9, sp.hair[2] * 9] : [0.2, 0.17, 0.16]), ct = mh.clothTint || [1, 1, 1];
+      var skinMat = { tex: XR.tex(fem ? 'young_lightskinned_female' : 'young_lightskinned_male'), rough: 0.56, nscale: 0, sss: 0.8, rim: 0.3, tint: tm(m.skin.tint, st), emis: m.skin.emis };
+      var cfg = { sex: mh.sex, full: full, browCol: mh.browCol, body: mh.body, longSleeves: mh.longSleeves, skinMat: skinMat, eyeMat: m.eye, mouthMat: { tex: 'plain', rough: 0.35, tint: m.skin.tint.slice(), emis: m.skin.emis }, parts: [], iris: mh.iris };
+      if (full) {
+        cfg.parts.push({ mesh: mh.cloth, mat: { tex: XR.tex(mh.clothTex), rough: 0.9, nscale: 0.9, rim: 0.4, tint: tm(m.cloth.tint, ct), emis: m.cloth.emis } });
+        cfg.parts.push({ mesh: fem ? 'female_shoes01' : 'male_shoes01', mat: { tex: XR.tex('shoes01'), rough: 0.7, nscale: 0.8, tint: tm(m.cloth.tint, mh.shoeTint || [1, 1, 1]), emis: m.cloth.emis } });
+      } else {
+        var kk = mh.k || 1, ex = rg.eye; cfg.k = kk; cfg.kh = mh.kh || 1; cfg.rest = { head: [0, 1.52, 0.007], neck: [0, 1.415, -0.005], chest: [0, 1.08, 0] };
+        cfg.t = [0, 1.52 + 0.0215 - kk * ex[1], 0.007 + 0.0585 - kk * ex[2]]; cfg.neckCut = rg.P[XR.IDX.neck01][1] - 0.03;
+      }
+      if (mh.hair) cfg.parts.push({ mesh: mh.hair, mat: { tex: XR.tex(mh.hairTex, false), rough: 0.45, nscale: 0, rim: 0.5, cutout: 1, tint: tm(m.hair.tint, ht), emis: m.hair.emis } });
+      XR.attach(c, cfg);
+    }
     for (k in J) c.T[k] = [0, 0, 0];
     R.nodes.push(root); Ch.list.push(c); Ch.byName[name] = c;
     return c;
@@ -328,7 +362,7 @@
         if (c.anim === 'idle' || c.anim === 'point') { T.shR[0] = -0.55 + Math.sin(t * 2.9) * 0.18; T.elR[0] = -1.05 + Math.sin(t * 4.3) * 0.28; T.shR[2] = 0.12; T.shL[0] = -0.2 + Math.sin(t * 2.3) * 0.1; T.elL[0] = -0.6; }
       }
       if (c.look) {                                                                // đầu + mắt dõi theo
-        var px = c.root.pos[0], pz = c.root.pos[2], py = c.root.pos[1] + (0.95 + c.dy + 0.57) * c.root.scl[1];
+        var px = c.root.pos[0], pz = c.root.pos[2], py = c.root.pos[1] + (c.hipY + c.dy + 0.57) * c.root.scl[1];
         var dx = c.look[0] - px, dz = c.look[2] - pz, yaw = M.clamp(M.angDiff(c.root.rot[1], Math.atan2(dx, dz)), -1.1, 1.1), pit = M.clamp(-Math.atan2(c.look[1] - py, Math.hypot(dx, dz)), -0.6, 0.6);
         T.neck[1] += yaw * 0.4; T.head[1] += yaw * 0.45; T.neck[0] += pit * 0.4; T.head[0] += pit * 0.45; T.chest[1] += yaw * 0.12;
         c.eyes[0].rot[1] = c.eyes[1].rot[1] = yaw * 0.25; c.eyes[0].rot[0] = c.eyes[1].rot[0] = pit * 0.3;
@@ -344,7 +378,7 @@
         var jr = J[k].rot, tr = T[k], vv = V[k] || (V[k] = [0, 0, 0]), kS = k.charAt(0) === 'f' ? 90 : (k === 'head' || k === 'neck' ? 70 : 120), dS = 2 * Math.sqrt(kS) * 0.78;
         for (a3 = 0; a3 < 3; a3++) { vv[a3] += (kS * (tr[a3] - jr[a3]) - dS * vv[a3]) * h; jr[a3] += vv[a3] * h; }
       }
-      J.hips.pos[1] += (0.95 + c.dy - J.hips.pos[1]) * Math.min(1, dt * 6);
+      J.hips.pos[1] += (c.hipY + c.dy - J.hips.pos[1]) * Math.min(1, dt * 6);
       if (c.sp.spirit) c.root.pos[1] = c.baseY + 0.06 + Math.sin(t * 1.1) * 0.035;
     }
     if (Ch.worldTick) Ch.worldTick(dt, time);
@@ -354,7 +388,7 @@
     var c = Ch.byName[name]; if (!c) return null;
     if (!c.visible) { c.visible = c.root.visible = true; for (var k in c.T) { c.J[k].rot[0] = c.J[k].rot[1] = c.J[k].rot[2] = 0; } c.snap = true; }
     c.root.set(x, y, z); c.baseY = y; c.root.rot[1] = ry; c.anim = anim || 'idle'; c.look = look || null;
-    if (c.snap) { c.snap = false; c.V = {}; c.dy = 0; var T = c.T; for (k in T) T[k][0] = T[k][1] = T[k][2] = 0; (ANIM[c.anim] || ANIM.idle)(c, T, 0); for (k in T) { c.J[k].rot[0] = T[k][0]; c.J[k].rot[1] = T[k][1]; c.J[k].rot[2] = T[k][2]; } c.J.hips.pos[1] = 0.95 + c.dy; }
+    if (c.snap) { c.snap = false; c.V = {}; c.dy = 0; var T = c.T; for (k in T) T[k][0] = T[k][1] = T[k][2] = 0; (ANIM[c.anim] || ANIM.idle)(c, T, 0); for (k in T) { c.J[k].rot[0] = T[k][0]; c.J[k].rot[1] = T[k][1]; c.J[k].rot[2] = T[k][2]; } c.J.hips.pos[1] = c.hipY + c.dy; }
     return c;
   };
   /* đi bộ theo đoạn thẳng trong khoảng thời gian u = 0..1 */
@@ -385,20 +419,20 @@
   var BLK = [0.018, 0.015, 0.014], TAN = [0.43, 0.28, 0.2], PALE = [0.56, 0.39, 0.3];
   Ch.CAST = {
     // --- 1994 ---
-    minh: { male: 1, h: 1.75, jaw: 1.02, nose: 1.05, age: 0.12, tone: [0.47, 0.31, 0.23], hairStyle: { fringe: 0.5, vol: 0.4 }, top: [0.11, 0.13, 0.07], jacket: [0.13, 0.15, 0.08], collar: [0.09, 0.105, 0.06], bot: [0.035, 0.045, 0.075], shoe: [0.05, 0.035, 0.025], camera: 1 },
-    linh: { h: 1.64, jaw: 0.92, nose: 0.9, lip: 1.1, tone: PALE, hairStyle: { long: 0.3, fringe: 0.25, vol: 0.2 }, top: [0.3, 0.025, 0.03], jacket: [0.33, 0.03, 0.035], collar: [0.25, 0.02, 0.025], bot: [0.03, 0.03, 0.035], shoe: [0.04, 0.03, 0.03] },
-    tuan: { male: 1, h: 1.79, jaw: 1.08, nose: 1.1, age: 0.2, tone: TAN, hairStyle: { fringe: 0.15, vol: 0.1 }, top: [0.05, 0.11, 0.2], jacket: [0.055, 0.12, 0.22], bot: [0.09, 0.08, 0.06], pack: [0.16, 0.2, 0.09], glasses: 1 },
-    ha: { h: 1.57, jaw: 0.88, nose: 0.85, lip: 1.05, blush: 0.7, tone: [0.58, 0.4, 0.31], hairStyle: { fringe: 0.8, vol: 0.3, braid: 1 }, top: [0.5, 0.36, 0.05], jacket: [0.55, 0.4, 0.06], bot: [0.05, 0.06, 0.1], scarf: [0.5, 0.08, 0.08], shoe: [0.5, 0.45, 0.4] },
+    minh: { mh: { sex: 'male', full: 1, body: 'hung_body', cloth: 'male_male_casualsuit03', clothTex: 'male_casualsuit03', clothTint: [0.62, 0.8, 0.5], hair: 'male_short02', hairTex: 'short02', longSleeves: 1 }, male: 1, h: 1.75, jaw: 1.02, nose: 1.05, age: 0.12, tone: [0.47, 0.31, 0.23], hairStyle: { fringe: 0.5, vol: 0.4 }, top: [0.11, 0.13, 0.07], jacket: [0.13, 0.15, 0.08], collar: [0.09, 0.105, 0.06], bot: [0.035, 0.045, 0.075], shoe: [0.05, 0.035, 0.025], camera: 1 },
+    linh: { mh: { sex: 'female', full: 1, body: 'linh_body', cloth: 'female_female_elegantsuit01', clothTex: 'female_elegantsuit01', hair: 'female_long01', hairTex: 'long01', longSleeves: 1 }, h: 1.64, jaw: 0.92, nose: 0.9, lip: 1.1, tone: PALE, hairStyle: { long: 0.3, fringe: 0.25, vol: 0.2 }, top: [0.3, 0.025, 0.03], jacket: [0.33, 0.03, 0.035], collar: [0.25, 0.02, 0.025], bot: [0.03, 0.03, 0.035], shoe: [0.04, 0.03, 0.03] },
+    tuan: { mh: { sex: 'male', full: 1, body: 'tuan_body', cloth: 'male_male_casualsuit01', clothTex: 'male_casualsuit01', hair: 'male_short02', hairTex: 'short02', longSleeves: 1 }, male: 1, h: 1.79, jaw: 1.08, nose: 1.1, age: 0.2, tone: TAN, hairStyle: { fringe: 0.15, vol: 0.1 }, top: [0.05, 0.11, 0.2], jacket: [0.055, 0.12, 0.22], bot: [0.09, 0.08, 0.06], pack: [0.16, 0.2, 0.09], glasses: 1 },
+    ha: { mh: { sex: 'female', full: 1, body: 'lan_body', cloth: 'female_female_casualsuit01', clothTex: 'female_casualsuit01', hair: 'female_ponytail01', hairTex: 'ponytail01' }, h: 1.57, jaw: 0.88, nose: 0.85, lip: 1.05, blush: 0.7, tone: [0.58, 0.4, 0.31], hairStyle: { fringe: 0.8, vol: 0.3, braid: 1 }, top: [0.5, 0.36, 0.05], jacket: [0.55, 0.4, 0.06], bot: [0.05, 0.06, 0.1], scarf: [0.5, 0.08, 0.08], shoe: [0.5, 0.45, 0.4] },
     // --- 1874 ---
-    le: { h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
-    khai: { male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
-    me: { h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
-    cha: { male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },
-    bay: { male: 1, h: 1.66, jaw: 1.05, age: 0.5, tone: TAN, hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], shortSleeve: 1, bot: [0.06, 0.05, 0.04], shoe: TAN },
-    tran: { male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
+    le: { mh: { sex: 'female', body: 'linh_body', hair: 'female_long01', hairTex: 'long01' }, h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
+    khai: { mh: { sex: 'male', hairTint: [0.75, 1.05, 1.5], browCol: [0.12, 0.12, 0.12], body: 'hung_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
+    me: { mh: { sex: 'female', body: 'lan_body', hair: 'female_ponytail01', hairTex: 'ponytail01', hairTint: [0.5, 0.6, 0.75], browCol: [0.1, 0.1, 0.1] }, h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
+    cha: { mh: { sex: 'male', hairTint: [0.75, 1.05, 1.5], browCol: [0.12, 0.12, 0.12], body: 'tuan_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },
+    bay: { mh: { sex: 'male', body: 'hung_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.66, jaw: 1.05, age: 0.5, tone: TAN, hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], shortSleeve: 1, bot: [0.06, 0.05, 0.04], shoe: TAN },
+    tran: { mh: { sex: 'male', body: 'tuan_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
     // --- linh hồn ---
-    bayHon: { male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
-    khang: { male: 1, h: 1.73, jaw: 0.98, nose: 1.0, tone: PALE, hairStyle: { bun: 2, fringe: 0.1 }, top: [0.42, 0.42, 0.4], skirt: [0.4, 0.4, 0.38], collar: [0.5, 0.5, 0.48], bot: [0.4, 0.4, 0.38], spirit: 1 }
+    bayHon: { mh: { sex: 'male', hairTint: [0.75, 1.05, 1.5], browCol: [0.12, 0.12, 0.12], body: 'hung_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
+    khang: { mh: { sex: 'male', body: 'tuan_body', hair: 'male_short02', hairTex: 'short02' }, male: 1, h: 1.73, jaw: 0.98, nose: 1.0, tone: PALE, hairStyle: { bun: 2, fringe: 0.1 }, top: [0.42, 0.42, 0.4], skirt: [0.4, 0.4, 0.38], collar: [0.5, 0.5, 0.48], bot: [0.4, 0.4, 0.38], spirit: 1 }
   };
   Ch.init = function () {
     R.materials.fabric = { alb: R.textures.white, nrm: R.materials.silk ? R.materials.silk.nrm : R.textures.flat, uv: 7 };
