@@ -35,3 +35,9 @@ NHÂN VẬT (bản mới — Meshy AI)
 - Khung xương Mixamo, 20 clip motion-capture: đứng thở/nhìn quanh, đi, đi run rẩy (người già), nói chuyện,
   quát mắng, ôm đầu sợ hãi, lùi lại, gõ ngón tay đe doạ... Quỳ, bị trói, van xin vẫn là tư thế dựng bằng mã.
 - Model Meshy không có biểu cảm khuôn mặt nên nhân vật không mấp máy môi khi nói.
+
+LỒNG TIẾNG (ElevenLabs)
+- Toàn bộ 96 câu thoại có tiếng: cắt cảnh, câu Minh tự nói khi chơi, 3 cảnh hồi ức và 3 kết thúc.
+- Mỗi nhân vật một giọng tiếng Việt riêng; câu thoại có chỉ dẫn cảm xúc (thì thầm, run rẩy, khóc, quát...).
+- Tiếng phát theo âm lượng chung trong Cài đặt, tạm dừng khi Pause, dừng khi bỏ qua cắt cảnh.
+- Tạo bằng gói ElevenLabs miễn phí: chỉ dùng phi thương mại, cần ghi công "Voice by ElevenLabs".

@@ -81,7 +81,7 @@
   /* ===================== GIAO DIỆN ===================== */
   var subT = 0, toastT = 0, saveT = 0, uiOpen = null, kp = null;
   var UI = H.UI = {
-    subtitle: function (t, d) { var e = $('subtitle'); e.textContent = t; e.className = 'show'; subT = d || 4; },
+    subtitle: function (t, d) { var e = $('subtitle'); e.textContent = t; e.className = 'show'; var vd = H.Voice ? H.Voice.say(t) : 0; subT = Math.max(d || 4, vd + 0.6); },
     toast: function (t) { var e = $('toast'); e.textContent = t; e.className = 'show'; toastT = 3; },
     objective: function (t) { var e = $('objText'); if (e.textContent === t) return; e.textContent = t; var o = $('objective'); o.className = ''; void o.offsetWidth; o.className = 'flash'; },
     prompt: function (t) { var e = $('prompt'); if (t) { if (e.textContent !== t) e.textContent = t; e.className = 'show'; } else e.className = ''; },
@@ -247,9 +247,11 @@
     } else {
       W.props.temple.fireLight.intensity *= 0.8; p.fade = M.smooth(1.2, 3.2, s.t); p.veins = Math.min(1, s.t); A.tension = 1;
     }
-    var start = s.type !== 'bad' ? 15 : 3.4, idx = Math.floor((s.t - start) / 5.2);
-    if (s.t > start && idx !== s.shown && idx <= s.lines.length) {
-      s.shown = idx; show('ending', true); show('hud', false);
+    var start = s.type !== 'bad' ? 15 : 3.4;
+    if (s.t > start && s.shown < s.lines.length && s.t >= (s.nextT || start)) {
+      var idx = s.shown + 1; s.shown = idx; show('ending', true); show('hud', false);
+      s.nextT = s.t + (idx < s.lines.length ? Math.max(5.2, (H.Voice ? H.Voice.dur(s.lines[idx]) : 0) + 1.4) : 99);
+      if (idx < s.lines.length && H.Voice) setTimeout(function (ln) { return function () { H.Voice.say(ln); }; }(s.lines[idx]), 650);
       var el = $('endText'), ti = $('endTitle');
       if (idx < s.lines.length) { ti.textContent = ''; el.style.opacity = 0; setTimeout(function () { el.textContent = s.lines[idx]; el.style.opacity = 1; }, 600); }
       else { el.style.opacity = 0; setTimeout(function () { el.textContent = ''; ti.textContent = CFG.ENDINGS[s.type].title; ti.className = 'title' + (s.type === 'bad' ? ' red' : ''); show('btnEndQuit', true); }, 700); try { if (s.type !== 'bad') localStorage.removeItem(CFG.SAVE_KEY); } catch (e2) { } }

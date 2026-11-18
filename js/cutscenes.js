@@ -33,6 +33,7 @@
   function sub(speaker, text, dur) {
     $('cineSpeaker').textContent = speaker || ''; $('cineText').textContent = text; $('cineSub').className = 'show'; CS.subT = dur;
     if (SPK[speaker]) Ch.say(SPK[speaker], dur, text);
+    if (H.Voice) H.Voice.say(text);
   }
 
   /* ===================== ĐỊNH NGHĨA CẮT CẢNH ===================== */
@@ -114,7 +115,7 @@
   function memory(k, cam0, cam1, lines, digit) {
     return function () {
       var b = W.props.manor, s = Pz.scenes[k], fy = b.floorY, a = b.F.pt(cam0[0], cam0[1]), c = b.F.pt(cam1[0], cam1[1]), t = 0.6, subs = [];
-      lines.forEach(function (l) { subs.push([t, l[0], l[1], l[2]]); t += l[2] + 0.5; });
+      lines.forEach(function (l) { var dd = Math.max(l[2], (H.Voice ? H.Voice.dur(l[1]) : 0) + 0.3); subs.push([t, l[0], l[1], dd]); t += dd + 0.5; });
       return {
         past: true,
         shots: [{ d: t + 0.4, p0: [a[0], fy + 1.55, a[1]], p1: [c[0], fy + 1.35, c[1]], l0: [s.pos[0], fy + 1.2, s.pos[2]], l1: [s.pos[0], fy + 1.35, s.pos[2]], f0: 56, f1: 44 }],
@@ -231,7 +232,7 @@
     if (s.tension !== undefined) A.tension = s.tension;
     A.hunt = 0; A.stress = 0.15;
   };
-  CS.skip = function () { if (CS.active && CS.t > 0.4) finish(); };
+  CS.skip = function () { if (CS.active && CS.t > 0.4) { if (H.Voice) H.Voice.stop(); finish(); } };
   function finish() {
     var s = CS.active; if (!s) return; CS.active = null;
     hideActors(); keyLight.intensity = 0; if (s.end) s.end();

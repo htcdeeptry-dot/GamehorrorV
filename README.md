@@ -23,4 +23,5 @@ Bảng phím và ghi chú nằm trong `DOC_TRUOC.txt` và mục Điều khiển 
 
 ## Nhân vật & giấy phép tài nguyên
 - `js/chars/mx_*.js`, `js/mx_anims.js`: 13 nhân vật và 20 clip chuyển động tạo bằng **Meshy AI** (xem `LICENSES.md`), khung xương Mixamo, nhúng base64 để chạy được qua `file://`.
+- `js/vo_data.js`, `js/voice.js`: 96 câu lồng tiếng tiếng Việt tạo bằng **ElevenLabs** (eleven_v4, gói miễn phí → phi thương mại, ghi công "Voice by ElevenLabs"); mp3 nhúng base64, phát theo đúng câu phụ đề.
 - `js/rb_rig.js`: skinning 4 trọng số trên GPU, chuyển clip giữa các khung xương (bù tư thế nghỉ và góc xoay hông), trộn mượt với tư thế thủ tục.
