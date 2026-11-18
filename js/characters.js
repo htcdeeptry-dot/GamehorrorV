@@ -193,6 +193,15 @@
   function clipFor(c) {
     if (c.manual) return null;
     var fem = c.rb.rig.female, a = c.anim, talk = c.talkT > 0, sp = c.sp; c.rb.lockXZ = false;
+    if (c.rb.rig.d.mx) { // nhân vật Meshy: bộ clip Mixamo
+      var old = /^(khai|cha|bayHon)$/.test(c.name), rough = /^(khai|bay|tran)$/.test(c.name);
+      if (a === 'walk') { c.rb.lockXZ = true; return old ? 'Elderly_Shaky_Walk' : (sp.spirit || c.name === 'bayHon' ? 'Unsteady_Walk' : (fem ? 'Walking_Woman' : 'Walking')); }
+      if (a === 'idle') return talk ? (rough ? 'Stand_Talking_Angry' : 'Talk_with_Hands_Open') : (sp.mxIdle || 'Long_Breathe_and_Look_Around');
+      if (a === 'cower') return 'Head_Hold_in_Pain';
+      if (a === 'point' && rough) return 'Dont_You_Dare';
+      if (a === 'recoil') { c.rb.lockXZ = true; return 'Step_Back'; }
+      return null;
+    }
     if (a === 'idle') return talk ? (fem ? (sp.stress || c.expr === 'fear' ? 'f_gestic_talk_femalestressed_01' : 'f_gestic_talk_sad_01') : 'm_gestic_listen_angry_01') : (fem ? 'f_idle_' + (sp.idle === 'angry_01' ? 'breathe_01' : (sp.idle || 'breathe_01')) : 'm_idle_' + (sp.idle || 'breathe_01'));
     if (a === 'cower' || a === 'crouch') return fem ? (talk ? 'f_crouch_gestic' : 'f_crouch_idle') : 'm_crouch_idle';
     if (a === 'pound' && !fem) { c.rb.lockXZ = true; return 'm_knock_door'; }
@@ -473,15 +482,15 @@
     tuan: { rb: 'tuan', idle: 'look_around_01', male: 1, h: 1.79, jaw: 1.08, nose: 1.1, age: 0.2, tone: TAN, hairStyle: { fringe: 0.15, vol: 0.1 }, top: [0.05, 0.11, 0.2], jacket: [0.055, 0.12, 0.22], bot: [0.09, 0.08, 0.06], pack: [0.16, 0.2, 0.09], glasses: 1 },
     ha: { rb: 'ha', idle: 'nervous_03', stress: 1, h: 1.57, jaw: 0.88, nose: 0.85, lip: 1.05, blush: 0.7, tone: [0.58, 0.4, 0.31], hairStyle: { fringe: 0.8, vol: 0.3, braid: 1 }, top: [0.5, 0.36, 0.05], jacket: [0.55, 0.4, 0.06], bot: [0.05, 0.06, 0.1], scarf: [0.5, 0.08, 0.08], shoe: [0.5, 0.45, 0.4] },
     // --- 1874 ---
-    le: { rb: 'le', tint: [0.82, 0.76, 0.7], stress: 1, h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
-    khai: { rb: 'khai', tint: [0.8, 0.74, 0.68], idle: 'angry_01', male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
-    me: { rb: 'me', tint: [0.8, 0.74, 0.68], stress: 1, h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
-    cha: { rb: 'cha', tint: [0.8, 0.74, 0.68], male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },
-    bay: { rb: 'bay', tint: [0.8, 0.74, 0.68], idle: 'look_around_01', male: 1, h: 1.66, jaw: 1.05, age: 0.5, tone: TAN, hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], shortSleeve: 1, bot: [0.06, 0.05, 0.04], shoe: TAN },
-    tran: { rb: 'tran', tint: [0.8, 0.74, 0.68], idle: 'look_around_01', male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
+    le: { rb: 'le', tint: [0.97, 0.95, 0.93], stress: 1, h: 1.6, jaw: 0.9, nose: 0.88, lip: 1.12, blush: 0.55, tone: [0.6, 0.42, 0.33], hairStyle: { long: 0.42, fringe: 0.1, vol: 0.15, side: 0.045 }, top: [0.055, 0.03, 0.034], sleeve: [0.055, 0.03, 0.034], collar: [0.3, 0.27, 0.2], yem: [0.5, 0.04, 0.04], skirt: [0.05, 0.035, 0.03], bot: [0.05, 0.035, 0.03] },
+    khai: { rb: 'khai', tint: [0.95, 0.93, 0.9], idle: 'angry_01', male: 1, h: 1.67, jaw: 1.1, nose: 1.15, age: 0.85, brow: 1.4, tone: [0.44, 0.3, 0.22], hair: [0.12, 0.12, 0.12], hairStyle: { fringe: 0 }, turban: [0.02, 0.02, 0.045], beard: [0.2, 0.2, 0.2], top: [0.022, 0.022, 0.03], skirt: [0.022, 0.022, 0.03], collar: [0.5, 0.48, 0.42], bot: [0.02, 0.02, 0.03] },
+    me: { rb: 'me', tint: [0.95, 0.93, 0.9], stress: 1, h: 1.52, jaw: 0.95, age: 0.6, blush: 0.1, tone: [0.5, 0.35, 0.27], hair: [0.1, 0.1, 0.1], hairStyle: { fringe: 0 }, scarfHead: [0.025, 0.022, 0.022], top: [0.075, 0.05, 0.035], yem: [0.25, 0.22, 0.17], skirt: [0.04, 0.03, 0.025], bot: [0.04, 0.03, 0.025] },
+    cha: { rb: 'cha', tint: [0.95, 0.93, 0.9], male: 1, h: 1.63, age: 0.7, tone: TAN, hair: [0.1, 0.1, 0.1], hairStyle: { bun: 2 }, beard: [0.25, 0.25, 0.25], top: [0.07, 0.055, 0.04], skirt: [0.06, 0.047, 0.035], bot: [0.06, 0.047, 0.035] },
+    bay: { rb: 'bay', tint: [0.95, 0.93, 0.9], idle: 'look_around_01', male: 1, h: 1.66, jaw: 1.05, age: 0.5, tone: TAN, hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], shortSleeve: 1, bot: [0.06, 0.05, 0.04], shoe: TAN },
+    tran: { rb: 'tran', tint: [0.95, 0.93, 0.9], idle: 'look_around_01', male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
     // --- linh hồn ---
-    bayHon: { rb: 'bayHon', tint: [0.5, 0.72, 1.0], emis: [0.03, 0.06, 0.1], fade: 0.8, male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
-    ghost: { rb: 'ghost', h: 1.66, tint: [0.6, 0.6, 0.68], emis: [0.014, 0.006, 0.008], manual: 1, spirit: 1 },
+    bayHon: { rb: 'bayHon', tint: [0.75, 0.85, 1.0], emis: [0.02, 0.04, 0.07], fade: 0.85, male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
+    ghost: { rb: 'ghost', h: 1.66, tint: [0.85, 0.85, 0.92], emis: [0.012, 0.006, 0.008], manual: 1, spirit: 1 },
     khang: { rb: 'khang', tint: [0.9, 0.95, 0.85], emis: [0.05, 0.06, 0.04], fade: 0.86, male: 1, h: 1.73, jaw: 0.98, nose: 1.0, tone: PALE, hairStyle: { bun: 2, fringe: 0.1 }, top: [0.42, 0.42, 0.4], skirt: [0.4, 0.4, 0.38], collar: [0.5, 0.5, 0.48], bot: [0.4, 0.4, 0.38], spirit: 1 }
   };
   Ch.init = function () {

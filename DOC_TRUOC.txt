@@ -29,9 +29,9 @@ GHI CHÚ KỸ THUẬT: js/story.js và js/cutscenes.js chứa cốt truyện m�
 js/engine.js là engine WebGL2 tự viết thay cho Three.js, để game
 không phụ thuộc bất kỳ file hay CDN bên ngoài nào khi chạy qua file://.
 
-NHÂN VẬT (bản mới)
-- 13 nhân vật (12 người + oán linh Lệ Nương) dùng model Microsoft Rocketbox Avatar Library (giấy phép MIT, xem LICENSES.md).
-- Dữ liệu đã chuyển sẵn và nhúng trong js/chars/*.js + js/rb_anims.js (~15 MB) nên game vẫn chạy bằng cách mở index.html.
-- 16 clip motion-capture dùng cho đứng thở / nhìn quanh / lo âu / giận, nói chuyện, ngồi co ro, gõ cửa;
-  đi bộ, quỳ, bị trói, van xin, chỉ tay, lùi lại vẫn là chuyển động dựng bằng mã trên cùng khung xương.
-- Khẩu hình, chớp mắt, mày, cười dùng blendshape gốc của model.
+NHÂN VẬT (bản mới — Meshy AI)
+- 13 nhân vật dựng bằng Meshy AI riêng cho truyện: 4 bạn trẻ 1994, 6 người làng 1874 (áo the, áo tứ thân,
+  khăn xếp, khăn mỏ quạ...), hồn Phó Bảy, hồn Khang và oán linh Lệ Nương. Mỗi nhân vật ~30.000 tam giác, texture 2K.
+- Khung xương Mixamo, 20 clip motion-capture: đứng thở/nhìn quanh, đi, đi run rẩy (người già), nói chuyện,
+  quát mắng, ôm đầu sợ hãi, lùi lại, gõ ngón tay đe doạ... Quỳ, bị trói, van xin vẫn là tư thế dựng bằng mã.
+- Model Meshy không có biểu cảm khuôn mặt nên nhân vật không mấp máy môi khi nói.

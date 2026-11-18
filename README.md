@@ -22,5 +22,5 @@ Bảng phím và ghi chú nằm trong `DOC_TRUOC.txt` và mục Điều khiển 
 - `js/main.js`: vòng lặp, thiết lập, lưu/tải.
 
 ## Nhân vật & giấy phép tài nguyên
-- `js/chars/rb_*.js`, `js/rb_anims.js`: 13 model và 16 clip motion-capture từ **Microsoft Rocketbox Avatar Library** (MIT, Copyright (c) 2020 Microsoft — xem `LICENSES.md`), đã giải nén meshopt và nhúng base64 để chạy được qua `file://`.
-- `js/rb_rig.js`: khung xương Bip01 80 khớp, skinning 4 trọng số trên GPU, phát clip mocap và trộn với tư thế thủ tục, 6 kênh blendshape khuôn mặt.
+- `js/chars/mx_*.js`, `js/mx_anims.js`: 13 nhân vật và 20 clip chuyển động tạo bằng **Meshy AI** (xem `LICENSES.md`), khung xương Mixamo, nhúng base64 để chạy được qua `file://`.
+- `js/rb_rig.js`: skinning 4 trọng số trên GPU, chuyển clip giữa các khung xương (bù tư thế nghỉ và góc xoay hông), trộn mượt với tư thế thủ tục.
