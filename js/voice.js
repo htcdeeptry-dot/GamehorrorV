@@ -40,7 +40,8 @@
     decode(id, function (b) {
       var t0 = Math.max(c.currentTime, when || 0);
       var s = c.createBufferSource(), g = c.createGain(); g.gain.value = vol();
-      s.buffer = b; s.connect(g); g.connect(c.destination); s.start(t0);
+      if (!V.an || V.an.context !== c) { V.an = c.createAnalyser(); V.an.fftSize = 512; V.an.connect(c.destination); V.buf = new Float32Array(512); }
+      s.buffer = b; s.connect(g); g.connect(V.an); s.start(t0); s._id = id; s._t0 = t0;
       if (cur && when) { /* nối tiếp: không dừng câu đang nói */ } else if (cur) { try { cur.stop(); } catch (e) { } }
       cur = s; curEnd = t0 + b.duration;
       s.onended = function () { if (cur === s) cur = null; };
@@ -55,11 +56,20 @@
     else start(id, 0);
     return H.VO.dur[id] || 0;
   };
+  /* độ lớn tức thời của giọng đang phát (0..1) — dùng cho khẩu hình nhân vật */
+  var lvl = 0;
+  V.level = function () {
+    var c = ctx(); if (!c || !cur || !V.an || c.currentTime < cur._t0) return 0;
+    V.an.getFloatTimeDomainData(V.buf); var s2 = 0; for (var i = 0; i < V.buf.length; i++) s2 += V.buf[i] * V.buf[i];
+    var r = Math.sqrt(s2 / V.buf.length) / Math.max(0.05, vol()); lvl += (r - lvl) * 0.6; return lvl;
+  };
+  /* câu text có đang được phát không */
+  V.playing = function (text) { var c = ctx(); if (!c || !cur) return false; var id = V.idFor(text); return !!id && cur._id === id && c.currentTime < curEnd + 0.05; };
   V.stop = function () {
     if (cur) { try { cur.stop(); } catch (e) { } cur = null; }
     if (el) { try { el.pause(); } catch (e) { } el = null; }
     curEnd = 0;
   };
   /* giải mã trước vài câu đầu để câu mở màn không trễ */
-  V.warm = function () { var c = ctx(); if (!c || !H.VO) return; ['C00', 'C01', 'C02', 'C03', 'L_start'].forEach(function (id) { if (H.VO.d[id]) decode(id, function () { }); }); };
+  V.warm = function () { var c = ctx(); if (!c || !H.VO) return; ['C00', 'C01', 'C02', 'C03', 'NL01'].forEach(function (id) { if (H.VO.d[id]) decode(id, function () { }); }); };
 })(window.HuyetLeThon);

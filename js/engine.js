@@ -346,7 +346,7 @@
   /* ===================== RENDERER ===================== */
   var R = H.R = {
     gl: null, canvas: null, q: null,
-    statics: [], nodes: [], instGroups: [], lights: [], roofs: [],
+    statics: [], nodes: [], instGroups: [], waters: [], lights: [], roofs: [],
     materials: {}, textures: {},
     cam: { pos: [0, 1.7, 0], yaw: 0, pitch: 0, roll: 0, fov: 72 },
     env: {
@@ -478,14 +478,17 @@
     return { vao: vao, count: geo.i.length, type: n > 65535 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, center: [cx, cy, cz], radius: Math.hypot(x1 - cx, y1 - cy, z1 - cz) };
   };
   /* inst: Float32Array 8 số/instance: x,y,z,scale, rotY,phase,lean,tint */
-  R.addInstanced = function (geo, inst, count, mat, center, radius, maxDist) {
+  /* lod: [minDist, maxDist] đo từ tâm nhóm — hai nhóm cùng vị trí, khác độ chi tiết, không bao giờ cùng vẽ */
+  R.addInstanced = function (geo, inst, count, mat, center, radius, maxDist, lod) {
     var m = R.mesh(geo);
     gl.bindVertexArray(m.vao);
     var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(4, 1);
     gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(5, 1);
     gl.bindVertexArray(null);
-    R.instGroups.push({ mesh: m, count: count, mat: mat, center: center, radius: radius, maxDist: maxDist || 0 });
+    R.instGroups.push({ mesh: m, count: count, mat: mat, center: center, radius: radius, maxDist: maxDist || 0, lod: lod || null });
+  };
+  R.addWater = function (geo) { var m = R.mesh(geo); R.waters.push({ mesh: m, center: m.center, radius: m.radius });
   };
   R.addStatic = function (geo, matName) {
     if (!geo.i.length) return;
@@ -691,11 +694,22 @@
         var g = R.instGroups[k];
         ddx = g.center[0] - cam.pos[0]; ddz = g.center[2] - cam.pos[2];
         var dd = Math.sqrt(ddx * ddx + ddz * ddz);
-        if (dd > vd + g.radius || (g.maxDist && dd > g.maxDist + g.radius) || !visible(g.center, g.radius)) continue;
-        var cnt = Math.max(1, Math.floor(g.count * q.bamboo * (dd > 60 ? 0.6 : 1)));
+        if (dd > vd + g.radius || (g.maxDist && dd > g.maxDist + g.radius) || (g.lod && (dd < g.lod[0] || dd >= g.lod[1])) || !visible(g.center, g.radius)) continue;
+        var cnt = Math.max(1, Math.floor(g.count * q.bamboo * (dd > 60 && !g.lod ? 0.6 : 1)));
+        if (g.lod) cnt = Math.max(1, Math.floor(g.count * (0.55 + 0.45 * q.bamboo)));
         setMat(pi, g.mat);
         gl.bindVertexArray(g.mesh.vao); gl.drawElementsInstanced(gl.TRIANGLES, g.mesh.count, g.mesh.type, 0, cnt);
         R.stats.draws++; R.stats.tris += g.mesh.count / 3 * cnt;
+      }
+    }
+    // ---- mặt nước
+    if (R.waters.length) {
+      var pw = prog('water', S.waterVS, S.waterFS, '#define MAXL ' + Math.max(1, q.lights) + '\n');
+      gl.useProgram(pw.p); setFrame(pw); gl.uniform1f(U(pw, 'uRain'), e.rain);
+      for (k = 0; k < R.waters.length; k++) {
+        var wq = R.waters[k]; ddx = wq.center[0] - cam.pos[0]; ddz = wq.center[2] - cam.pos[2];
+        if (ddx * ddx + ddz * ddz > (vd + wq.radius) * (vd + wq.radius) || !visible(wq.center, wq.radius)) continue;
+        drawMesh(wq.mesh);
       }
     }
     // ---- trong suốt
@@ -781,7 +795,7 @@
 
   /* texture chữ (bùa máu, bia, biển tên) từ Canvas2D */
   R.textTexture = function (lines, o) {
-    o = o || {};
+    o = o || {}; if (H.tr) lines = lines.map(H.tr);
     var c = document.createElement('canvas'); c.width = o.w || 512; c.height = o.h || 256;
     var x = c.getContext('2d');
     x.clearRect(0, 0, c.width, c.height);

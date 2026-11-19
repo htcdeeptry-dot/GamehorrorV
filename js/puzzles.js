@@ -10,7 +10,8 @@
 
   Pz.has = function (id) { return !!Pz.inv[id]; };
   Pz.stage = function () { var f = Pz.flags; return f.allOff ? 4 : (f.gotScroll ? 3 : (f.gotMirror ? 2 : (f.gateOpen ? 1 : 0))); };
-  function setObj(o) { Pz.objective = o; UI.objective(CFG.OBJECTIVES[o]); }
+  function setObj(o) { var ord = CFG.OBJ_ORDER || []; if (ord.indexOf(o) >= 0 && ord.indexOf(o) < ord.indexOf(Pz.objective)) return; Pz.objective = o; UI.objective(CFG.OBJECTIVES[o]); }
+  Pz.setObj = setObj;
   function add(o) { Pz.list.push(o); return o; }
   function say(t, d) { UI.subtitle(t, d || 4.5); }
 
@@ -41,8 +42,8 @@
     var T = W.terrainH, k, p, b, POS = CFG.POS, f = Pz.flags;
     Pz.list.length = 0;
     // ---------- KHU 1: Cổng làng & rừng tre
-    diary(0, 0.9, T(0.9, 86.5) + 0.06, 86.5);
-    item('camera', 'camera', POS.cameraItem[0], T(POS.cameraItem[0], POS.cameraItem[1]) + 0.66, POS.cameraItem[1], 'Máy Ảnh Tâm Linh', function () { give('camera'); say(L.gotCamera, 6); setObj('o2'); }, 1.5);
+    diary(0, -12.6, T(-12.6, 404.2) + 0.06, 404.2);
+    item('camera', 'camera', POS.cameraItem[0], T(POS.cameraItem[0], POS.cameraItem[1]) + 0.66, POS.cameraItem[1], 'Máy Ảnh Tâm Linh', function () { give('camera'); say(L.gotCamera, 6); setObj('w2'); setTimeout(function () { say(L.followTracks, 5); }, 6500); Pz.checkpoint(); }, 1.5);
     add({ pos: [POS.monument[0] - 0.3, T(POS.monument[0], POS.monument[1]) + 1.3, POS.monument[1]], r: 3, wide: true, label: 'Xem bia đá', use: function () { UI.note('Bia Trấn Yểm', 'Dựng trước cổng làng Âm Linh', CFG.MONUMENT_TEXT); f.sawMonument = 1; } });
     var gate = props.gate;
     add({ pos: gate.pos, r: 2.8, wide: true, enabled: function () { return !f.gateOpen; }, label: 'Mở khoá số trên xích', use: function () {
@@ -147,7 +148,9 @@
       if (!f.allOff || !Pz.has('scroll')) return say(L.altarNeed);
       Pz.ritualT = 0; Pz.ritualStep = 0; H.Main.cinematic = true; AI.reset(); AI.enabled = false;
     } });
-    if (H.Cutscenes) H.Cutscenes.place({ item: item, diary: diary, add: add, say: say, give: give, setObj: setObj });
+    var api = { item: item, diary: diary, add: add, say: say, give: give, setObj: setObj, doorUse: doorUse, supply: supply };
+    if (H.Cutscenes) H.Cutscenes.place(api);
+    if (H.Chapters) H.Chapters.place(api);
     Pz.sync();
   };
   Pz.addDiary = function (id, open) {
@@ -155,7 +158,7 @@
     UI.toast('Nhật ký mới: “' + d.title + '”'); if (open) UI.note(d.title, d.sub, d.text);
   };
 
-  Pz.ambushSurvived = function () { var f = Pz.flags; if (f.ambushDone) return; f.ambushDone = 1; setObj('o6'); Pz.checkpoint(); if (H.Cutscenes) H.Cutscenes.card('CHƯƠNG III', 'Nhà Lý Trưởng'); };
+  Pz.ambushSurvived = function () { var f = Pz.flags; if (f.ambushDone) return; f.ambushDone = 1; setObj('o6'); Pz.checkpoint(); if (H.Cutscenes) H.Cutscenes.card('CHƯƠNG V', 'Nhà Lý Trưởng'); };
 
   /* đồng bộ thế giới theo cờ trạng thái (sau khi tải / hồi sinh) */
   Pz.sync = function () {
@@ -171,6 +174,7 @@
     [props.houseA, props.manor, props.houseB, props.houseC].forEach(function (h) { h.door.open = h.door.target = 0; });
     AI.enabled = !!f.gateOpen; UI.objective(CFG.OBJECTIVES[Pz.objective]);
     if (f.gotMirror && !f.ambushDone) { f.ambushDone = 1; if (Pz.objective === 'o5') setObj('o6'); }
+    if (H.Chapters) H.Chapters.sync();
   };
   function setBucket(t) {
     var w = props.well, by = M.lerp(w.y - 5.1, w.y + 0.5, t); w.bucket.pos[1] = by; w.rope.scl[1] = Math.max(0.05, (w.y + 1.45) - (by + 0.6));
@@ -179,6 +183,7 @@
   /* đèn flash: lộ bùa máu, chụp hiện trường tâm linh */
   Pz.onFlash = function () {
     var f = Pz.flags, k, c = R.cam.pos;
+    if (H.Chapters) H.Chapters.onFlash();
     for (k = 0; k < W.runes.length; k++) { var r = W.runes[k]; if (Math.hypot(r.pos[0] - c[0], r.pos[2] - c[2]) < 15 && P.lookDot(r.pos[0], r.pos[1], r.pos[2]) > 0.45) r.t = 10; }
     if (!f.manorOpen) return;
     for (k = 0; k < 3; k++) {
@@ -243,6 +248,7 @@
     }
     if (W.inGrave && Pz.has('mirror') && !f.graveMsg) { f.graveMsg = 1; say(L.graveyard, 7); }
     if (Pz.ritualT >= 0) ritual(dt, time);
+    if (H.Chapters) H.Chapters.update(dt, time);
   };
   Pz.use = function () {
     if (P.hidden) return P.unhide();
@@ -262,7 +268,7 @@
       AI.appearRitual(r.pos[0] + 2.4, r.pos[2] - 2.4); A.weep([r.pos[0] + 2.4, 2, r.pos[2] - 2.4], 6, 0.9); W.strike(true); Pz.ritualStep = 3;
     } else if (Pz.ritualStep === 3 && t > 10.5) {
       Pz.ritualStep = 4;
-      UI.choice('Ngọn lửa dựng đứng. Nàng nhìn bạn qua làn tro, và chờ.\nBạn gọi nàng là:', CFG.NAMES.map(function (n) { return n.label; }), function (i) { H.Main.ending(CFG.NAMES[i].ok ? (Pz.has('ring') ? 'best' : 'true') : 'bad'); });
+      UI.choice('Ngọn lửa dựng đứng. Nàng nhìn bạn qua làn tro, và chờ.\nBạn gọi nàng là:', CFG.NAMES.map(function (n) { return n.label; }), function (i) { var n = CFG.NAMES[i]; H.Main.ending(n.flee ? 'flee' : (n.ok ? (Pz.has('ring') ? 'best' : 'true') : 'bad')); });
     }
     if (Pz.ritualStep >= 2) {
       var fl = 0.8 + 0.2 * Math.sin(time * 13) * Math.sin(time * 7.7);
@@ -280,6 +286,7 @@
     var k, src = [d.flags || {}, d.inv || {}, d.read || {}], dst = [Pz.flags, Pz.inv, Pz.read];
     for (var n = 0; n < 3; n++) { for (k in dst[n]) delete dst[n][k]; for (k in src[n]) dst[n][k] = src[n][k]; }
     Pz.objective = d.objective || 'o1';
+    if (!CFG.OBJECTIVES[Pz.objective]) Pz.objective = 'o1';
     P.reset();
     if (d.player) { P.pos[0] = d.player.x; P.pos[2] = d.player.z; P.yaw = d.player.yaw; P.battery = Math.max(35, d.player.battery); P.film = Math.max(3, d.player.film); P.sanity = Math.max(60, d.player.sanity); P.gy = W.heightAt(P.pos[0], P.pos[2]); }
     Pz.fireWhite = false; H.Main.cinematic = false;

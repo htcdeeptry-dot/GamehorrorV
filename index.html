@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
+<meta name="author" content="HTC T-rex">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Huyết Lệ Thôn: Oán Linh</title>
 <link rel="stylesheet" href="css/style.css">
@@ -57,7 +58,7 @@
   </div>
   <div class="loadbar"><i id="loadFill"></i></div>
   <div id="loadText">Đang khởi tạo...</div>
-  <div class="tip">Toàn bộ hình ảnh và âm thanh được sinh thủ tục ngay trên máy của bạn. Nên đeo tai nghe.</div>
+  <div class="tip">Nên đeo tai nghe để có trải nghiệm tốt nhất.</div>
 </div>
 
 <!-- ============ Menu chính ============ -->
@@ -73,9 +74,10 @@
     <button data-open="settings">Thiết lập đồ hoạ</button>
     <button data-open="controls">Điều khiển</button>
     <button id="btnFull">Toàn màn hình</button>
+    <button id="btnLang">Ngôn ngữ: Tiếng Việt</button>
   </div>
   <div class="foot" id="gpuInfo"></div>
-  <div class="foot" style="bottom:32px;opacity:.7">Lồng tiếng: Voice by ElevenLabs (elevenlabs.io) · Nhân vật: Made with Meshy</div>
+  <div class="foot" style="bottom:32px;opacity:.7">Tác giả: HTC T-rex</div>
 </div>
 
 <!-- ============ Tạm dừng ============ -->
@@ -168,7 +170,6 @@
 </div>
 
 <!-- ============ Mở đầu / Chết / Kết thúc ============ -->
-<div id="intro" class="screen black hidden"><p id="introText"></p><span class="skip">Nhấp chuột để bỏ qua</span></div>
 <div id="death" class="screen black hidden">
   <h1 class="title red">NÀNG ĐÃ TÌM THẤY BẠN</h1>
   <p class="tagline">“Thêm một người nữa ở lại với làng...”</p>
@@ -183,6 +184,8 @@
 
 <script src="js/config.js"></script>
 <script src="js/story.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/lang_en.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/shaders.js"></script>
 <script src="js/procedural_assets.js"></script>
@@ -191,6 +194,7 @@
 <script src="js/voice.js"></script>
 <script src="js/models.js"></script>
 <script src="js/world.js"></script>
+<script src="js/wilds.js"></script>
 <script src="js/chars/mx_minh.js"></script>
 <script src="js/chars/mx_linh.js"></script>
 <script src="js/chars/mx_tuan.js"></script>
@@ -210,6 +214,7 @@
 <script src="js/player.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/puzzles.js"></script>
+<script src="js/chapters.js"></script>
 <script src="js/cutscenes.js"></script>
 <script src="js/main.js"></script>
 </body>

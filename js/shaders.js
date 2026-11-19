@@ -155,6 +155,51 @@
     '  vec3 cloudCol=vec3(0.020,0.012,0.016)+uMoonTint*0.10*pow(max(m,0.0),6.0)+vec3(0.55,0.6,0.8)*uLightning*(0.4+c);',
     '  col=mix(col+moon*(1.0-cover*0.85),cloudCol,cover*0.9);',
     '  col+=moon*0.12;',
+    // dãy núi xa: hai lớp bóng đen theo phương vị, viền sáng khi chớp
+    '  float az=atan(d.z,d.x); float h1=0.045+0.07*fbm(vec2(az*1.9,1.7))+0.025*fbm(vec2(az*6.5,4.1)); float h2=0.012+0.04*fbm(vec2(az*3.3+9.0,2.3))+0.012*fbm(vec2(az*11.0,7.7));',
+    '  float r1=smoothstep(h1+0.003,h1-0.002,d.y), r2=smoothstep(h2+0.002,h2-0.002,d.y);',
+    '  vec3 fogc=vec3(0.020,0.010,0.012)+uMoonTint*0.012+vec3(0.5,0.55,0.7)*uLightning*0.12;',
+    '  col=mix(col,fogc*1.1,r1*0.92); col=mix(col,fogc*0.55,r2);',
+    '  col+=vec3(0.6,0.65,0.8)*uLightning*0.25*(smoothstep(h1-0.012,h1,d.y)-r1*0.0)*r1;',
+    '  o=vec4(col,1.0);',
+    '}'
+  ].join('\n');
+
+  /* ---------- Mặt nước sông: sóng chảy, phản chiếu trời, mưa gợn vòng, bọt ven bờ ---------- */
+  S.waterVS = [
+    'precision highp float; layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal; layout(location=2) in vec2 aUV; layout(location=3) in vec4 aColor;',
+    'uniform mat4 uViewProj; uniform float uTime; out vec3 vW; out vec2 vUV; out vec4 vCol;',
+    'void main(){ vec3 p=aPos; p.y+=sin(uTime*1.1+aUV.x*0.6)*0.025+sin(uTime*0.7+aUV.y*1.3+aUV.x*0.2)*0.02; vW=p; vUV=aUV; vCol=aColor; gl_Position=uViewProj*vec4(p,1.0); }'
+  ].join('\n');
+  S.waterFS = [
+    'precision highp float; in vec3 vW; in vec2 vUV; in vec4 vCol; out vec4 o;',
+    'uniform vec3 uCam; uniform vec3 uAmbSky; uniform vec3 uMoonDir; uniform vec3 uMoonCol; uniform float uTime; uniform float uRain;',
+    'uniform vec3 uFlPos; uniform vec3 uFlDir; uniform vec3 uFlCol; uniform vec2 uFlCone; uniform vec3 uXenon;',
+    'uniform vec4 uLP[MAXL]; uniform vec3 uLC[MAXL]; uniform int uLN;',
+    'float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }',
+    'float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y); }',
+    'float wav(vec2 q,float t){ return vn(q*vec2(0.45,0.8)+vec2(-t*0.55,0.0))*0.6+vn(q*vec2(1.3,1.9)+vec2(-t*1.1,t*0.13))*0.3+vn(q*vec2(3.7,4.1)+vec2(-t*1.9,-t*0.2))*0.12; }',
+    'vec2 ripple(vec2 p,float t){ vec2 c=floor(p), f=fract(p)-0.5; float r=hash(c+7.1); float ph=fract(t*0.9+r); vec2 o2=vec2(hash(c+1.3),hash(c+5.9))-0.5; vec2 dv=f-o2*0.5; float d=length(dv);',
+    '  float ring=sin((d-ph*0.55)*42.0)*smoothstep(0.09,0.0,abs(d-ph*0.55))*(1.0-ph); return dv/max(d,0.001)*ring; }',
+    'void main(){',
+    '  float t=uTime; vec2 q=vUV; float e=0.08;',
+    '  float h0=wav(q,t), hx=wav(q+vec2(e,0.0),t), hz=wav(q+vec2(0.0,e),t);',
+    '  vec2 g=vec2(hx-h0,hz-h0)/e*0.22;',
+    '  vec2 rp=ripple(vW.xz*1.6,t)+ripple(vW.xz*1.6+vec2(0.5,0.31),t*1.13); g+=rp*0.35*uRain;',
+    '  vec3 N=normalize(vec3(-g.x,1.0,-g.y)); vec3 V=normalize(uCam-vW); float dist=length(uCam-vW);',
+    '  N=normalize(mix(N,vec3(0,1,0),smoothstep(25.0,90.0,dist)*0.7));',
+    '  float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);',
+    '  vec3 Rf=reflect(-V,N); float m=max(dot(Rf,normalize(uMoonDir)),0.0);',
+    '  vec3 sky=mix(vec3(0.030,0.012,0.016),vec3(0.006,0.005,0.012),smoothstep(-0.1,0.6,Rf.y))+uMoonCol*(pow(m,24.0)*0.25+pow(m,600.0)*6.0)+uAmbSky*2.0;',
+    '  vec3 deep=vec3(0.010,0.008,0.006)+uAmbSky*0.35;',
+    '  vec3 col=mix(deep,sky,fr);',
+    '  vec3 Hm=normalize(normalize(uMoonDir)+V); col+=uMoonCol*pow(max(dot(N,Hm),0.0),420.0)*3.5;',
+    '  vec3 Lf=uFlPos-vW; float df=length(Lf); Lf/=max(df,0.001); float cs=dot(-Lf,uFlDir); float spot=smoothstep(uFlCone.x,uFlCone.y,cs);',
+    '  if(spot>0.0){ float att=1.0/(1.0+0.07*df+0.012*df*df); vec3 Hf=normalize(Lf+V); col+=uFlCol*spot*att*(pow(max(dot(N,Hf),0.0),220.0)*5.0+vec3(0.04,0.035,0.025)*max(dot(N,Lf),0.0)); }',
+    '  for(int i=0;i<MAXL;i++){ if(i>=uLN) break; vec3 L=uLP[i].xyz-vW; float dd=length(L); float at=clamp(1.0-dd/(uLP[i].w*1.6),0.0,1.0); if(at>0.0){ L/=dd; vec3 Hl=normalize(L+V); col+=uLC[i]*at*at*(pow(max(dot(N,Hl),0.0),160.0)*3.0+0.02); } }',
+    '  if(uXenon.x>0.001) col+=uXenon*0.05/(1.0+0.012*dist*dist);',
+    '  float foam=smoothstep(0.72,1.0,vCol.a)*smoothstep(0.35,0.75,vn(q*vec2(1.6,3.0)+vec2(-t*0.8,0.0))+vn(vW.xz*2.3)*0.4);',
+    '  col+=vec3(0.035,0.033,0.03)*foam*(0.4+uAmbSky.r*30.0+spot*2.0);',
     '  o=vec4(col,1.0);',
     '}'
   ].join('\n');

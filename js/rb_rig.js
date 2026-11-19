@@ -56,10 +56,11 @@
   };
 
   /* ---------- lưới + texture ---------- */
-  function buildMesh(pr) {
+  function buildMesh(pr, rig, sp) {
     var n = pr.n, pos = bin(pr.pos, Int16Array), nr = bin(pr.nrm, Int8Array), uv = bin(pr.uv, Uint16Array), ji = bin(pr.ji, Uint8Array), jw = bin(pr.jw, Uint8Array), mo = pr.morph ? bin(pr.morph, Int16Array) : null;
-    var st = mo ? 26 : 8, g = { p: new Float32Array(n * 3), n: new Float32Array(n * 3), uv: new Float32Array(n * 2), c: new Float32Array(n * 4), i: bin(pr.idx, Uint16Array), extra: { data: new Float32Array(n * st), layout: [[6, 4], [13, 4]] } }, v, k, e = g.extra.data;
-    if (mo) for (k = 0; k < 6; k++) g.extra.layout.push([7 + k, 3]);
+    var synth = !mo && rig && rig.d.mx && pr.kind === 'body' && rig.IDX.Head !== undefined, extra = synth ? 13 : 0, N = n + extra;
+    var st = mo || synth ? 26 : 8, g = { p: new Float32Array(N * 3), n: new Float32Array(N * 3), uv: new Float32Array(N * 2), c: new Float32Array(N * 4), i: bin(pr.idx, Uint16Array), extra: { data: new Float32Array(N * st), layout: [[6, 4], [13, 4]] } }, v, k, e = g.extra.data;
+    if (mo || synth) for (k = 0; k < 6; k++) g.extra.layout.push([7 + k, 3]);
     for (v = 0; v < n; v++) {
       for (k = 0; k < 3; k++) { g.p[v * 3 + k] = pos[v * 3 + k] / 16384; g.n[v * 3 + k] = nr[v * 3 + k] / 127; }
       g.uv[v * 2] = uv[v * 2] / 65535; g.uv[v * 2 + 1] = uv[v * 2 + 1] / 65535; g.c[v * 4] = g.c[v * 4 + 1] = g.c[v * 4 + 2] = 1;
@@ -67,7 +68,51 @@
       for (k = 0; k < 4; k++) { e[v * st + k] = ji[v * 4 + k]; e[v * st + 4 + k] = jw[v * 4 + k] / ws; }
       if (mo) for (k = 0; k < 18; k++) e[v * st + 8 + k] = mo[v * 18 + k] * (0.08 / 32767);
     }
+    if (synth) synthFace(g, n, st, ji, jw, rig, sp || {});
+    pr._synth = synth;
     return R.mesh(g);
+  }
+  /* ---------- khẩu hình tự dựng cho model không có blendshape ----------
+     Dò mặt trước của đầu theo trục +z: chóp mũi, đáy cằm -> đường miệng. Kênh 0 là hàm dưới
+     xoay quanh trục tai (há miệng), 1 bè môi, 2 chúm môi, 5 khoé môi nhếch lên. Thêm một
+     khoang miệng tối phía sau môi để khi há không nhìn xuyên vào trong đầu. */
+  function sm(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  function synthFace(g, n, st, ji, jw, rig, sp) {
+    var P = g.p, e = g.extra.data, hb = rig.IDX.Head, nk = rig.IDX.Neck, hy = rig.P[hb * 3 + 1], v, k;
+    function hw(v) { var w = 0, s = 0; for (var k = 0; k < 4; k++) { s += jw[v * 4 + k]; if (ji[v * 4 + k] === hb || ji[v * 4 + k] === nk) w += jw[v * 4 + k]; } return s ? w / s : 0; }
+    var nz = -9, ny = hy + 0.09, cy = 9, H = [];
+    for (v = 0; v < n; v++) { if (hw(v) < 0.5) continue; H.push(v); var x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2]; if (Math.abs(x) < 0.014 && y > hy + 0.03 && y < hy + 0.17 && z > nz) { nz = z; ny = y; } }
+    if (nz < -1) return;
+    for (k = 0; k < H.length; k++) { v = H[k]; if (Math.abs(P[v * 3]) < 0.014 && P[v * 3 + 2] > nz - 0.055 && P[v * 3 + 1] < cy && P[v * 3 + 1] > hy - 0.08) cy = P[v * 3 + 1]; }
+    var my = ny - (ny - cy) * (sp.mouthFrac || 0.4) + (sp.mouthDy || 0), mz = -9;
+    for (k = 0; k < H.length; k++) { v = H[k]; if (Math.abs(P[v * 3]) < 0.01 && Math.abs(P[v * 3 + 1] - my) < 0.008 && P[v * 3 + 2] > mz) mz = P[v * 3 + 2]; }
+    if (mz < -1) mz = nz - 0.012;
+    var py = my + 0.014, pz = nz - 0.088, ang = sp.jaw || 0.24, ca = Math.cos(ang), sa = Math.sin(ang), MW = sp.mouthW || 0.024;
+    function jaw(o, x, y, z, w) { var dy = y - py, dz = z - pz; e[o + 8 + 1] = (dy * ca - dz * sa - dy) * w; e[o + 8 + 2] = (dy * sa + dz * ca - dz) * w; }
+    for (k = 0; k < H.length; k++) {
+      v = H[k]; var x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2], o = v * st, ax = Math.abs(x), sg = x < 0 ? -1 : 1;
+      var wz = sm(pz - 0.005, pz + 0.035, z); if (wz <= 0) continue;
+      var wy = (1 - sm(my - 0.005, my + 0.0015, y)) * sm(cy - 0.07, cy - 0.025, y), wx = 1 - sm(MW + 0.022, MW + 0.05, ax);
+      var w = wy * wx * wz; if (w > 0) jaw(o, x, y, z, w);
+      var cw = Math.exp(-(ax - MW) * (ax - MW) / 1.1e-4 - (y - my) * (y - my) / 1e-4) * wz, lw = (1 - sm(0, MW + 0.01, ax)) * Math.exp(-(y - my) * (y - my) / 2.2e-4) * wz;
+      e[o + 11] = sg * 0.0065 * cw;                                   // bè môi
+      e[o + 14] = -sg * 0.004 * cw; e[o + 16] = 0.006 * lw;            // chúm môi
+      e[o + 23] = sg * 0.003 * cw; e[o + 24] = 0.0045 * cw;            // nhếch khoé
+      var dk = Math.exp(-(y - my) * (y - my) / 4e-6) * (1 - sm(MW - 0.006, MW + 0.004, ax)) * wz * 0.82; // vệt tối khe môi
+      g.c[v * 4] *= 1 - dk; g.c[v * 4 + 1] *= 1 - dk; g.c[v * 4 + 2] *= 1 - dk;
+    }
+    // khoang miệng: đĩa tối 12 cạnh gắn xương đầu, nửa dưới theo hàm
+    var cz = mz - 0.014, c0 = n, ref = H[0], cyc = my - 0.008;
+    for (k = 0; k <= 12; k++) {
+      var vi = c0 + k, a = (k - 1) / 12 * Math.PI * 2, x2 = k ? Math.cos(a) * MW * 0.95 : 0, y2 = k ? cyc + Math.sin(a) * 0.017 : cyc, z2 = cz - (k ? 0.004 : 0.01);
+      P[vi * 3] = x2; P[vi * 3 + 1] = y2; P[vi * 3 + 2] = z2; g.n[vi * 3 + 2] = 1; g.uv[vi * 2] = g.uv[ref * 2]; g.uv[vi * 2 + 1] = g.uv[ref * 2 + 1];
+      g.c[vi * 4] = 0.05; g.c[vi * 4 + 1] = 0.012; g.c[vi * 4 + 2] = 0.012;
+      var o2 = vi * st; e[o2] = hb; e[o2 + 4] = 1;
+      if (y2 < my) jaw(o2, x2, y2, z2, sm(my, my - 0.012, y2));
+    }
+    var idx = new Uint16Array(g.i.length + 36); idx.set(g.i);
+    for (k = 0; k < 12; k++) { var b = g.i.length + k * 3; idx[b] = c0; idx[b + 1] = c0 + 1 + k; idx[b + 2] = c0 + 1 + (k + 1) % 12; }
+    g.i = idx;
   }
   function tex(id, kind, uri, nuri) {
     var key = 'rb:' + id + ':' + kind, size = Math.max(512, (R.q && R.q.tex) || 1024), m = R.materials[key] = { alb: R.textures.white, nrm: R.textures.flat, uv: 1 };
@@ -113,7 +158,7 @@
       if (pr.kind === 'head') mat = { tex: key, rough: 0.55, nscale: 0.7, sss: 0.6, rim: 0.25, tint: [t[0], t[1], t[2], 1], emis: em, fade: cfg.fade || 0 };
       else if (pr.kind === 'opacity') mat = { tex: key, rough: 0.95, nscale: 0, rim: 0, cutout: 1, tint: [t[0], t[1], t[2], 1], emis: em, fade: cfg.fade || 0 };
       else mat = { tex: key, rough: 0.82, nscale: 1, sss: 0.25, rim: 0.3, tint: [t[0], t[1], t[2], 1], emis: em, fade: cfg.fade || 0 };
-      var n = new Node(pr._mesh || (pr._mesh = buildMesh(pr)), mat); n.skin4 = inst; if (pr.morph) n.morph = c.morph; c.root.add(n); inst.nodes.push(n); inst.mats.push(mat);
+      var n = new Node(pr._mesh || (pr._mesh = buildMesh(pr, rig, H.Chars && H.Chars.CAST ? (function () { for (var q in H.Chars.CAST) if (H.Chars.CAST[q].rb === cfg.id) return H.Chars.CAST[q].face; })() : null)), mat); n.skin4 = inst; if (pr.morph || pr._synth) n.morph = c.morph; c.root.add(n); inst.nodes.push(n); inst.mats.push(mat);
     });
     for (k = 0; k < NB; k++) { inst.cur.set(rig.S.subarray(k * 4, k * 4 + 4), k * 4); }
     c.rb = inst; return inst;

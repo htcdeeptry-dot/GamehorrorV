@@ -426,7 +426,16 @@
       c.blink -= dt; var bl = c.blink < 0.13 ? 1 : 0; if (c.blink < 0) c.blink = 1.8 + Math.random() * 3.5;
       // biểu cảm + khẩu hình -> trọng số biến hình [há, bè, chúm, nhắm mắt, mày, cười]
       var ex = EXPR[c.expr || AEX[c.anim] || 'neutral'], mo = [ex[0], ex[1], ex[2], bl, ex[3], ex[4]], sp2 = c.speech;
-      if (sp2) { sp2.t += dt; if (sp2.t >= sp2.dur) c.speech = null; else { var v = sp2.v[Math.min(sp2.v.length - 1, Math.floor(sp2.t / sp2.dur * sp2.v.length))]; mo[0] = Math.max(mo[0] * 0.4, v[0]); mo[1] += v[1]; mo[2] += v[2]; } }
+      if (sp2) {
+        sp2.t += dt; var VC = H.Voice, live = VC && sp2.text && VC.playing(sp2.text);
+        if (live) sp2.hadLive = true;
+        if (!live && sp2.hadLive) c.speech = null;
+        else if (live) { // giọng thật đang phát: độ mở hàm theo biên độ âm, hình môi theo nguyên âm của chữ
+          sp2.vt = (sp2.vt || 0) + dt; var vv = sp2.v[Math.min(sp2.v.length - 1, Math.floor(sp2.vt / Math.max(0.5, sp2.vdur) * sp2.v.length))], lv = M.clamp(VC.level() * 5.5 - 0.04, 0, 1);
+          mo[0] = Math.max(mo[0] * 0.3, lv * (0.55 + vv[0] * 0.6)); mo[1] += vv[1] * Math.min(1, lv * 3); mo[2] += vv[2] * Math.min(1, lv * 3);
+        } else if (sp2.t >= sp2.dur) c.speech = null;
+        else { var v = sp2.v[Math.min(sp2.v.length - 1, Math.floor(sp2.t / sp2.dur * sp2.v.length))]; mo[0] = Math.max(mo[0] * 0.4, v[0]); mo[1] += v[1]; mo[2] += v[2]; }
+      }
       for (k = 0; k < 6; k++) c.morph[k] += (mo[k] - c.morph[k]) * Math.min(1, dt * (k === 3 ? 30 : 19));
       // khớp bám theo tư thế đích bằng lò xo giảm chấn -> có đà, có trễ, không giật cục
       var V = c.V || (c.V = {}), h = Math.min(dt, 0.033), a3;
@@ -469,7 +478,7 @@
   var AEX = { recoil: 'fear', cower: 'fear', plead: 'fear', pound: 'fear', point: 'anger', bound: 'sad', boundStand: 'sad', kneel: 'sad', write: 'sad' };
   Ch.say = function (name, dur, text) {
     var c = Ch.byName[name]; if (!c || !c.visible) return; c.talkT = dur;
-    if (text) { var v = visemes(text); c.speech = { v: v, t: 0, dur: Math.min(dur, v.length / 14) }; }
+    if (text) { var v = visemes(text), vd = H.Voice ? H.Voice.dur(text) : 0; c.speech = { v: v, t: 0, dur: Math.min(dur, v.length / 14), text: text, vdur: vd || v.length / 14 }; }
   };
   Ch.expr = function (name, e) { var c = Ch.byName[name]; if (c) c.expr = e; };
 
@@ -490,6 +499,10 @@
     tran: { rb: 'tran', tint: [0.95, 0.93, 0.9], idle: 'look_around_01', male: 1, h: 1.72, jaw: 1.12, nose: 1.12, age: 0.4, tone: [0.38, 0.25, 0.18], hairStyle: { bun: 2 }, top: [0.07, 0.06, 0.05], shortSleeve: 1, bot: [0.05, 0.045, 0.04], shoe: [0.38, 0.25, 0.18] },
     // --- linh hồn ---
     bayHon: { rb: 'bayHon', tint: [0.75, 0.85, 1.0], emis: [0.02, 0.04, 0.07], fade: 0.85, male: 1, h: 1.66, jaw: 1.05, age: 0.9, tone: TAN, hair: [0.3, 0.3, 0.3], hairStyle: { bun: 2 }, turban: [0.14, 0.1, 0.06], top: [0.1, 0.08, 0.05], skirt: [0.08, 0.065, 0.05], bot: [0.06, 0.05, 0.04], spirit: 1 },
+    // --- dùng lại model sẵn có cho các vai mới ---
+    loc: { rb: 'minh', tint: [0.95, 0.93, 0.9], male: 1, h: 1.5 },                       // Phó Văn Lộc năm 14 tuổi (ông nội Minh)
+    morel: { rb: 'tuan', tint: [0.9, 0.9, 0.86], male: 1, h: 1.83 },                       // trung uý Morel, đoàn đo đạc 1934
+    leHon: { rb: 'le', h: 1.6, tint: [0.78, 0.86, 1.0], emis: [0.05, 0.07, 0.11], fade: 0.8, spirit: 1 }, // hồn Lệ thật — áo trắng
     ghost: { rb: 'ghost', h: 1.66, tint: [0.85, 0.85, 0.92], emis: [0.012, 0.006, 0.008], manual: 1, spirit: 1 },
     khang: { rb: 'khang', tint: [0.9, 0.95, 0.85], emis: [0.05, 0.06, 0.04], fade: 0.86, male: 1, h: 1.73, jaw: 0.98, nose: 1.0, tone: PALE, hairStyle: { bun: 2, fringe: 0.1 }, top: [0.42, 0.42, 0.4], skirt: [0.4, 0.4, 0.38], collar: [0.5, 0.5, 0.48], bot: [0.4, 0.4, 0.38], spirit: 1 }
   };

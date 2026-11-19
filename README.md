@@ -1,5 +1,7 @@
 # HUYẾT LỆ THÔN: OÁN LINH
 
+Tác giả: **HTC T-rex**
+
 Game kinh dị sinh tồn góc nhìn thứ nhất chạy trực tiếp trong trình duyệt. Bối cảnh: mùa thu 1994, làng Âm Linh ở vùng cao phía Bắc, mắc kẹt trong một đêm trăng máu lặp lại mỗi sáu mươi năm.
 
 ## Chạy game
@@ -22,6 +24,6 @@ Bảng phím và ghi chú nằm trong `DOC_TRUOC.txt` và mục Điều khiển 
 - `js/main.js`: vòng lặp, thiết lập, lưu/tải.
 
 ## Nhân vật & giấy phép tài nguyên
-- `js/chars/mx_*.js`, `js/mx_anims.js`: 13 nhân vật và 20 clip chuyển động tạo bằng **Meshy AI** (xem `LICENSES.md`), khung xương Mixamo, nhúng base64 để chạy được qua `file://`.
-- `js/vo_data.js`, `js/voice.js`: 96 câu lồng tiếng tiếng Việt tạo bằng **ElevenLabs** (eleven_v4, gói miễn phí → phi thương mại, ghi công "Voice by ElevenLabs"); mp3 nhúng base64, phát theo đúng câu phụ đề.
+- `js/chars/mx_*.js`, `js/mx_anims.js`: 13 nhân vật và 20 clip chuyển động khung xương Mixamo, nhúng base64 để chạy được qua `file://`.
+- `js/vo_data.js`, `js/voice.js`: 96 câu lồng tiếng tiếng Việt; mp3 nhúng base64, phát theo đúng câu phụ đề.
 - `js/rb_rig.js`: skinning 4 trọng số trên GPU, chuyển clip giữa các khung xương (bù tư thế nghỉ và góc xoay hông), trộn mượt với tư thế thủ tục.

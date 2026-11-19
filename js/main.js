@@ -52,7 +52,7 @@
     var g = $('settingsGrid'); g.innerHTML = '';
     OPTS.forEach(function (o) {
       var row = document.createElement('div'); row.className = 'opt';
-      var lab = document.createElement('span'); lab.textContent = o[1]; row.appendChild(lab);
+      var lab = document.createElement('span'); lab.textContent = tr(o[1]); row.appendChild(lab);
       var inp, out = document.createElement('output');
       if (o[2] === 'range') {
         inp = document.createElement('input'); inp.type = 'range'; inp.min = o[3]; inp.max = o[4]; inp.step = o[5]; inp.value = S[o[0]]; out.textContent = o[6](+S[o[0]]);
@@ -80,18 +80,19 @@
 
   /* ===================== GIAO DIỆN ===================== */
   var subT = 0, toastT = 0, saveT = 0, uiOpen = null, kp = null;
+  var tr = H.tr;
   var UI = H.UI = {
-    subtitle: function (t, d) { var e = $('subtitle'); e.textContent = t; e.className = 'show'; var vd = H.Voice ? H.Voice.say(t) : 0; subT = Math.max(d || 4, vd + 0.6); },
-    toast: function (t) { var e = $('toast'); e.textContent = t; e.className = 'show'; toastT = 3; },
-    objective: function (t) { var e = $('objText'); if (e.textContent === t) return; e.textContent = t; var o = $('objective'); o.className = ''; void o.offsetWidth; o.className = 'flash'; },
-    prompt: function (t) { var e = $('prompt'); if (t) { if (e.textContent !== t) e.textContent = t; e.className = 'show'; } else e.className = ''; },
-    note: function (title, sub, text) { $('noteTitle').textContent = title; $('noteSub').textContent = sub; $('noteBody').textContent = text; openUI('note'); A.click(0.2); },
+    subtitle: function (t, d) { var e = $('subtitle'); e.textContent = tr(t); e.className = 'show'; var vd = H.Voice ? H.Voice.say(t) : 0; subT = Math.max(d || 4, vd + 0.6); },
+    toast: function (t) { t = tr(t); var e = $('toast'); e.textContent = t; e.className = 'show'; toastT = 3; },
+    objective: function (t) { t = tr(t); var e = $('objText'); if (e.textContent === t) return; e.textContent = t; var o = $('objective'); o.className = ''; void o.offsetWidth; o.className = 'flash'; },
+    prompt: function (t) { var e = $('prompt'); if (t) { t = tr(t); if (e.textContent !== t) e.textContent = t; e.className = 'show'; } else e.className = ''; },
+    note: function (title, sub, text) { $('noteTitle').textContent = tr(title); $('noteSub').textContent = tr(sub); $('noteBody').textContent = tr(text); openUI('note'); A.click(0.2); },
     keypad: function (n, title, cb) {
-      kp = { n: n, code: '', cb: cb }; $('kpTitle').textContent = title; $('kpDisplay').className = ''; kpShow(); openUI('keypad');
+      kp = { n: n, code: '', cb: cb }; $('kpTitle').textContent = tr(title); $('kpDisplay').className = ''; kpShow(); openUI('keypad');
     },
     choice: function (text, opts, cb) {
-      $('choiceText').textContent = text; var c = $('choiceBtns'); c.innerHTML = '';
-      opts.forEach(function (o, i) { var b = document.createElement('button'); b.textContent = o; b.onclick = function () { closeUI(true); cb(i); }; c.appendChild(b); });
+      $('choiceText').textContent = tr(text); var c = $('choiceBtns'); c.innerHTML = '';
+      opts.forEach(function (o, i) { var b = document.createElement('button'); b.textContent = tr(o); b.onclick = function () { closeUI(true); cb(i); }; c.appendChild(b); });
       openUI('choice');
     }
   };
@@ -125,11 +126,11 @@
   function openInventory() {
     var it = $('invItems'), di = $('invDiaries'); it.innerHTML = ''; di.innerHTML = '';
     var list = Pz.inventoryList();
-    if (!list.length) it.innerHTML = '<div class="inv-empty">Chưa có gì ngoài chiếc đèn pin.</div>';
-    list.forEach(function (o) { var d = document.createElement('div'); d.className = 'inv-item'; var b = document.createElement('b'); b.textContent = o.name; var s = document.createElement('span'); s.textContent = o.desc; d.appendChild(b); d.appendChild(s); it.appendChild(d); });
+    if (!list.length) it.innerHTML = tr('<div class="inv-empty">Chưa có gì ngoài chiếc đèn pin.</div>');
+    list.forEach(function (o) { var d = document.createElement('div'); d.className = 'inv-item'; var b = document.createElement('b'); b.textContent = tr(o.name); var s = document.createElement('span'); s.textContent = tr(o.desc); d.appendChild(b); d.appendChild(s); it.appendChild(d); });
     var ds = Pz.diaryList(); $('invCount').textContent = '(' + ds.length + '/' + CFG.DIARIES.length + ')';
-    if (!ds.length) di.innerHTML = '<div class="inv-empty">Chưa tìm thấy trang nào.</div>';
-    ds.forEach(function (o) { var d = document.createElement('div'); d.className = 'inv-item link'; var b = document.createElement('b'); b.textContent = o.title; var s = document.createElement('span'); s.textContent = o.sub; d.appendChild(b); d.appendChild(s); d.onclick = function () { UI.note(o.title, o.sub, o.text); }; di.appendChild(d); });
+    if (!ds.length) di.innerHTML = tr('<div class="inv-empty">Chưa tìm thấy trang nào.</div>');
+    ds.forEach(function (o) { var d = document.createElement('div'); d.className = 'inv-item link'; var b = document.createElement('b'); b.textContent = tr(o.title); var s = document.createElement('span'); s.textContent = tr(o.sub); d.appendChild(b); d.appendChild(s); d.onclick = function () { UI.note(o.title, o.sub, o.text); }; di.appendChild(d); });
     openUI('inventory');
   }
 
@@ -151,7 +152,6 @@
   document.addEventListener('keydown', function (e) {
     var c = e.code;
     if (Main.state === 'play' || Main.state === 'ui' || Main.state === 'cutscene') { if (c === 'Tab' || c === 'Space' || c.indexOf('Arrow') === 0 || (e.ctrlKey && /Key[SDAFERPX]/.test(c))) e.preventDefault(); }
-    if (Main.state === 'intro') { skipIntro(); return; }
     if (Main.state === 'cutscene') { if (c === 'Enter' || c === 'Space' || c === 'Escape') { e.preventDefault(); CS.skip(); } return; }
     if (Main.state === 'ui') {
       if (e.repeat) return;
@@ -192,28 +192,12 @@
     show('hud', true); R.post.fade = 0;
     if (!data) { Main.state = 'play'; R.post.fade = 1; lock(); Main.cutscene('intro', function () { Main.fadeIn = 2; UI.subtitle(CFG.LINES.start, 7); UI.objective(CFG.OBJECTIVES.o1); }); } else { Main.state = 'play'; Main.fadeIn = 1.5; lock(); UI.objective(CFG.OBJECTIVES[Pz.objective]); }
   }
-  var introI = 0, introTimer = null;
-  function intro() {
-    Main.state = 'intro'; show('intro', true); introI = 0;
-    var el = $('introText');
-    (function next() {
-      if (Main.state !== 'intro') return;
-      if (introI >= CFG.LINES.intro.length) return skipIntro();
-      el.style.opacity = 0;
-      introTimer = setTimeout(function () { el.textContent = CFG.LINES.intro[introI++]; el.style.opacity = 1; introTimer = setTimeout(next, 3400); }, 700);
-    })();
-  }
-  function skipIntro() {
-    if (Main.state !== 'intro') return; clearTimeout(introTimer); show('intro', false); Main.state = 'play'; Main.fadeIn = 2.5; lock();
-    UI.subtitle(CFG.LINES.start, 7); UI.objective(CFG.OBJECTIVES.o1); W.strike(false);
-  }
-  $('intro').addEventListener('click', skipIntro);
   function die() {
     Main.state = 'dead'; unlock(); P.dead = false; show('death', true); UI.prompt(null); Input.keys = {};
     A.tension = 0; A.hunt = 0;
   }
   function toMenu() {
-    ['pause', 'death', 'ending', 'hud', 'intro'].forEach(function (id) { show(id, false); });
+    ['pause', 'death', 'ending', 'hud'].forEach(function (id) { show(id, false); });
     $('cine').className = ''; CS.active = null;
     if (uiOpen) { show(uiOpen, false); uiOpen = null; }
     if (AI.wasCalm) { location.reload(); return; }
@@ -232,12 +216,13 @@
   Main.ending = function (type) {
     Main.state = 'ending'; Main.cinematic = true; unlock(); UI.prompt(null);
     endSeq = { type: type, t: 0, shown: -1, lines: CFG.ENDINGS[type].lines }; $('cine').className = 'show'; $('cineSub').className = ''; show('hud', false); $('cineSkip').style.display = 'none';
-    if (type !== 'bad') { AI.setCalm(); AI.wasCalm = true; Pz.fireWhite = true; A.bell(null, 196); setTimeout(function () { A.bell(null, 147); }, 2500); W.lanterns.forEach(function (L) { L.blueT = 0; }); }
-    else { AI.wasCalm = true; A.slam(null); A.scream(null, true); W.props.temple.door.target = 0; W.lanterns.forEach(function (L) { L.off = true; }); }
+    var calm = type === 'true' || type === 'best';
+    if (calm) { AI.setCalm(); AI.wasCalm = true; Pz.fireWhite = true; A.bell(null, 196); setTimeout(function () { A.bell(null, 147); }, 2500); W.lanterns.forEach(function (L) { L.blueT = 0; }); }
+    else { AI.wasCalm = true; A.slam(null); if (type === 'bad') A.scream(null, true); else AI.puppetEnd(0); W.props.temple.door.target = 0; W.lanterns.forEach(function (L) { L.off = true; }); }
   };
   function endingUpdate(dt) {
-    var s = endSeq, e = R.env, p = R.post; s.t += dt;
-    if (s.type !== 'bad') {
+    var s = endSeq, e = R.env, p = R.post, calm = s.type === 'true' || s.type === 'best'; s.t += dt;
+    if (calm) {
       var k = Math.min(1, s.t / 9);
       e.moonTint[0] = M.lerp(1.0, 0.85, k); e.moonTint[1] = M.lerp(0.16, 0.9, k); e.moonTint[2] = M.lerp(0.1, 1.0, k);
       e.moonCol[0] = M.lerp(0.11, 0.16, k); e.moonCol[1] = M.lerp(0.03, 0.18, k); e.moonCol[2] = M.lerp(0.03, 0.24, k);
@@ -247,14 +232,14 @@
     } else {
       W.props.temple.fireLight.intensity *= 0.8; p.fade = M.smooth(1.2, 3.2, s.t); p.veins = Math.min(1, s.t); A.tension = 1;
     }
-    var start = s.type !== 'bad' ? 15 : 3.4;
+    var start = calm ? 15 : 3.4;
     if (s.t > start && s.shown < s.lines.length && s.t >= (s.nextT || start)) {
       var idx = s.shown + 1; s.shown = idx; show('ending', true); show('hud', false);
       s.nextT = s.t + (idx < s.lines.length ? Math.max(5.2, (H.Voice ? H.Voice.dur(s.lines[idx]) : 0) + 1.4) : 99);
       if (idx < s.lines.length && H.Voice) setTimeout(function (ln) { return function () { H.Voice.say(ln); }; }(s.lines[idx]), 650);
       var el = $('endText'), ti = $('endTitle');
-      if (idx < s.lines.length) { ti.textContent = ''; el.style.opacity = 0; setTimeout(function () { el.textContent = s.lines[idx]; el.style.opacity = 1; }, 600); }
-      else { el.style.opacity = 0; setTimeout(function () { el.textContent = ''; ti.textContent = CFG.ENDINGS[s.type].title; ti.className = 'title' + (s.type === 'bad' ? ' red' : ''); show('btnEndQuit', true); }, 700); try { if (s.type !== 'bad') localStorage.removeItem(CFG.SAVE_KEY); } catch (e2) { } }
+      if (idx < s.lines.length) { ti.textContent = ''; el.style.opacity = 0; setTimeout(function () { el.textContent = tr(s.lines[idx]); el.style.opacity = 1; }, 600); }
+      else { el.style.opacity = 0; setTimeout(function () { el.textContent = ''; ti.textContent = tr(CFG.ENDINGS[s.type].title); ti.className = 'title' + (!calm ? ' red' : ''); show('btnEndQuit', true); }, 700); try { if (calm) localStorage.removeItem(CFG.SAVE_KEY); } catch (e2) { } }
     }
   }
 
@@ -269,7 +254,7 @@
     if (P.mirrorUp) {
       var m = Pz.mirror, g = $('mirrorGlow');
       g.style.opacity = m.str; g.style.transform = 'translate(' + (-Math.sin(m.ang) * 70).toFixed(1) + 'px,' + (-Math.cos(m.ang) * 70).toFixed(1) + 'px) scale(' + (0.5 + m.str * 1.2).toFixed(2) + ')';
-      $('mirrorTxt').textContent = m.str <= 0 ? 'Mặt gương tối im.' : (m.dist < 16 ? 'Gương rực sáng — lễ vật ở rất gần!' : 'Vệt sáng chỉ hướng lễ vật...');
+      $('mirrorTxt').textContent = tr(m.str <= 0 ? 'Mặt gương tối im.' : (m.dist < 16 ? 'Gương rực sáng — lễ vật ở rất gần!' : 'Vệt sáng chỉ hướng lễ vật...'));
     }
     var hb = $('bpm').firstElementChild, beat = A.ready && A.beatAt !== undefined ? Math.exp(-Math.max(0, A.ctx.currentTime - A.beatAt) * 9) : 0;
     hb.style.transform = 'scale(' + (1 + beat * 0.5).toFixed(2) + ')';
@@ -278,7 +263,7 @@
     bar('bSanity', P.sanity, 30); bar('bStamina', P.stamina, 20); bar('bBattery', P.battery, 15);
     $('bpmVal').textContent = Math.round(P.bpm);
     $('vfFilm').textContent = P.film;
-    var vf = $('vfFlash'); vf.textContent = P.film <= 0 ? '✕ HẾT PHIM' : (P.flashCD > 0 ? '⚡ ĐANG NẠP...' : '⚡ SẴN SÀNG'); vf.className = P.flashCD > 0 ? 'charging' : '';
+    var vf = $('vfFlash'); vf.textContent = tr(P.film <= 0 ? '✕ HẾT PHIM' : (P.flashCD > 0 ? '⚡ ĐANG NẠP...' : '⚡ SẴN SÀNG')); vf.className = P.flashCD > 0 ? 'charging' : '';
     if (P.hidden) $('breath').querySelector('i').style.width = (P.breath / CFG.PLAYER.breathMax * 100).toFixed(0) + '%';
     $('lockHint').className = !Main.locked && Main.state === 'play' && !Main.noLock ? 'show' : '';
   }
@@ -320,12 +305,12 @@
       Main.time += dt; e.time = Main.time;
       CS.update(dt, Main.time); W.update(dt, Main.time, R.cam.pos); if (AI.ritual) AI.update(dt, Main.time); FX.update(dt, e.wind);
       fw[0] = -Math.sin(R.cam.yaw); fw[1] = 0; fw[2] = -Math.cos(R.cam.yaw); A.update(dt, R.cam.pos, fw); timers(dt);
-    } else if (st === 'menu' || st === 'intro' || st === 'dead') {
+    } else if (st === 'menu' || st === 'dead') {
       Main.time += dt; e.time = Main.time;
       if (st !== 'dead') { // camera lượn chậm trước cổng làng
         var t = Main.time * 0.05, c = R.cam;
         c.pos[0] = Math.sin(t) * 3.2; c.pos[2] = 66 + Math.cos(t * 0.7) * 4; c.pos[1] = W.terrainH(c.pos[0], c.pos[2]) + 2.1 + Math.sin(t * 1.3) * 0.25; c.yaw = Math.sin(t * 0.8) * 0.12 - c.pos[0] * 0.02; c.pitch = 0.12; c.roll = 0; c.fov = 62;
-        R.post.fade = st === 'intro' ? 1 : 0; R.post.vignette = 0.75; R.post.aberr = 0.003; R.post.barrel = 0.05; R.post.view = 0; R.post.scan = 0; R.post.veins = 0;
+        R.post.fade = 0; R.post.vignette = 0.75; R.post.aberr = 0.003; R.post.barrel = 0.05; R.post.view = 0; R.post.scan = 0; R.post.veins = 0;
       } else R.post.fade = 1;
       W.update(dt, Main.time, c ? c.pos : null); FX.update(dt, e.wind);
       if (A.ready) { fw[0] = 0; fw[1] = 0; fw[2] = -1; A.stress = 0; A.bpm = 60; A.update(dt, R.cam.pos, fw); }
@@ -336,10 +321,11 @@
 
   /* ===================== KHỞI ĐỘNG ===================== */
   function boot() {
+    H.L.applyDOM(document.body);
     if (!R.init(canvas)) { show('loading', false); show('fatal', true); return; }
     R.q = S;
     if (firstRun) { var pr = detectPreset(), q = CFG.QUALITY[pr]; for (var k in q) if (k !== 'label') S[k] = q[k]; S.preset = pr; bootTex = S.tex; saveSettings(); }
-    $('gpuInfo').textContent = 'GPU: ' + R.gpuName + '  ·  Cấu hình: ' + (CFG.QUALITY[S.preset] ? CFG.QUALITY[S.preset].label : 'Tuỳ chỉnh') + '  ·  v' + CFG.VERSION;
+    $('gpuInfo').textContent = tr('GPU: ' + R.gpuName + '  ·  Cấu hình: ' + (CFG.QUALITY[S.preset] ? CFG.QUALITY[S.preset].label : 'Tuỳ chỉnh') + '  ·  v' + CFG.VERSION);
     var steps = [], Aset = H.Assets;
     Aset.list.forEach(function (t, i) { steps.push(['Dệt vật liệu: ' + ['gỗ lim cổ thụ', 'đá ong rêu phong', 'sân bùn ướt', 'ngói âm dương', 'vỏ cây đa', 'lụa điều', 'bùa chu sa'][i] + '...', function () { Aset.build(i, S.tex); }]); });
     W.steps.forEach(function (s) { steps.push(s); });
@@ -347,7 +333,7 @@
     var i = 0;
     (function next() {
       if (i >= steps.length) { ready(); return; }
-      $('loadText').textContent = steps[i][0]; $('loadFill').style.width = Math.round(i / steps.length * 100) + '%';
+      $('loadText').textContent = tr(steps[i][0]); $('loadFill').style.width = Math.round(i / steps.length * 100) + '%';
       setTimeout(function () { try { steps[i][1](); } catch (err) { console.error('Lỗi bước tải ' + i, err); $('loadText').textContent = 'Lỗi: ' + err.message; throw err; } i++; requestAnimationFrame(next); }, 30);
     })();
   }
@@ -365,6 +351,7 @@
   $('btnQuit').onclick = toMenu; $('btnDeathQuit').onclick = toMenu; $('btnEndQuit').onclick = toMenu;
   $('btnRetry').onclick = function () { startGame(Main.lastSave || {}); };
   $('btnReload').onclick = function () { location.reload(); };
+  $('btnLang').onclick = function () { H.L.set(H.L.lang === 'en' ? 'vi' : 'en'); };
   $('btnFull').onclick = function () {
     var d = document.documentElement;
     if (!document.fullscreenElement) { (d.requestFullscreen || d.webkitRequestFullscreen).call(d); try { if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(['Escape', 'KeyW', 'Tab']).catch(function () { }); } catch (e) { } }

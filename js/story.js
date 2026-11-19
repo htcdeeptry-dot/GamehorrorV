@@ -1,12 +1,9 @@
 /* HUYẾT LỆ THÔN — story.js
-   Phần cốt truyện mở rộng: tầng bí ẩn thứ hai (quá khứ 1874, vòng lặp 1934, hiện tại 1994),
-   8 trang nhật ký mới, vật phẩm ẩn và kết thúc thứ ba. Nạp ngay sau config.js. */
+   Phần cốt truyện mở rộng: quá khứ 1874, vòng lặp 1934, hiện tại 1994 — nhật ký, vật phẩm ẩn,
+   các chương ngoài làng (Đèo Sạt, Rừng Cấm, Sông Âm) và các kết thúc. Nạp ngay sau config.js. */
 (function () {
   'use strict';
   var H = window.HuyetLeThon, CFG = H.CFG;
-
-  /* biên bản của Lý trưởng: dòng chữ nhỏ giờ che giấu thêm một điều */
-  CFG.DIARIES[3].text = CFG.DIARIES[3].text.replace('Thằng bé chết vì ta rước thầy chậm.', 'Còn thằng Khang... điều ấy ta không dám viết ra ở đây. Ta viết vào tờ khác, bằng thứ mực khác.');
 
   CFG.DIARIES.push(
     { id: 'd9', title: 'Thư Khang gửi Lệ', sub: 'Giấu trong ống tre, chưa kịp gửi — tháng Bảy 1874',
@@ -14,7 +11,7 @@
     { id: 'd10', title: 'Sổ kho thóc phát chẩn', sub: 'Trang cuối — có dấu triện Lý trưởng',
       text: 'Tháng Năm, Giáp Tuất.\n\nNhận của quan huyện: thóc phát chẩn 300 thạ.\nPhát cho dân: 40 thạ.\nXuất bán cho lái Tư Hợi (thuyền đậu bến dưới): 260 thạ — thu 780 quan.\n\n(Nét chữ khác, mực đỏ, viết đè lên:)\nCha ơi con đã chép lại trang này. Bản chép con để ở chỗ cha không tìm được.\n\n(Nét chữ thứ ba, run, viết sau đó nhiều năm:)\nNó để bản chép trong áo. Người ta vớt lên cùng nó. Ta đã đốt. Ta đã đốt hết mà sao trăng vẫn đỏ.' },
     { id: 'd11', title: 'Nhật trình đoàn đo đạc Đông Dương', sub: 'Bản dịch tay — tháng 9 năm 1934',
-      text: 'Ngày 21 tháng 9.\n\nTrung uý Morel cho dựng trạm ở một ngôi làng không có trên bản đồ của Sở Địa dư. Dân phu bỏ trốn hết từ chiều, chỉ còn thằng bé dẫn đường tên Lộc, người họ Phó.\n\nTrăng đêm nay màu gan lợn. Đồng hồ của cả đoàn đứng lúc 0 giờ 49.\n\nNgày (không rõ).\n\nMorel xuống giếng đo mực nước, không lên. Hai người nữa đi tìm, không về. Thằng Lộc cứ ôm khư khư cái máy ảnh của đoàn. Nó bảo: "Bà ấy sợ thứ ánh sáng này. Bà ấy chỉ đuổi người nào quay lưng chạy."\n\nNó xin tôi cái máy. Tôi cho. Tôi không cần ảnh nữa.\n\nNếu có ai đọc: thằng bé ra được. Tôi thấy nó chạy qua cổng lúc xích tự tuột. Cổng chỉ mở cho người họ Phó. Tôi không hiểu vì sao.' },
+      text: 'Ngày 21 tháng 9.\n\nTrung uý Morel cho dựng trạm trong khu rừng bên sông Âm, gần một ngôi làng không có trên bản đồ của Sở Địa dư. Dân phu bỏ trốn hết từ chiều, chỉ còn thằng bé dẫn đường tên Lộc, người họ Phó.\n\nTrăng đêm nay màu gan lợn. Đồng hồ của cả đoàn đứng lúc 0 giờ 49.\n\nNgày 22.\n\nHai người đi đo bờ sông không về. Morel cho khoá đò ngang ở Bến Dưới, cất chìa vào hòm sắt, để không ai bỏ trốn được nữa.\n\nNgày (không rõ).\n\nThằng Lộc ôm khư khư cái máy ảnh của đoàn. Nó bảo: "Bà áo đỏ sợ thứ ánh sáng này. Bà ấy chỉ đuổi người nào quay lưng chạy."\n\nNó xin tôi cái máy. Tôi cho. Tôi không cần ảnh nữa. Mọi tấm kính đã chụp tôi cất cả trong lều tối. Không ai dám vào đó nữa.' },
     { id: 'd12', title: 'Mảnh giấy trong hộp máy ảnh', sub: 'Giấy học trò, gấp tư, đã ố vàng',
       text: 'Minh,\n\nMáy này ông để lại cho cháu. Đừng bán. Đừng cho ai mượn.\n\nNó chụp cảnh thì xấu lắm, cháu sẽ chê. Nó chỉ chụp đẹp đúng một thứ, và ông mong cả đời cháu không phải chụp thứ ấy.\n\nNhưng nếu có đêm nào trăng đỏ mà không phải nguyệt thực, thì đừng tiếc phim. Chụp thẳng vào mặt. Đừng quay lưng.\n\nVà nếu có ai rủ cháu lên vùng núi Sủng vào năm Tuất — dù là người cháu thương — thì đừng đi.\n\nÔng nội,\nPhó Văn Lộc.' },
     { id: 'd13', title: 'Băng ghi âm thứ hai của Linh', sub: 'Hà đưa — "đừng nghe trước khi tới Đình"',
@@ -34,16 +31,7 @@
   CFG.LINES.haAfter = 'Minh: Hà an toàn — vì Hà không mang họ của ai trong ba người đó.';
   CFG.LINES.ringHint = 'Manh mối mới: soi gương ở miếu nhỏ dưới gốc đa';
 
-  /* kết thúc: bản "Siêu Thoát" giờ còn dang dở; thêm kết thúc ẩn "Đoàn Viên" */
-  CFG.ENDINGS.true.lines = [
-    '“Nguyễn Thị Lệ.”',
-    'Ngọn lửa trên đàn chuyển từ đỏ sang trắng. Bảy thước lụa điều rơi khỏi cổ tay nàng, từng vòng một.',
-    'Lần đầu tiên sau một trăm hai mươi năm, có người gọi nàng bằng cái tên mẹ đặt.',
-    'Nàng thôi khóc. Nhưng trước khi tan đi, nàng ngoái nhìn về phía cái giếng — rất lâu.',
-    'Trăng lặn. Mưa tạnh. Dưới gốc đa có hai người nằm thiếp đi: Linh và Hà. Còn thở.',
-    'Tuấn không có ở đó. Đội cứu hộ tìm ba ngày, chỉ thấy một chiếc đồng hồ dừng ở 0 giờ 49.',
-    'Vòng lặp đã đứt. Nhưng dưới giếng vẫn còn một người chưa ai gọi tên.'
-  ];
+  /* kết thúc ẩn "Đoàn Viên" */
   CFG.ENDINGS.best = {
     title: 'ĐOÀN VIÊN',
     lines: [
@@ -55,6 +43,54 @@
       'Trăng lặn. Mưa tạnh. Dưới gốc đa có ba người nằm thiếp đi: Linh, Hà, và Tuấn — tay còn nắm sợi dây thừng.',
       'Sáng hôm sau đội cứu hộ tìm thấy bốn người trên một bãi đất trống. Không có ngôi làng nào ở đó. Chỉ có một cái giếng cạn, và dưới đáy, hai bộ hài cốt nằm quay mặt vào nhau.',
       'Người ta chôn họ chung một mộ. Bia chỉ khắc hai cái tên. Không có chữ “nương” nào cả.'
+    ]
+  };
+  /* ===================== MỞ RỘNG: ĐÈO SẠT, RỪNG CẤM, SÔNG ÂM ===================== */
+  CFG.SAVE_KEY = 'HuyetLeThon_save_v2';
+  CFG.POS.spawn = [-5.5, 403.5]; CFG.POS.spawnYaw = 2.1;
+  CFG.POS.cameraItem = [-10.6, 405.4];
+  CFG.DIARIES.push(
+    { id: 'd17', title: 'Sổ đò Bến Dưới', sub: 'Người lái đò ghi — tháng Năm đến rằm tháng Bảy, năm Giáp Tuất (1874)',
+      text: 'Mồng chín tháng Năm.\nChở đêm cho quan Lý mười hai chuyến thóc xuống thuyền lái Tư Hợi. Quan dặn không thắp đèn, không ghi sổ. Tôi vẫn ghi.\n\nHai mươi tháng Năm.\nTrên thuyền Tư Hợi có hai phu nằm ho, nôn ra thứ nước trắng như nước vo gạo. Sáng ra không thấy họ nữa. Quan sai tôi chèo ra giữa dòng, buộc đá vào chân hai cái xác. Quan bảo: "Sông sâu, nước chảy, trôi đi đâu thì đi."\n\nMồng hai tháng Bảy.\nNhà gánh nước ở bến đổ bệnh trước nhất. Rồi tới cả xóm dưới.\n\nMồng năm.\nCô Lệ con thầy lang xuống tận bến, lấy than viết lên cột: ĐỪNG UỐNG NƯỚC SÔNG. Cô bảo cả làng chỉ được uống nước Giếng Cổ. Người ta mắng cô làm rối. Tôi biết cô nói đúng. Tôi không dám nói là tôi biết.\n\nRằm.\nThuyền Tư Hợi chìm ngay trước bến, giữa đêm, không một gợn gió. Tôi khoá đò, bỏ làng mà đi.\n\nAi đọc được thì nhớ: dịch xuống làng từ cái bến này, không phải từ cái giếng.' },
+    { id: 'd18', title: 'Trang cuối nhật trình của Morel', sub: 'Trung uý L. Morel — bản dịch tay, nét mực run',
+      text: 'Đêm 23 tháng 9 năm 1934.\n\nCó hai người đàn bà trong khu rừng này. Một mặc trắng, luôn đứng xa, như chỉ đường cho chúng tôi ra sông. Một mặc đỏ, bò theo sau, và chỉ lại gần khi có kẻ quay lưng bỏ chạy.\n\nThằng Lộc nói phải đứng yên mà nhìn thẳng vào nó. Tôi đã ra lệnh cho cả trạm: không ai được chạy.\n\nChìa khoá đò tôi khoá trong hòm. Nếu tôi không còn, mã hòm là ngày đoàn đặt chân tới đây — ghi trên mép tấm kính ảnh đầu tiên.\n\nNó đang tới. Tôi nghe thằng bé hét lên bằng thứ tiếng Pháp bập bẹ tôi dạy nó: "Courez!" — chạy đi —\n\n(Dòng mực kéo thành một vệt dài. Bên dưới, nét chữ trẻ con viết bằng than:)\n\nÔng Tây chạy. Con bảo ông ấy chạy. Con đứng yên nên con sống. Con xin lỗi.\n— Lộc' },
+    { id: 'd19', title: 'Tấm kính ảnh trong lều tối', sub: 'Hiện ra dưới ánh đèn flash',
+      text: 'Tấm kính ảnh 13x18. Mép giấy dán còn dòng mực tím: "Trạm Âm Linh — 21.IX.1934".\n\nTrên kính: một cậu bé đứng giữa trạm, giơ máy ảnh ngang mặt. Sau lưng cậu, một người đàn ông mặc quân phục đang chạy về phía bìa rừng — nơi có một cái bóng đỏ đang bò ra đón.\n\nCậu bé không nhìn theo. Cậu nhìn thẳng vào ống kính, như biết sẽ có người tìm thấy tấm kính này.\n\nKhuôn mặt ấy, Minh đã thấy trong album gia đình. Ông nội. Năm mười bốn tuổi.' }
+  );
+  CFG.ITEMS.ferryKey = { name: 'Chìa Khoá Đò', desc: 'Chìa sắt đen, buộc sợi dây gai mục. Thẻ gỗ khắc hai chữ "Bến Dưới".' };
+  var L = CFG.LINES;
+  L.followTracks = 'Minh: Dấu chân ba người đi xuống rừng. Mình phải theo.';
+  L.shrineAfter = 'Minh: Cô ấy chỉ về phía đông bắc... nơi có ánh lửa tàn.';
+  L.campDark = 'Minh: Lều tối đen kịt, mùi hoá chất rửa ảnh. Thử chụp đèn flash vào trong xem.';
+  L.chestLocked = 'Minh: Hòm sắt khoá bốn số. Morel phải ghi mã ở đâu đó trong trạm.';
+  L.chestOpen = 'Minh: Chìa khoá đò... và trang cuối nhật trình của Morel.';
+  L.redCamp = 'Minh: Đứng yên. Nhìn thẳng vào nó. Đừng quay lưng...';
+  L.redGone = 'Minh: Nó lùi lại rồi. Ông nội nói đúng.';
+  L.needFerryKey = 'Minh: Dây đò bị khoá xích. Phải có chìa — nhật trình nhắc tới một cái hòm sắt ở trạm đo đạc.';
+  L.ferryReady = 'Minh: Chìa vừa ổ khoá. Kéo dây đò sang bờ bên kia...';
+  L.landed = 'Minh: Bờ bắc. Lối mòn rừng tre dẫn lên núi — xa xa có ánh đèn lồng đỏ.';
+  L.wreckHint = 'Minh: Xác thuyền buôn còn ngập nửa thân. Thử chụp một kiểu...';
+  L.bridgeHint = 'Minh: Cầu đứt cả hai đầu. Phải xuôi bờ sông xuống bến đò.';
+  CFG.OBJECTIVES.w2 = 'Theo dấu chân xuống Rừng Cấm, tìm đường tới ngôi làng';
+  CFG.OBJECTIVES.w3 = 'Đi theo hướng bóng áo trắng chỉ — tìm trạm đo đạc bỏ hoang';
+  CFG.OBJECTIVES.w4 = 'Lục soát trạm đo đạc — mở hòm sắt của trung uý Morel';
+  CFG.OBJECTIVES.w5 = 'Tới cầu treo bắc qua sông Âm';
+  CFG.OBJECTIVES.w6 = 'Xuôi bờ sông tới Bến Dưới, mở khoá đò ngang';
+  CFG.OBJECTIVES.w7 = 'Theo lối mòn rừng tre về ngôi làng';
+  CFG.OBJ_ORDER = ['o1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9', 'o10'];
+
+  /* lựa chọn thứ tư ở nghi lễ: quay lưng bỏ chạy */
+  CFG.NAMES.push({ label: '(Quay lưng bỏ chạy)', flee: true });
+  CFG.ENDINGS.flee = {
+    title: 'KẺ QUAY LƯNG',
+    lines: [
+      'Bạn quay lưng.',
+      'Sau lưng, ngọn lửa trên đàn tắt phụt. Tiếng Linh gọi tên bạn, rồi tiếng Hà, rồi không còn tiếng ai.',
+      'Cổng làng mở sẵn. Lối mòn rừng tre, con sông, cánh rừng — tất cả rẽ ra cho bạn đi qua, như thể làng chỉ chờ đúng điều ấy.',
+      'Thứ áo đỏ không đuổi theo. Nó không cần. Bạn vừa làm đúng điều ông nội bạn đã làm sáu mươi năm trước.',
+      'Năm 2054. Một ông già đặt chiếc máy ảnh Liên Xô vào tay đứa cháu nội, kèm một mảnh giấy gấp tư.',
+      '“Đừng quay lưng.”',
+      'Ông không kể vì sao. Ông chỉ biết năm ấy lại là năm Giáp Tuất.'
     ]
   };
 })();

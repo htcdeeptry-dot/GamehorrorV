@@ -215,6 +215,13 @@
 
   /* ---------- Cây đệ quy (đa cổ thụ / cây khô) ---------- */
   Md.tree = function (ctx, x, z, o) {
+    var t = Md.treeGeo(x, z, o, ctx.h);
+    ctx.add('bark', t.wood); if (t.leaf.i.length) ctx.add('leaf', t.leaf);
+    ctx.circle(x, z, (o.rad || 0.45) * (o.scale || 1) * 1.25);
+  };
+  /* dựng hình cây tại (x,z) trên mặt đất hfn; gọi với x=z=0, hfn=0 để lấy mẫu cho instancing */
+  Md.treeGeo = function (x, z, o, hfn) {
+    var ctx = { h: hfn || function () { return 0; } };
     var rnd = H.rng(o.seed || 7), y0 = ctx.h(x, z) - 0.4, levels = o.levels || 3, sc = o.scale || 1, A = H.Assets;
     var wood = new Geo(), leaf = new Geo();
     function norm(d) { var l = Math.hypot(d[0], d[1], d[2]) || 1; d[0] /= l; d[1] /= l; d[2] /= l; return d; }
@@ -222,7 +229,7 @@
       n = Math.max(6, Math.round(n * 0.5));
       for (var k = 0; k < n; k++) {
         var cx = p[0] + (rnd() - 0.5) * 2.2 * rad, cy = p[1] + (rnd() - 0.5) * rad * 1.3, cz = p[2] + (rnd() - 0.5) * 2.2 * rad;
-        var s = 0.38 + rnd() * 0.34, a = rnd() * 6.28, t = (rnd() - 0.5) * 1.6, rx = Math.cos(a) * s, rz = Math.sin(a) * s, uy = Math.cos(t) * s, ux = -Math.sin(a) * Math.sin(t) * s, uz = Math.cos(a) * Math.sin(t) * s;
+        var s = (0.38 + rnd() * 0.34) * (o.leafSize || 1), a = rnd() * 6.28, t = (rnd() - 0.5) * 1.6, rx = Math.cos(a) * s, rz = Math.sin(a) * s, uy = Math.cos(t) * s, ux = -Math.sin(a) * Math.sin(t) * s, uz = Math.cos(a) * Math.sin(t) * s;
         var q = Geo.quad([cx - rx - ux, cy - uy, cz - rz - uz], [cx + rx - ux, cy - uy, cz + rz - uz], [cx + rx + ux, cy + uy, cz + rz + uz], [cx - rx + ux, cy + uy, cz - rz + uz]);
         var g = 0.75 + rnd() * 0.5; q.color(g, g, g * 0.9, 0.3 + rnd() * 0.3); leaf.add(q);
       }
@@ -260,8 +267,7 @@
     }
     branch([x, y0, z], norm([(rnd() - 0.5) * 0.25, 1, (rnd() - 0.5) * 0.25]), (o.trunk || 5) * sc, (o.rad || 0.45) * sc, 0);
     if (o.tint) wood.colorFn(function () { return o.tint; });
-    ctx.add('bark', wood); if (leaf.i.length) ctx.add('leaf', leaf);
-    ctx.circle(x, z, (o.rad || 0.45) * sc * 1.25);
+    return { wood: wood, leaf: leaf };
   };
 
   /* ---------- Tre (instancing) ---------- */

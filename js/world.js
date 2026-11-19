@@ -10,12 +10,16 @@
 
   /* ---------- địa hình ---------- */
   W.terrainH = function (x, z) {
-    var A = H.Assets;
+    var A = H.Assets, WD = H.Wild;
     var dv = Math.max(Math.abs(x) - 66, z - 52, -82 - z);
     var dt = Math.max(Math.abs(x) - 10, 50 - z, z - 99);
-    var d = Math.max(0, Math.min(dv, dt)), rise = M.smooth(0, 34, d);
+    var d = Math.max(0, Math.min(dv, dt, WD ? WD.corr(x, z) : 1e3)), rise = M.smooth(0, 34, d);
     var base = A.noise(x * 0.045, z * 0.045) * 0.22 + A.noise(x * 0.13 + 7, z * 0.13) * 0.07;
-    return base * (1 - rise * 0.5) + rise * (1.5 + (A.fbm(x * 0.02 + 3, z * 0.02, 3) * 0.5 + 0.5) * 10);
+    var h = base * (1 - rise * 0.5) + rise * (1.5 + (A.fbm(x * 0.02 + 3, z * 0.02, 3) * 0.5 + 0.5) * 10);
+    if (!WD) return h;
+    // núi non trùng điệp phía xa + dốc đèo lên phía nam
+    h += M.smooth(34, 150, d) * (16 + (A.fbm(x * 0.0075 + 5, z * 0.0075, 3) * 0.5 + 0.5) * 42) + WD.lift(x, z);
+    return WD.carve(x, z, h);
   };
   W.heightAt = function (x, z) {
     for (var k = 0; k < W.floors.length; k++) { var f = W.floors[k]; if (x > f[0] && x < f[2] && z > f[1] && z < f[3]) { W.groundMat = f[5]; return f[4]; } }
@@ -42,6 +46,8 @@
     node: function (n) { R.nodes.push(n); return n; }
   };
   function textMat(name, lines, o) { R.materials[name] = { alb: R.textTexture(lines, o), nrm: null, uv: 1 }; return name; }
+  W.textMat = textMat;
+  W.rune = function () { return rune.apply(null, arguments); };
   function rune(lines, x, y, z, ry, w, h, o) {
     var name = textMat('rune' + W.runes.length, lines, o || { size: 64, bold: true, drip: true });
     var n = new Node(R.mesh(Geo.quad([-w / 2, -h / 2, 0], [w / 2, -h / 2, 0], [w / 2, h / 2, 0], [-w / 2, h / 2, 0])), { tex: name, unlit: 1.6, tint: [1, 0.25, 0.2, 0], additive: true });
@@ -76,7 +82,7 @@
   }
   function buildTerrain() {
     foliageTextures();
-    var A = H.Assets, CH = 25, N = 16, cx, cz, i, j;
+    var A = H.Assets, WD = H.Wild, CH = 25, cx, cz, i, j;
     var paths = [[0, 96, 0, -54], [0, 30, 21, 30], [0, 22, -27, 22], [0, -14, 32, -14], [0, -6, -30, -6], [0, -44, 18, -44], [0, -45, -24, -45]];
     function pathness(x, z) {
       var best = 99;
@@ -84,18 +90,28 @@
         var p = paths[k], dx = p[2] - p[0], dz = p[3] - p[1], t = M.clamp(((x - p[0]) * dx + (z - p[1]) * dz) / (dx * dx + dz * dz), 0, 1);
         var d = Math.hypot(x - p[0] - dx * t, z - p[1] - dz * t); if (d < best) best = d;
       }
-      return 1 - M.smooth(1.2, 3.2, best + A.noise(x * 0.4, z * 0.4) * 0.8);
+      var pn = 1 - M.smooth(1.2, 3.2, best + A.noise(x * 0.4, z * 0.4) * 0.8);
+      return Math.max(pn, WD.pathness(x, z));
     }
-    for (cz = -4; cz < 4; cz++) for (cx = -4; cx < 4; cx++) {
+    // vùng đất 500m x 625m; mảnh xa đường đi dùng lưới thưa, mảnh khuất hẳn sau núi thì bỏ
+    for (cz = -5; cz < 20; cz++) for (cx = -10; cx < 10; cx++) {
+      var mx = cx * CH + CH / 2, mz = cz * CH + CH / 2;
+      var dOld = Math.max(0, Math.max(Math.abs(mx) - 66, mz - 52, -82 - mz)), dc = Math.min(dOld, WD.corr(mx, mz), Math.max(0, WD.riverD(mx, mz) - 30));
+      if (dc > 150) continue;
+      var N = dc > 55 ? 6 : (dc > 26 ? 10 : 16), st = CH / N, G = N + 3, hg = new Float32Array(G * G);
+      for (j = 0; j < G; j++) for (i = 0; i < G; i++) hg[j * G + i] = W.terrainH(cx * CH + (i - 1) * st, cz * CH + (j - 1) * st);
       var g = new Geo();
       for (j = 0; j <= N; j++) for (i = 0; i <= N; i++) {
-        var x = cx * CH + i / N * CH, z = cz * CH + j / N * CH, y = W.terrainH(x, z);
-        var e = 0.8, nx = W.terrainH(x - e, z) - W.terrainH(x + e, z), nz = W.terrainH(x, z - e) - W.terrainH(x, z + e), l = Math.hypot(nx, 2 * e, nz);
-        var v = g.v(x, y, z, nx / l, 2 * e / l, nz / l, x, z);
-        var pth = pathness(x, z), gr = M.smooth(0.2, 0.7, A.fbm(x * 0.06 + 9, z * 0.06, 3) * 0.5 + 0.5 + (y > 1 ? 0.3 : 0)) * (1 - pth);
-        g.c[v * 4] = M.lerp(0.95, 0.62, gr) + pth * 0.5; g.c[v * 4 + 1] = M.lerp(0.95, 0.95, gr) + pth * 0.42; g.c[v * 4 + 2] = M.lerp(0.95, 0.55, gr) + pth * 0.3;
+        var x = cx * CH + i * st, z = cz * CH + j * st, y = hg[(j + 1) * G + i + 1];
+        var nx = hg[(j + 1) * G + i] - hg[(j + 1) * G + i + 2], nz = hg[j * G + i + 1] - hg[(j + 2) * G + i + 1], l = Math.hypot(nx, 2 * st, nz);
+        var v = g.v(x, y, z, nx / l, 2 * st / l, nz / l, x, z);
+        var pth = dc > 55 ? 0 : pathness(x, z), gr = M.smooth(0.2, 0.7, A.fbm(x * 0.06 + 9, z * 0.06, 3) * 0.5 + 0.5 + (y > 1 ? 0.3 : 0)) * (1 - pth);
+        var wet = M.smooth(-0.2, -1.4, y), rock = M.smooth(0.55, 0.8, 1 - 2 * st / l) * (1 - wet);
+        var r = M.lerp(0.95, 0.62, gr) + pth * 0.5, gg = M.lerp(0.95, 0.95, gr) + pth * 0.42, b = M.lerp(0.95, 0.55, gr) + pth * 0.3;
+        r = M.lerp(r, 0.7, rock); gg = M.lerp(gg, 0.72, rock); b = M.lerp(b, 0.74, rock);
+        g.c[v * 4] = r * (1 - wet * 0.45); g.c[v * 4 + 1] = gg * (1 - wet * 0.42); g.c[v * 4 + 2] = b * (1 - wet * 0.38);
       }
-      for (j = 0; j < N; j++) for (i = 0; i < N; i++) { var a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1; g.i.push(a, c, d, a, d, b); }
+      for (j = 0; j < N; j++) for (i = 0; i < N; i++) { var a = j * (N + 1) + i, bb = a + 1, c = a + N + 1, dd = c + 1; g.i.push(a, c, dd, a, dd, bb); }
       ctx.add('mud', g);
     }
   }
@@ -115,7 +131,7 @@
     textMat('sign', ['LÀNG ÂM LINH'], { w: 512, h: 128, size: 60, bold: true, color: '#b08a3a', glow: 'rgba(0,0,0,0.9)', bg: 'rgba(22,10,6,0.96)' });
     W.props.gate = Md.gate(ctx, P.gate[0], P.gate[1]);
     // hàng rào tre vô hình hai bên lối mòn
-    ctx.box(-9.4, 50.6, -8.7, 98.5); ctx.box(8.7, 50.6, 9.4, 98.5); ctx.box(-9.4, 97.6, 9.4, 98.5);
+    ctx.box(-9.4, 50.6, -8.7, 97.5); ctx.box(8.7, 50.6, 9.4, 97.5);
     // bia trấn yểm
     var my = Md.stele(ctx, P.monument[0], P.monument[1], -Math.PI / 2, 1.0, 2.0);
     textMat('mon', ['GIÁP TUẤT', 'HUYẾT NGUYỆT', '1874 · 1934 · ▓▓▓▓'], { w: 512, h: 512, size: 54, bold: true, color: '#7a1410', glow: 'rgba(0,0,0,0.7)' });
@@ -124,7 +140,6 @@
     Md.lanternPost(ctx, 7.4, 60.5, Math.PI);
     // đá dọc lối mòn
     for (k = 0; k < 26; k++) { var side = rnd() < 0.5 ? -1 : 1; Md.rock(ctx, side * (5.5 + rnd() * 2.8), 53 + rnd() * 43, 0.3 + rnd() * 0.9, k * 3.1); }
-    Md.rock(ctx, P.cameraItem[0], P.cameraItem[1], 0.75, 5.5);
     Md.lanternPost(ctx, -6.5, 86, 0); Md.lanternPost(ctx, 6.5, 70, Math.PI);
     rune(['NĂM NAY', '1994'], 7.5, W.terrainH(7.5, 50) + 1.7, 50.42, 0, 2.6, 1.3);
   }
@@ -386,6 +401,13 @@
     }
     return false;
   };
+  /* vùng đi được: trong làng do tường/hàng rào giữ; ngoài làng là hành lang lối mòn, khoảng trống và sàn gỗ (bến, cầu) */
+  W.walkable = function (x, z) {
+    if ((z < 52 && z > -84 && Math.abs(x) < 66) || (z >= 52 && z < 99.5 && Math.abs(x) < 9.5)) return true;
+    for (var k = 0; k < W.floors.length; k++) { var f = W.floors[k]; if (x > f[0] && x < f[2] && z > f[1] && z < f[3]) return true; }
+    if (!H.Wild || H.Wild.corr(x, z) > 0) return false;
+    return W.terrainH(x, z) > -0.55;
+  };
   W.los = function (ax, az, bx, bz, ignoreDoors, pad) {
     var d = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(d / 0.5));
     for (var k = 1; k < n; k++) { var t = k / n; if (W.pointBlocked(ax + (bx - ax) * t, az + (bz - az) * t, ignoreDoors, pad)) return false; }
@@ -454,7 +476,9 @@
     // sương dày hơn ở nghĩa địa
     var g = P.grave, inG = ppos && ppos[0] > g.x0 - 4 && ppos[0] < g.x1 + 4 && ppos[2] > g.z0 - 4 && ppos[2] < g.z1 + 4;
     W.inGrave = !!inG;
-    e.mistDen += ((inG ? 0.115 : 0.055) * (W.mistMul === undefined ? 1 : W.mistMul) - e.mistDen) * Math.min(1, dt * 0.6);
+    var inR = H.Wild && ppos && H.Wild.riverD(ppos[0], ppos[2]) < 45; W.inRiver = !!inR;
+    e.mistDen += ((inG ? 0.115 : (inR ? 0.07 : 0.055)) * (W.mistMul === undefined ? 1 : W.mistMul) - e.mistDen) * Math.min(1, dt * 0.6);
+    if (H.Wild) H.Wild.update(dt, time, ppos);
     // bùa máu lộ ra sau flash rồi mờ dần
     for (k = 0; k < W.runes.length; k++) { var rn = W.runes[k]; if (rn.t > 0) rn.t = Math.max(0, rn.t - dt); rn.node.mat.tint[3] = Math.min(1, rn.t / 3) * (0.8 + 0.2 * Math.sin(time * 9 + k)) + (rn.faint || 0); rn.node.visible = rn.node.mat.tint[3] > 0.004; }
   };

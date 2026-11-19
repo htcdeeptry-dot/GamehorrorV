@@ -63,7 +63,7 @@
 
   /* ---------- Vật phẩm ---------- */
   CFG.ITEMS = {
-    camera:  { name: 'Máy Ảnh Tâm Linh', desc: 'Chiếc máy ảnh phim Liên Xô đời cũ của Minh. Ống kính đã ám một lớp sương lạnh. Đèn Xenon của nó soi được thứ mắt thường không thấy.' },
+    camera:  { name: 'Máy Ảnh Tâm Linh', desc: 'Chiếc máy ảnh phim Liên Xô ông nội để lại. Ống kính đã ám một lớp sương lạnh. Đèn flash của nó soi được thứ mắt thường không thấy.' },
     crank:   { name: 'Tay Quay Sắt', desc: 'Tay quay tời giếng, han gỉ, còn dính một dải lụa đỏ đã mục.' },
     mirror:  { name: 'Gương Đồng Âm Dương', desc: 'Gương đồng hai mặt. Mặt dương soi người sống, mặt âm soi vật đã bị chôn giấu. Giữ [R] để soi.' },
     key:     { name: 'Chìa Khoá Đồng', desc: 'Chìa khoá khắc chữ "Đoàn". Hẳn là của nhà Lý trưởng.' },
@@ -77,14 +77,14 @@
 
   /* ---------- 8 trang nhật ký ---------- */
   CFG.DIARIES = [
-    { id: 'd1', title: 'Sổ tay của Minh', sub: 'Mùa thu 1994 — đường lên bản Sủng',
-      text: 'Ngày 14 tháng 9.\n\nBão số 6 đổ bộ sớm hơn dự báo. Đoạn đèo sau lưng chúng tôi sạt mất cả một vạt núi, chiếc xe U-oát nằm lại dưới đó. Bốn đứa — tôi, Linh, Tuấn, Hà — men theo một lối mòn giữa rừng tre mà bản đồ quân sự không hề vẽ.\n\nTuấn bảo thấy ánh đèn lồng đỏ phía trước. Hà thì khăng khăng nghe có tiếng con gái khóc. Tôi chỉ thấy lạ một điều: mặt trăng. Đêm nay mới mồng chín, sao trăng lại tròn và đỏ như một con mắt thế kia?\n\nNếu ai nhặt được cuốn sổ này: chúng tôi đã lạc nhau ở chỗ cổng làng. Tôi đánh rơi máy ảnh khi chạy. Năm nay là năm Giáp Tuất. Tôi ghi lại vì bà cụ dưới bản có dặn, giọng run lắm: "Năm Tuất thì đừng lên núi ấy."' },
+    { id: 'd1', title: 'Sổ tay của Minh', sub: 'Mùa thu 1994 — đường đèo lên bản Sủng',
+      text: 'Ngày 14 tháng 9.\n\nBão số 6 đổ bộ sớm hơn dự báo. Linh nhất định không cho quay xe: "Sắp tới rồi. Ngôi làng bỏ hoang ấy đẹp lắm, chụp xong phóng sự là nổi." Tuấn cầm lái, Hà ôm ba lô, mặt tái mét.\n\nCon đường đèo này không có trên bản đồ quân sự. Tuấn bảo la bàn quay lung tung. Hà khăng khăng nghe có tiếng con gái khóc ngoài cửa xe.\n\nTôi chỉ thấy lạ một điều: mặt trăng. Đêm nay mới mồng chín, sao trăng lại tròn và đỏ như một con mắt thế kia?\n\nNăm nay là năm Giáp Tuất. Bà cụ dưới bản có dặn, giọng run lắm: "Năm Tuất thì đừng lên núi ấy."\n\n(Nét chữ sau, nguệch ngoạc, dính bùn:)\nXe lật. Tỉnh dậy không thấy ai. Dấu chân ba người đi xuống rừng. Mình phải theo.' },
     { id: 'd2', title: 'Mẩu giấy của Hà', sub: 'Viết vội bằng bút chì',
       text: 'Minh ơi,\n\nEm vào được bên trong rồi. Cổng tự khoá lại sau lưng em, xích quấn như có người vừa quấn.\n\nLàng này không có ai, mà nhà nào cũng thắp đèn. Bếp còn ấm. Trên bàn thờ nhà nào cũng có một bát hương bị úp ngược.\n\nEm thấy chị ấy rồi. Áo đỏ, tóc dài chấm đất, đứng sau gốc đa. Em soi đèn pin thì chị ấy biến mất. Đừng tắt đèn, Minh ạ. Chị ấy không thích ánh sáng — nhưng chị ấy THEO tiếng chân.\n\nEm đi về phía cái giếng. Có tiếng anh Tuấn gọi ở đó.' },
     { id: 'd3', title: 'Nhật ký thầy lang Nguyễn Văn Tịnh', sub: 'Năm Giáp Tuất, Tự Đức thứ 27 (1874)',
       text: 'Tháng Bảy.\n\nDịch tả về làng từ mồng hai. Con Lệ nhà ta thức trắng mười đêm sắc thuốc. Nó cứu được hai mươi ba mạng, phần nhiều là trẻ nhỏ. Chỉ có cậu ấm con quan Lý là không qua khỏi — người ta rước về thì đã muộn ba ngày.\n\nTừ hôm ấy quan Lý nhìn con ta bằng con mắt khác. Ông ta nói giữa đình: "Đứa con gái biết giữ mạng người thì cũng biết lấy mạng người."\n\nTa đã giấu tay quay giếng vào trong nhà. Đêm qua có kẻ thả gì đó xuống giếng làng, sáng ra nước đỏ như máu. Chúng sẽ đổ cho con ta. Ta biết.\n\nLệ ơi, nếu cha không còn — con tên là NGUYỄN THỊ LỆ, đừng để ai gọi con bằng cái tên chúng đặt.' },
     { id: 'd4', title: 'Biên bản của Lý trưởng', sub: 'Đoàn Văn Khải lập — niêm phong trong két',
-      text: 'Làng Âm Linh, rằm tháng Bảy năm Giáp Tuất.\n\nXét con gái thầy lang Tịnh dùng tà thuật yểm giếng, gây dịch, hại chết ấu chủ. Hội đồng kỳ mục nhất trí:\n\nMột — TRÓI: lấy bảy thước lụa điều trói yêu nữ tại chính đường.\nHai — THIÊU: phóng hoả gia quyến nó trong Đình, không cho một ai thoát.\nBa — DÌM: thả yêu nữ xuống Giếng Cổ, lấp bằng đá ong.\n\nTừ nay cấm gọi tên thật của nó. Sổ sách ghi là "Lệ Nương".\n\n(Dòng chữ nhỏ, viết bằng mực khác, nét run:)\nKho thóc cứu đói là ta bán. Giếng là ta sai người yểm. Thằng bé chết vì ta rước thầy chậm. Trời ơi, trăng sao mãi không lặn.' },
+      text: 'Làng Âm Linh, rằm tháng Bảy năm Giáp Tuất.\n\nXét con gái thầy lang Tịnh dùng tà thuật yểm giếng, gây dịch, hại chết ấu chủ. Hội đồng kỳ mục nhất trí:\n\nMột — TRÓI: lấy bảy thước lụa điều trói yêu nữ tại chính đường.\nHai — THIÊU: phóng hoả gia quyến nó trong Đình, không cho một ai thoát.\nBa — DÌM: thả yêu nữ xuống Giếng Cổ, lấp bằng đá ong.\n\nTừ nay cấm gọi tên thật của nó. Sổ sách ghi là "Lệ Nương".\n\n(Dòng chữ nhỏ, viết bằng mực khác, nét run:)\nKho thóc cứu đói là ta bán. Giếng là ta sai người yểm. Còn thằng Khang... điều ấy ta không dám viết ra ở đây. Ta viết vào tờ khác, bằng thứ mực khác. Trời ơi, trăng sao mãi không lặn.' },
     { id: 'd5', title: 'Thư của Tuấn', sub: 'Giấy xé từ sổ đo đạc',
       text: 'Gửi bất cứ ai còn sống.\n\nTôi là Trần Anh Tuấn, kỹ sư địa chất. Tôi ghi lại những gì đo được, vì đó là thứ duy nhất tôi còn tin:\n\n— Đồng hồ của tôi dừng ở 0 giờ 49.\n— La bàn quay về phía cái giếng, không phải phương bắc.\n— Dưới giếng không có đáy. Tôi thả dây ba mươi mét vẫn chưa chạm nước. Nhưng cái gàu thì nặng, như có người ngồi trong.\n\nTay quay không còn trên tời. Ai đó đã tháo nó đi từ rất lâu. Nếu tìm được, ĐỪNG quay một mình. Thứ được kéo lên không chỉ có cái gàu.\n\nLinh nói phải lên Đình. Cô ấy đọc được chữ Nôm trên bia.' },
     { id: 'd6', title: 'Lời khai của người gác đình', sub: 'Khắc bằng dao lên một mảnh ván quan tài',
@@ -105,14 +105,8 @@
 
   /* ---------- Lời thoại / phụ đề ---------- */
   CFG.LINES = {
-    intro: [
-      'Mùa thu năm 1994. Vùng cao phía Bắc.',
-      'Cơn bão cuốn trôi con đường sau lưng chúng tôi.',
-      'Linh, Tuấn, Hà... tôi lạc mất cả ba ở đâu đó giữa rừng tre này.',
-      'Phía trước có ánh đèn. Và một vầng trăng không nên có màu đó.'
-    ],
-    start: 'Minh: Đèn pin vẫn còn. [F] để bật. Máy ảnh... mình đánh rơi đâu đó trên lối mòn này.',
-    gotCamera: 'Minh: Máy ảnh của mình. Vẫn còn phim. [C] để nâng máy, chuột trái để chụp.',
+    start: 'Minh: Đầu đau như búa bổ... Đèn pin vẫn còn. [F] để bật. Máy ảnh của ông — nó văng đâu đó quanh xe.',
+    gotCamera: 'Minh: Máy ảnh của ông nội. Vẫn còn phim. [C] để nâng máy, chuột trái để chụp.',
     gateLocked: 'Minh: Khoá số bốn vòng. Phải có manh mối quanh đây... tấm bia đá kia?',
     gateOpen: 'Minh: Xích tự tuột ra. Như thể nó chỉ chờ mình nói đúng năm.',
     needCrank: 'Minh: Tời giếng mất tay quay. Tuấn có nhắc... ai đó đã giấu nó trong nhà.',
@@ -137,7 +131,7 @@
   };
 
   CFG.OBJECTIVES = {
-    o1: 'Tìm chiếc máy ảnh đánh rơi trên lối mòn rừng tre',
+    o1: 'Tìm chiếc máy ảnh văng ra khỏi xe',
     o2: 'Mở cổng làng — tìm manh mối về năm xảy ra thảm kịch',
     o3: 'Tìm Tay Quay Sắt trong ngôi nhà cổ phía đông',
     o4: 'Kéo gàu ở Giếng Cổ Huyết Lệ phía tây',
@@ -156,10 +150,10 @@
         '“Nguyễn Thị Lệ.”',
         'Ngọn lửa trên đàn chuyển từ đỏ sang trắng. Bảy thước lụa điều rơi khỏi cổ tay nàng, từng vòng một.',
         'Lần đầu tiên sau một trăm hai mươi năm, có người gọi nàng bằng cái tên mẹ đặt.',
-        'Nàng không cười. Nàng chỉ thôi khóc.',
-        'Trăng lặn. Mưa tạnh. Trong sân Đình, ba người đang nằm thiếp đi dưới gốc đa — Linh, Tuấn và Hà — ướt sũng, nhưng còn thở.',
-        'Sáng hôm sau đội cứu hộ tìm thấy bốn người trên một bãi đất trống. Không có ngôi làng nào ở đó cả.',
-        'Trong máy ảnh của Minh còn đúng một kiểu phim: một cô gái áo trắng đứng bên giếng, đang vẫy tay.'
+        'Nàng thôi khóc. Nhưng trước khi tan đi, nàng ngoái nhìn về phía cái giếng — rất lâu.',
+        'Trăng lặn. Mưa tạnh. Dưới gốc đa có hai người nằm thiếp đi: Linh và Hà. Còn thở.',
+        'Tuấn không có ở đó. Đội cứu hộ tìm ba ngày, chỉ thấy một chiếc đồng hồ dừng ở 0 giờ 49.',
+        'Vòng lặp đã đứt. Nhưng dưới giếng vẫn còn một người chưa ai gọi tên.'
       ]
     },
     bad: {

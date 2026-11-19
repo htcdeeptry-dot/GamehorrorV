@@ -8,7 +8,7 @@
   var H = window.HuyetLeThon, M = H.M, R = H.R, CFG = H.CFG, Geo = H.Geo, Node = H.Node;
   var CS = H.Cutscenes = { active: null, t: 0, actors: [], white: 0 };
   var W, P, AI, A, Pz, UI, FX, memLight, Ch, keyLight;
-  var SPK = { 'Minh': 'minh', 'Hà': 'ha', 'Linh': 'linh', 'Tuấn': 'tuan', 'Lý trưởng Khải': 'khai', 'Huyết Thư': 'khai', 'Lệ': 'le', 'Mẹ nàng': 'me', 'Phó Bảy': 'bayHon' };
+  var SPK = { 'Minh': 'minh', 'Hà': 'ha', 'Linh': 'linh', 'Tuấn': 'tuan', 'Lý trưởng Khải': 'khai', 'Huyết Thư': 'khai', 'Lệ': 'le', 'Mẹ nàng': 'me', 'Phó Bảy': 'bayHon', 'Bóng áo trắng': 'leHon', 'Lộc': 'loc', 'Morel': 'morel' };
   function face(x, z, tx, tz) { return Math.atan2(tx - x, tz - z); }
   function put(n, x, z, ry, anim, look, y) { return Ch.put(n, x, y === undefined ? W.heightAt(x, z) : y, z, ry, anim, look); }
   var $ = function (id) { return document.getElementById(id); };
@@ -31,7 +31,7 @@
   function hideActors() { if (Ch) Ch.hideAll(); CS.actors.forEach(function (n) { n.visible = false; n.mat.tint[3] = 0; }); memLight.intensity = 0; }
   function light(x, y, z, i, r) { memLight.pos[0] = x; memLight.pos[1] = y; memLight.pos[2] = z; memLight.intensity = i; memLight.radius = r || 10; }
   function sub(speaker, text, dur) {
-    $('cineSpeaker').textContent = speaker || ''; $('cineText').textContent = text; $('cineSub').className = 'show'; CS.subT = dur;
+    $('cineSpeaker').textContent = H.tr(speaker || ''); $('cineText').textContent = H.tr(text); $('cineSub').className = 'show'; CS.subT = dur;
     if (SPK[speaker]) Ch.say(SPK[speaker], dur, text);
     if (H.Voice) H.Voice.say(text);
   }
@@ -39,32 +39,143 @@
   /* ===================== ĐỊNH NGHĨA CẮT CẢNH ===================== */
   var D = {};
   D.intro = function () {
-    var c = CFG.POS.cameraItem, cy = W.terrainH(c[0], c[1]) + 0.72;
+    var J = H.Wild.props.jeep, c = CFG.POS.cameraItem, cy = Y(c[0], c[1]) + 0.1, mx = -8.6, mz = 404.4, my = Y(mx, mz);
     return {
       shots: [
-        { d: 9, p0: [4.6, Y(4.6, 68.6) + 1.25, 68.6], p1: [3.4, Y(3.4, 70.2) + 1.45, 70.2], l0: [0, 1.35, 74], l1: [0, 1.4, 71.5], f0: 50, f1: 44 },
-        { d: 7, p0: [0, 17, 118], p1: [0, 10, 103], l0: [12, 26, 40], l1: [6, 12, 52], f0: 62, f1: 58 },
-        { d: 7, p0: [1.7, Y(1.7, 95) + 1.3, 95], p1: [1.0, Y(1.0, 86) + 1.45, 86], l0: [0.3, 1.45, 88], l1: [0.3, 1.5, 79], f0: 56, f1: 52 },
-        { d: 6.5, p0: [-3.2, 2.0, 57.5], p1: [-1.2, 3.0, 54.6], l0: [0, 4.0, 50], l1: [0, 4.3, 50], f0: 58, f1: 50 },
-        { d: 6, p0: [c[0] - 1.7, cy + 0.8, c[1] + 2.0], p1: [c[0] - 1.0, cy + 0.45, c[1] + 1.2], l0: [c[0], cy, c[1]], l1: [c[0], cy, c[1]], f0: 50, f1: 42 }
+        { d: 9, p0: [17.5, Y(17.5, 414) + 1.3, 414], p1: [18.6, Y(18.6, 415.6) + 1.45, 415.6], l0: [29, Y(29, 427) + 1.4, 427], l1: [26.5, Y(26.5, 424.5) + 1.45, 424.5], f0: 50, f1: 44 },
+        { d: 7, p0: [8, Y(8, 396) + 15, 396], p1: [2, Y(2, 399) + 8.5, 399], l0: [J.x, J.y + 1, J.z], l1: [J.x + 1, J.y + 0.5, J.z - 1], f0: 60, f1: 52 },
+        { d: 7, p0: [mx + 2.6, my + 0.9, mz - 2.2], p1: [mx + 1.8, my + 1.25, mz - 1.5], l0: [mx, my + 0.5, mz], l1: [mx, my + 1.2, mz], f0: 52, f1: 46 },
+        { d: 6.5, p0: [J.x + 5, J.y + 1.7, J.z - 3.4], p1: [J.x + 3.4, J.y + 1.4, J.z - 2.4], l0: [J.x, J.y + 0.7, J.z], l1: [J.x - 1, J.y + 0.8, J.z + 1], f0: 56, f1: 48 },
+        { d: 6, p0: [c[0] + 1.7, cy + 0.8, c[1] - 2.0], p1: [c[0] + 1.0, cy + 0.45, c[1] - 1.2], l0: [c[0], cy, c[1]], l1: [c[0], cy, c[1]], f0: 50, f1: 42 }
       ],
       subs: [[0.7, '', 'Ba giờ trước khi vạt núi sạt xuống.', 2.8], [3.6, 'Hà', 'Chị Linh ơi, bản đồ có vẽ lối này đâu?', 2.6], [6.3, 'Linh', 'Cứ đi đi. Sắp tới rồi.', 2.4],
         [9.8, '', 'Mùa thu năm 1994. Bão số 6 cuốn mất con đường sau lưng chúng tôi.', 5],
-        [16.6, 'Minh', 'Linh, Tuấn, Hà... mình lạc cả ba ở đâu đó giữa rừng tre này.', 4.4],
-        [23.6, 'Minh', 'Linh bảo trên này có một ngôi làng bỏ hoang đáng để chụp. Bản đồ thì chẳng vẽ gì.', 5],
-        [30.2, 'Minh', 'Máy ảnh của ông nội... mình đánh rơi nó khi chạy.', 4.5]],
-      ev: [[8.7, function () { CS.white = 1; W.strike(true); Ch.hideAll(); }], [23, function () { W.strike(true); }], [0.2, function () { A.tension = 0.25; }]],
+        [16.6, 'Minh', 'Linh... Tuấn... Hà... mọi người đâu cả rồi?', 4.4],
+        [23.6, 'Minh', 'Dấu chân ba người, đi xuống rừng. Sao lại bỏ mình lại?', 5],
+        [30.2, 'Minh', 'Máy ảnh của ông nội... nó văng đâu quanh xe.', 4.5]],
+      ev: [[8.7, function () { CS.white = 1; W.strike(true); Ch.hideAll(); P.shake = 0.08; }], [23, function () { W.strike(false); }], [0.2, function () { A.tension = 0.25; }]],
       tick: function (t, dt) {
-        if (t < 8.7) { // bốn người trên lối mòn
-          var u = M.clamp(t / 8.7, 0.001, 0.999), z = 77.5 - u * 6;
-          Ch.walkLine('linh', [-0.5, 77.5 - 2.6], [-0.5, 71.5 - 2.6], u, dt);
-          Ch.walkLine('minh', [0.6, 77.5 - 1.2], [0.6, 71.5 - 1.2], u, dt, [-0.5, 1.5, z - 4]);
-          Ch.walkLine('tuan', [-0.2, 77.5 + 0.4], [-0.2, 71.5 + 0.4], u, dt);
-          Ch.walkLine('ha', [0.5, 77.5 + 1.7], [0.5, 71.5 + 1.7], u, dt, [-0.5, 1.5, z - 2.6]);
-        } else if (t > 16 && t < 23) Ch.walkLine('minh', [0.3, 91], [0.3, 81], M.clamp((t - 16) / 7, 0.001, 0.999), dt);
-        else if (t >= 23) Ch.hide('minh');
+        if (t < 8.7) { // bốn người trên đường đèo
+          var u = M.clamp(t / 8.7, 0.001, 0.999), a0 = [34, 431], a1 = [26, 424], lk = [M.lerp(a0[0], a1[0], u) - 6, 1.5, M.lerp(a0[1], a1[1], u) - 5];
+          function wl(n, ox, oz, look) { Ch.walkLine(n, [a0[0] + ox, a0[1] + oz], [a1[0] + ox, a1[1] + oz], u, dt, look); }
+          wl('linh', -1.6, -1.8); wl('minh', -0.4, -0.2, lk); wl('tuan', 0.6, 0.9); wl('ha', 1.5, 2.2, lk);
+        } else if (t > 16 && t < 23) put('minh', mx, mz, face(mx, mz, -12, 390), t < 19.5 ? 'cower' : 'idle', [-12, my + 1.2, 390]);
+        else Ch.hide('minh');
       },
-      card: ['CHƯƠNG I', 'Lối Mòn Rừng Tre']
+      card: ['MỞ ĐẦU', 'Đèo Sạt']
+    };
+  };
+  /* ---------- Rừng Cấm: bóng áo trắng ở Miếu Sơn Thần ---------- */
+  D.shrine = function () {
+    var S = H.Wild.props.shrine, lx = -39.4, lz = 350.4, ly = Y(lx, lz), mx = -31.6, mz = 356.4, my = Y(mx, mz);
+    return {
+      shots: [
+        { d: 6.6, p0: [mx + 1.4, my + 1.6, mz + 1.6], p1: [mx + 0.7, my + 1.6, mz + 0.9], l0: [S.x, S.y + 1.4, S.z], l1: [S.x - 0.6, S.y + 1.45, S.z - 2.2], f0: 55, f1: 48 },
+        { d: 8, p0: [lx + 3.2, ly + 1.55, lz + 2.2], p1: [lx + 2.4, ly + 1.55, lz + 1.5], l0: [lx, ly + 1.45, lz], l1: [lx, ly + 1.5, lz], f0: 46, f1: 34 },
+        { d: 6, p0: [mx + 0.6, my + 1.6, mz + 0.6], p1: [mx + 0.3, my + 1.6, mz + 0.2], l0: [lx, ly + 1.4, lz], l1: [lx + 14, ly + 2.5, lz - 12], f0: 52, f1: 58 }
+      ],
+      subs: [[0.6, 'Minh', 'Miếu Sơn Thần... ai còn thắp nến ở đây?', 3.6], [4.6, 'Minh', '...Linh? Hà?', 2.2], [7.2, 'Bóng áo trắng', 'Đừng theo ánh đèn đỏ.', 3.2],
+        [10.8, 'Bóng áo trắng', 'Qua sông... trước khi trăng đứng đỉnh đầu.', 4], [15.4, 'Minh', 'Áo trắng... Hà tả một người áo đỏ cơ mà.', 3.4]],
+      ev: [[6.5, function () { A.weep([lx, ly + 1.5, lz], 4, 0.35); light(lx, ly + 2.2, lz, 1.2, 6); }], [18.6, function () { CS.white = 0.4; A.glitch(null); Ch.hide('leHon'); memLight.intensity = 0; }]],
+      tick: function (t) {
+        put('minh', mx, mz, face(mx, mz, t > 6.5 ? lx : S.x, t > 6.5 ? lz : S.z), t > 6.5 && t < 9 ? 'recoil' : 'idle', [t > 6.5 ? lx : S.x, ly + 1.5, t > 6.5 ? lz : S.z]);
+        if (t > 6.5 && t < 18.6) Ch.put('leHon', lx, ly, lz, t > 14 ? face(lx, lz, 20, 290) : face(lx, lz, mx, mz), t > 14 ? 'point' : 'idle', t > 14 ? [20, ly + 2, 290] : [mx, my + 1.6, mz]);
+      },
+      tension: 0.35, card: ['CHƯƠNG I', 'Rừng Cấm']
+    };
+  };
+  /* ---------- tấm kính ảnh 1934: Lộc bảo Morel chạy ---------- */
+  D.camp1934 = function () {
+    var cx = 19.5, cz = 290.5, cy = Y(cx, cz), ex = 33, ez = 282.5, ey = Y(ex, ez), dr = H.Wild.props.darkroom;
+    return {
+      past: true,
+      shots: [
+        { d: 8.2, p0: [cx - 3.4, cy + 1.5, cz + 4.2], p1: [cx - 2.4, cy + 1.4, cz + 3.1], l0: [cx, cy + 1.3, cz], l1: [cx + 0.5, cy + 1.3, cz - 0.3], f0: 52, f1: 44 },
+        { d: 9.6, p0: [cx - 1.6, cy + 1.25, cz + 2.4], p1: [cx - 1.1, cy + 1.3, cz + 1.6], l0: [ex, ey + 1, ez], l1: [ex - 1, ey + 0.9, ez + 0.5], f0: 48, f1: 40 },
+        { d: 5.8, p0: [dr.x - 3.0, dr.y + 1.6, dr.z + 2.6], p1: [dr.x - 2.2, dr.y + 1.5, dr.z + 1.8], l0: [dr.x, dr.y + 0.9, dr.z], l1: [dr.x, dr.y + 0.9, dr.z], f0: 50, f1: 42, present: true }
+      ],
+      subs: [[0.6, '', 'Trạm đo đạc bên sông Âm, đêm 23 tháng 9 năm 1934.', 3.8], [4.8, 'Morel', 'Nó tới rồi! Lộc, đứng sau lưng tôi!', 3.2], [8.4, 'Lộc', 'Courez! Chạy đi, ông ơi, chạy đi!', 3.4],
+        [12.2, '', 'Người lính Pháp quay lưng bỏ chạy. Thứ áo đỏ lướt qua cậu bé như không hề thấy cậu.', 5.4], [18.4, 'Minh', 'Ông nội... ông đã bảo ông ấy chạy.', 3.6]],
+      ev: [[0, function () { light(cx, cy + 2.4, cz, 2.2, 10); A.bell(null, 110); }], [11.4, function () { CS.white = 0.8; A.click(0.9); AI.puppet(ex + 1.5, ez - 1.5, 'hunt', [cx, cz], 0.95); }], [17.6, function () { hideActors(); AI.puppetEnd(12); CS.white = 0.4; A.sting(); }]],
+      tick: function (t, dt) {
+        if (t >= 17.6) return;
+        Ch.put('loc', cx, cy, cz, face(cx, cz, cx - 3, cz + 4), 'point', [cx - 3, cy + 1.4, cz + 4]);
+        if (t < 8.6) Ch.put('morel', cx + 0.9, cy, cz - 0.4, face(cx + 0.9, cz - 0.4, ex, ez), t > 4.8 ? 'recoil' : 'idle', [ex, ey + 1, ez]);
+        else Ch.walkLine('morel', [cx + 0.9, cz - 0.4], [ex - 0.5, ez + 0.6], M.clamp((t - 8.6) / 6, 0.001, 0.999), dt, [ex, ey + 1, ez]);
+        if (t > 11.4) AI.pos[0] += (cx + 3 - AI.pos[0]) * dt * 0.25;
+      },
+      tension: 0.7
+    };
+  };
+  /* ---------- sông Âm: bóng áo đỏ bên kia cầu đứt ---------- */
+  D.bridge = function () {
+    var B = H.Wild.props.bridge, y = B.y, rx = 10.6, rz = 213.2, ry = Y(rx, rz);
+    return {
+      shots: [
+        { d: 6, p0: [11.8, y + 1.75, B.z + 3.6], p1: [11.1, y + 1.65, B.z + 2.2], l0: [10, y + 0.4, B.z - 6], l1: [10, y + 0.1, B.z - 9], f0: 58, f1: 50 },
+        { d: 8, p0: [9.3, y + 1.65, B.z + 0.4], p1: [9.6, y + 1.6, B.z - 0.3], l0: [rx, ry + 1.5, rz], l1: [rx, ry + 1.5, rz], f0: 44, f1: 28 },
+        { d: 5.6, p0: [12.4, y + 1.7, B.z + 2.2], p1: [13.6, y + 1.7, B.z + 2.8], l0: [40, y, B.z - 8], l1: [72, y, B.z - 14], f0: 55, f1: 60 }
+      ],
+      subs: [[0.5, 'Minh', 'Cầu treo đứt rồi. Cả hai đầu.', 3], [6.6, 'Minh', 'Bên kia sông... có người đứng.', 3], [10.2, 'Minh', 'Áo đỏ. Tóc dài chấm đất. Đúng như Hà tả.', 3.8], [14.6, 'Minh', 'Phải xuôi bờ sông. Có bến đò thì phải có thuyền.', 4]],
+      ev: [[6, function () { AI.puppet(rx, rz, 'stalk', [10, B.z], 0.95); A.weep([rx, ry + 1.5, rz], 5, 0.6); }], [13.8, function () { W.strike(true); CS.white = 0.35; AI.puppetEnd(10); }]],
+      tick: function (t) { if (t < 14) put('minh', 10.2, B.z + 1.1, Math.PI, 'idle', [rx, ry + 1.5, rz]); else Ch.hide('minh'); },
+      tension: 0.6, card: ['CHƯƠNG II', 'Sông Âm']
+    };
+  };
+  /* ---------- hồi ức Bến Dưới 1874: xác phu thuyền bị thả xuống sông ---------- */
+  D.wharf = function () {
+    var dy = 0.38, kx = 81.9, kz = 232.6;
+    return {
+      past: true,
+      shots: [
+        { d: 10, p0: [86.2, 1.9, 240.5], p1: [85.4, 1.75, 238.6], l0: [82, 0.9, 228.5], l1: [82, 0.8, 227.5], f0: 52, f1: 44 },
+        { d: 10.4, p0: [80.2, 1.4, 224.0], p1: [80.6, 1.45, 224.9], l0: [kx, 1.6, kz], l1: [kx, 1.65, kz], f0: 46, f1: 38 },
+        { d: 4.6, p0: [85.8, 1.8, 239.4], p1: [85.2, 1.7, 238.2], l0: [72, -0.5, 227.5], l1: [71, -0.8, 227.5], f0: 50, f1: 44, present: true }
+      ],
+      subs: [[0.6, '', 'Bến Dưới, tháng Năm năm Giáp Tuất — 1874.', 3.6], [4.8, 'Lý trưởng Khải', 'Buộc đá vào chân. Sông sâu, nước chảy, trôi đi đâu thì đi.', 4.6],
+        [10, 'Phó Bảy', 'Bẩm quan... nước sông này cả làng gánh về uống.', 4], [14.6, 'Lý trưởng Khải', 'Thì bảo chúng nó uống nước giếng. Đứa nào hé răng, ta cho xuống theo.', 4.8],
+        [20.6, 'Minh', 'Dịch không đến từ cái giếng. Nó đến từ chính cái bến này.', 4.2]],
+      ev: [[0, function () { light(82, 2.6, 229, 2.4, 11); A.bell(null, 98); }], [20.4, function () { hideActors(); CS.white = 0.35; }]],
+      tick: function () {
+        if (CS.t >= 20.4) return;
+        Ch.put('khai', kx, dy, kz, Math.PI, 'point', [81.9, 0.6, 226.6]);
+        Ch.put('bay', 81.2, dy, 227.6, face(81.2, 227.6, 81.9, 226.4), 'idle', [kx, 1.6, kz]);
+        Ch.put('tran', 82.7, dy, 227.3, face(82.7, 227.3, 81.9, 226.4), 'idle', [81.9, 0.5, 226.4]);
+        act(0, 81.9, dy + 0.15, 226.4, 0.3, 0.55, 1, true); CS.actors[0].rot[0] = 1.5;
+      },
+      tension: 0.5
+    };
+  };
+  /* ---------- đò ngang: tấm ảnh hai người đàn bà ---------- */
+  D.ferry = function () {
+    var F = H.Wild.props.ferry, fy = F.a[1] + 0.18, dz = F.b[2] - F.a[2], dx = F.b[0] - F.a[0], dl = Math.hypot(dx, dz), fx = dx / dl, fz = dz / dl;
+    function rp() { return [F.node.pos[0], F.node.pos[2]]; }
+    return {
+      shots: [
+        { d: 6, p0: [84.6, 1.3, 228.2], p1: [84.0, 1.2, 227.0], l0: [81.6, -0.6, 221.8], l1: [81.3, -0.6, 220.6], f0: 50, f1: 44 },
+        { d: 7, rel: 'back', f0: 52, f1: 46 },
+        { d: 5.4, rel: 'front', f0: 46, f1: 40 },
+        { d: 5.4, p0: [78.4, 1.5, 207.2], p1: [78.9, 1.4, 208.2], l0: [80.8, -0.6, 216], l1: [80.6, -0.7, 215], f0: 50, f1: 44 }
+      ],
+      subs: [[0.6, '', 'Sợi cáp rên lên từng hồi. Con đò trôi vào màn sương.', 4], [7.6, 'Minh', 'Có ai... đứng trên mặt nước.', 3], [13.5, 'Minh', 'Áo trắng phía trước... vậy cái thứ đang thở sau gáy mình là—', 4],
+        [19, '', 'Tấm ảnh hiện dần trong đầu Minh: hai người đàn bà. Một đứng chắn trước mũi đò. Một đứng sát sau lưng anh.', 5]],
+      ev: [[0.3, function () { H.Wild.ferryBusy = true; A.creak([82, 1, 225], 0.6, 2); }], [11.6, function () { A.click(0.9); CS.white = 0.85; var p = rp(); AI.puppet(p[0] - fx * 1.1, p[1] - fz * 1.1, 'stalk', [p[0], p[1]], 0.95); }],
+        [17.6, function () { W.strike(true); CS.white = 0.6; AI.puppetEnd(20); Ch.hide('leHon'); }]],
+      tick: function (t, dt) {
+        H.Wild.setFerry(M.clamp((t - 1) / 17, 0, 1) * M.clamp((t - 1) / 17, 0, 1) * (3 - 2 * M.clamp((t - 1) / 17, 0, 1)));
+        var p = rp(); F.node.pos[1] = F.a[1] + Math.sin(t * 1.3) * 0.04;
+        if (t < 18.4) Ch.put('minh', p[0], fy, p[1], Math.atan2(fx, fz), t > 10.6 && t < 13 ? 'point' : 'idle', t > 6.5 ? [p[0] + fx * 6, fy + 1.4, p[1] + fz * 6] : null); else Ch.hide('minh');
+        if (t > 7 && t < 17.6) Ch.put('leHon', p[0] + fx * 5.5, F.a[1] - 0.05, p[1] + fz * 5.5, Math.atan2(-fx, -fz), 'idle', [p[0], fy + 1.5, p[1]]);
+        if (t > 11.6 && t < 17.6) { AI.pos[0] = p[0] - fx * 1.0; AI.pos[2] = p[1] - fz * 1.0; AI.pos[1] = fy - 0.1; }
+      },
+      cam: function (sh, u) {
+        var p = rp();
+        if (sh.rel === 'back') return { p: [p[0] - fx * 2.4 + fz * 0.7, fy + 1.75, p[1] - fz * 2.4 - fx * 0.7], l: [p[0] + fx * 7, fy + 0.9, p[1] + fz * 7] };
+        if (sh.rel === 'front') return { p: [p[0] + fx * 2.3, fy + 1.55, p[1] + fz * 2.3], l: [p[0] - fx * 0.6, fy + 1.45, p[1] - fz * 0.6] };
+        return null;
+      },
+      end: function () { H.Wild.ferryBusy = false; H.Wild.setFerry(1); },
+      tension: 0.75, card: ['CHƯƠNG III', 'Lối Mòn Rừng Tre']
     };
   };
   D.gate = function () {
@@ -80,7 +191,7 @@
         [13.2, function () { A.glitch(null); A.sting(); CS.white = 0.5; AI.puppetEnd(8); }]
       ],
       tick: function (t) { if (t < 8.8) put('minh', 0.5, 52.4, Math.PI, t > 5.4 ? 'recoil' : 'idle', [0, 1.7, 27]); else Ch.hide('minh'); },
-      tension: 0.6, card: ['CHƯƠNG II', 'Làng Âm Linh']
+      tension: 0.6, card: ['CHƯƠNG IV', 'Làng Âm Linh']
     };
   };
   D.tuan = function () {
@@ -154,7 +265,7 @@
         [24.8, 'Minh', 'Người làm chứng điểm chỉ: Phó Văn Bảy... Trần Sửu.', 4], [29.4, 'Minh', 'Họ Đoàn. Họ Phó. Họ Trần. ...Linh. Mình. Tuấn.', 5]],
       ev: [[0, function () { light(ch[0], fy + 2.2, ch[1] , 2.4, 8); }], [18.4, function () { hideActors(); CS.white = 0.4; A.sting(); }]],
       tick: function (t) { if (t < 18.4) Ch.put('khai', ch[0], fy + 0.06, ch[1], b.F.a + Math.PI, 'write'); else { var mp = b.F.pt(1.2, -3.5); Ch.put('minh', mp[0], fy + 0.06, mp[1], face(mp[0], mp[1], b.safe.pos[0], b.safe.pos[2]), 'crouch', b.safe.pos); } },
-      tension: 0.6, card: ['CHƯƠNG IV', 'Nghĩa Địa Hoang']
+      tension: 0.6, card: ['CHƯƠNG VI', 'Nghĩa Địa Hoang']
     };
   };
   D.ha = function () {
@@ -191,7 +302,7 @@
       tick: function (t) { var mx = x - 1.5, mz = z + 1.25; light(x - 0.6, y + 2.2, z + 0.6, 1.3, 6);
         if (t > 0.5 && t < 30) Ch.put('bayHon', x, y, z, face(x, z, mx, mz), 'idle', [mx, y + 1.6, mz]); else Ch.hide('bayHon');
         put('minh', mx, mz, face(mx, mz, x, z), 'idle', [x, y + 1.55, z]); },
-      tension: 0.45, card: ['CHƯƠNG V', 'Đình Làng Cổ']
+      tension: 0.45, card: ['CHƯƠNG VII', 'Đình Làng Cổ']
     };
   };
   D.temple = function () {
@@ -243,7 +354,7 @@
     if (s.done) s.done();
   }
   CS.card = function (a, b) {
-    var c = $('chapter'); $('chapNum').textContent = a; $('chapName').textContent = b; c.className = ''; void c.offsetWidth; c.className = 'show';
+    var c = $('chapter'); $('chapNum').textContent = H.tr(a); $('chapName').textContent = H.tr(b); c.className = ''; void c.offsetWidth; c.className = 'show';
     if (A.ready) A.bell(null, 131);
   };
   CS.update = function (dt, time) {
@@ -256,8 +367,12 @@
     if (CS.subT > 0) { CS.subT -= dt; if (CS.subT <= 0) $('cineSub').className = ''; }
     if (s.tick) s.tick(t, dt);
     // máy quay: nội suy vị trí + điểm nhìn, rung tay nhẹ
-    var e = ease(u), c = R.cam, px = M.lerp(sh.p0[0], sh.p1[0], e), py = M.lerp(sh.p0[1], sh.p1[1], e), pz = M.lerp(sh.p0[2], sh.p1[2], e);
-    var lx = M.lerp(sh.l0[0], sh.l1[0], e) - px, ly = M.lerp(sh.l0[1], sh.l1[1], e) - py, lz = M.lerp(sh.l0[2], sh.l1[2], e) - pz;
+    var e = ease(u), c = R.cam, rc = s.cam ? s.cam(sh, u) : null, px, py, pz, lx, ly, lz;
+    if (rc) { px = rc.p[0]; py = rc.p[1]; pz = rc.p[2]; lx = rc.l[0] - px; ly = rc.l[1] - py; lz = rc.l[2] - pz; }
+    else {
+      px = M.lerp(sh.p0[0], sh.p1[0], e); py = M.lerp(sh.p0[1], sh.p1[1], e); pz = M.lerp(sh.p0[2], sh.p1[2], e);
+      lx = M.lerp(sh.l0[0], sh.l1[0], e) - px; ly = M.lerp(sh.l0[1], sh.l1[1], e) - py; lz = M.lerp(sh.l0[2], sh.l1[2], e) - pz;
+    }
     c.pos[0] = px; c.pos[1] = py; c.pos[2] = pz;
     c.yaw = Math.atan2(-lx, -lz) + Math.sin(time * 0.9) * 0.004 + Math.sin(time * 2.3) * 0.002;
     c.pitch = Math.atan2(ly, Math.hypot(lx, lz)) + Math.cos(time * 1.1) * 0.003; c.roll = Math.sin(time * 0.6) * 0.004;
@@ -276,6 +391,8 @@
     var b = W.props.temple, r = b.ritual, c = R.cam, fy = b.floorY, px, py, pz, lx, ly, lz;
     if (type === 'bad') {
       px = 2.2 - t * 0.2; py = fy + 1.9; pz = r.pos[2] + 1.5 + t * 0.5; lx = 0; ly = fy + 1.8; lz = b.door.pos[2]; c.fov = 60 - Math.min(18, t * 6);
+    } else if (type === 'flee') { // nhìn lại cửa Đình từ ngoài sân, lùi dần ra xa
+      px = 1.4 + Math.sin(t * 0.2) * 0.3; py = fy + 1.65; pz = b.door.pos[2] + 3 + t * 0.9; lx = 0; ly = fy + 1.6; lz = b.door.pos[2]; c.fov = 52 + Math.min(14, t * 2);
     } else {
       var a = 0.5 + t * 0.085, rad = 4.6 - Math.min(1.4, t * 0.1);
       px = r.pos[0] + Math.sin(a) * rad; pz = r.pos[2] + Math.cos(a) * rad * 0.8; py = fy + 1.7 + Math.min(1.6, t * 0.12);
@@ -294,7 +411,6 @@
     var T = W.terrainH, props = W.props, f = Pz.flags, p, c = CFG.POS.cameraItem;
     var hB = props.houseB, hC = props.houseC, mn = props.manor, tp = props.temple, well = props.well;
     // 6 trang nhật ký mới đặt trong thế giới (2 trang còn lại nhận qua cắt cảnh)
-    api.diary(11, c[0] + 0.42, T(c[0], c[1]) + 0.64, c[1] + 0.22);
     p = hB.F.pt(-1.0, 1.7); api.diary(8, p[0], hB.floorY + 0.1, p[1]);
     p = mn.F.pt(6.2, -1.0); api.diary(9, p[0], mn.floorY + 0.1, p[1]);
     api.diary(10, -46.2, T(-46.2, -62.5) + 0.06, -62.5);

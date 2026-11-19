@@ -76,9 +76,12 @@
     P.vel[0] += (tx - P.vel[0]) * acc; P.vel[1] += (tz - P.vel[1]) * acc;
     var sp = Math.hypot(P.vel[0], P.vel[1]); P.moving = sp > 0.4;
     if (!P.hidden) {
+      var ox = P.pos[0], oz = P.pos[2];
       P.pos[0] += P.vel[0] * dt; P.pos[2] += P.vel[1] * dt;
       W.collide(P.pos, C.radius);
-      P.pos[0] = M.clamp(P.pos[0], -98, 98); P.pos[2] = M.clamp(P.pos[2], -98, 98);
+      if (!W.walkable(P.pos[0], P.pos[2])) { // trượt dọc mép hành lang thay vì dừng cứng
+        if (W.walkable(P.pos[0], oz)) P.pos[2] = oz; else if (W.walkable(ox, P.pos[2])) P.pos[0] = ox; else { P.pos[0] = ox; P.pos[2] = oz; }
+      }
     }
     if (P.sprinting && P.moving) { P.stamina = Math.max(0, P.stamina - C.staminaDrain * dt); if (P.stamina <= 0) { P.exhausted = true; A.breath(false); } }
     else { P.stamina = Math.min(C.staminaMax, P.stamina + C.staminaRegen * dt * (P.moving ? 0.7 : 1.3)); if (P.exhausted && P.stamina > 28) P.exhausted = false; }
