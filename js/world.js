@@ -21,18 +21,29 @@
     h += M.smooth(34, 150, d) * (16 + (A.fbm(x * 0.0075 + 5, z * 0.0075, 3) * 0.5 + 0.5) * 42) + WD.lift(x, z);
     return WD.carve(x, z, h);
   };
+  /* độ cao đúng như mặt lưới địa hình đã dựng (nội suy tam giác), để cây/đá/vật phẩm nằm sát mặt đất */
+  W.tN = {};
+  W.groundAt = function (x, z) {
+    var CH = 25, cx = Math.floor(x / CH), cz = Math.floor(z / CH), N = W.tN[cx + '|' + cz];
+    if (!N) return W.terrainH(x, z);
+    var st = CH / N, fx = (x - cx * CH) / st, fz = (z - cz * CH) / st, i = Math.min(N - 1, Math.floor(fx)), j = Math.min(N - 1, Math.floor(fz)), u = fx - i, v = fz - j;
+    var x0 = cx * CH + i * st, z0 = cz * CH + j * st, T = W.terrainH, h00 = T(x0, z0), h11 = T(x0 + st, z0 + st);
+    // tam giác (a,c,dd) khi v>=u, (a,dd,bb) khi u>v — trùng thứ tự chỉ số khi dựng lưới
+    if (v >= u) { var h01 = T(x0, z0 + st); return h00 + (h01 - h00) * v + (h11 - h01) * u; }
+    var h10 = T(x0 + st, z0); return h00 + (h10 - h00) * u + (h11 - h10) * v;
+  };
   W.heightAt = function (x, z) {
     for (var k = 0; k < W.floors.length; k++) { var f = W.floors[k]; if (x > f[0] && x < f[2] && z > f[1] && z < f[3]) { W.groundMat = f[5]; return f[4]; } }
     W.groundMat = 'mud';
     for (k = 0; k < W.paving.length; k++) { var p = W.paving[k]; if (x > p[0] && x < p[2] && z > p[1] && z < p[3]) { W.groundMat = 'stone'; break; } }
-    return W.terrainH(x, z);
+    return W.groundAt(x, z);
   };
   W.underRoof = function (x, z) { for (var k = 0; k < R.roofs.length; k++) { var r = R.roofs[k]; if (x > r[0] && x < r[2] && z > r[1] && z < r[3]) return true; } return false; };
 
   /* ---------- ngữ cảnh dựng hình cho Models ---------- */
   var ctx = W.ctx = {
     doors: W.doors, lanterns: W.lanterns,
-    h: W.terrainH,
+    h: function (x, z) { return W.groundAt(x, z); },
     add: function (mat, geo) {
       if (!geo.i.length) return;
       var c = geo.centroid(), key = mat + '|' + Math.floor((c[0] + 200) / 40) + '|' + Math.floor((c[2] + 200) / 40);
@@ -99,6 +110,7 @@
       var dOld = Math.max(0, Math.max(Math.abs(mx) - 66, mz - 52, -82 - mz)), dc = Math.min(dOld, WD.corr(mx, mz), Math.max(0, WD.riverD(mx, mz) - 30));
       if (dc > 150) continue;
       var N = dc > 55 ? 6 : (dc > 26 ? 10 : 16), st = CH / N, G = N + 3, hg = new Float32Array(G * G);
+      W.tN[cx + '|' + cz] = N;
       for (j = 0; j < G; j++) for (i = 0; i < G; i++) hg[j * G + i] = W.terrainH(cx * CH + (i - 1) * st, cz * CH + (j - 1) * st);
       var g = new Geo();
       for (j = 0; j <= N; j++) for (i = 0; i <= N; i++) {
@@ -107,7 +119,7 @@
         var v = g.v(x, y, z, nx / l, 2 * st / l, nz / l, x, z);
         var pth = dc > 55 ? 0 : pathness(x, z), gr = M.smooth(0.2, 0.7, A.fbm(x * 0.06 + 9, z * 0.06, 3) * 0.5 + 0.5 + (y > 1 ? 0.3 : 0)) * (1 - pth);
         var wet = M.smooth(-0.2, -1.4, y), rock = M.smooth(0.55, 0.8, 1 - 2 * st / l) * (1 - wet);
-        var r = M.lerp(0.95, 0.62, gr) + pth * 0.5, gg = M.lerp(0.95, 0.95, gr) + pth * 0.42, b = M.lerp(0.95, 0.55, gr) + pth * 0.3;
+        var r = M.lerp(0.95, 0.62, gr) + pth * 0.95, gg = M.lerp(0.95, 0.95, gr) + pth * 0.76, b = M.lerp(0.95, 0.55, gr) + pth * 0.52;
         r = M.lerp(r, 0.7, rock); gg = M.lerp(gg, 0.72, rock); b = M.lerp(b, 0.74, rock);
         g.c[v * 4] = r * (1 - wet * 0.45); g.c[v * 4 + 1] = gg * (1 - wet * 0.42); g.c[v * 4 + 2] = b * (1 - wet * 0.38);
       }
@@ -120,7 +132,7 @@
     for (var i = 0; i < nx; i++) for (var j = 0; j < nz; j++) {
       if (rnd() < 0.08) continue;
       var x = M.lerp(x0, x1, (i + 0.5) / nx), z = M.lerp(z0, z1, (j + 0.5) / nz), g = 0.6 + rnd() * 0.3;
-      ctx.add('stone', Geo.box((x1 - x0) / nx - 0.08, 0.5, (z1 - z0) / nz - 0.08).xf(x, W.terrainH(x, z) - 0.19 + rnd() * 0.03, z, (rnd() - 0.5) * 0.03, 0, (rnd() - 0.5) * 0.03).boxUV(0.5).color(g, g, g, 0));
+      ctx.add('stone', Geo.box((x1 - x0) / nx - 0.08, 0.5, (z1 - z0) / nz - 0.08).xf(x, W.groundAt(x, z) - 0.19 + rnd() * 0.03, z, (rnd() - 0.5) * 0.03, 0, (rnd() - 0.5) * 0.03).boxUV(0.5).color(g, g, g, 0));
     }
     W.paving.push([x0, z0, x1, z1]);
   }
@@ -141,7 +153,7 @@
     // đá dọc lối mòn
     for (k = 0; k < 26; k++) { var side = rnd() < 0.5 ? -1 : 1; Md.rock(ctx, side * (5.5 + rnd() * 2.8), 53 + rnd() * 43, 0.3 + rnd() * 0.9, k * 3.1); }
     Md.lanternPost(ctx, -6.5, 86, 0); Md.lanternPost(ctx, 6.5, 70, Math.PI);
-    rune(['NĂM NAY', '1994'], 7.5, W.terrainH(7.5, 50) + 1.7, 50.42, 0, 2.6, 1.3);
+    rune(['NĂM NAY', '1994'], 7.5, W.groundAt(7.5, 50) + 1.7, 50.42, 0, 2.6, 1.3);
   }
   function partition(b, lx, z0, z1) {
     var F = b.F, g = Geo.box(0.1, b.h - 0.2, z1 - z0).xf(lx, b.P + (b.h - 0.2) / 2, (z0 + z1) / 2).boxUV(0.5);
@@ -150,7 +162,7 @@
   function buildHouses() {
     var a = P.houseA, b, p, fy, k;
     // --- Nhà cổ (nhà thầy lang): tay quay
-    b = W.props.houseA = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.terrainH(a.x, a.z) + 0.15, door: true });
+    b = W.props.houseA = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.groundAt(a.x, a.z) + 0.15, door: true });
     fy = b.floorY + 0.06;
     p = b.F.pt(0, -a.d / 2 + 0.75); b.altar = Md.altarTable(ctx, p[0], fy, p[1], a.q);
     p = b.F.pt(-3.2, -1.6); Md.bed(ctx, p[0], fy, p[1], a.q + 1);
@@ -159,7 +171,7 @@
     p = b.F.pt(-5.6, 3.2); Md.jar(ctx, p[0], p[1], 1.2); p = b.F.pt(-6.4, 2.4); Md.jar(ctx, p[0], p[1], 0.9);
     // --- Nhà Lý trưởng
     a = P.manor;
-    b = W.props.manor = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.terrainH(a.x, a.z) + 0.2, door: true, porch: true, h: 3.7, roofH: 4.6, lift: 1.2, finial: true, pr: 0.2 });
+    b = W.props.manor = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.groundAt(a.x, a.z) + 0.2, door: true, porch: true, h: 3.7, roofH: 4.6, lift: 1.2, finial: true, pr: 0.2 });
     fy = b.floorY + 0.06;
     partition(b, -3.2, -a.d / 2, -0.95); partition(b, -3.2, 0.95, a.d / 2); partition(b, 3.2, -a.d / 2, -0.95); partition(b, 3.2, 0.95, a.d / 2);
     p = b.F.pt(-0.6, -a.d / 2 + 0.75); b.altar = Md.altarTable(ctx, p[0], fy, p[1], a.q, true);
@@ -174,7 +186,7 @@
     p = b.F.pt(-9.4, 6.4); Md.jar(ctx, p[0], p[1], 1.3); p = b.F.pt(9.2, 6.6); Md.jar(ctx, p[0], p[1], 1.1);
     // --- Nhà hoang (phòng của Lệ)
     a = P.houseB;
-    b = W.props.houseB = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.terrainH(a.x, a.z) + 0.15, door: true });
+    b = W.props.houseB = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.groundAt(a.x, a.z) + 0.15, door: true });
     fy = b.floorY + 0.06;
     p = b.F.pt(-2.7, -1.9); Md.bed(ctx, p[0], fy, p[1], a.q); b.bed = [p[0], fy + 0.6, p[1]];
     p = b.F.pt(3.5, -1.2); b.wardrobe = Md.wardrobe(ctx, p[0], fy, p[1], (a.q + 3) % 4);
@@ -182,7 +194,7 @@
     p = b.F.pt(-3.86, 0.5); rune(['TA CÓ TÊN'], p[0], fy + 1.8, p[1], b.F.a + Math.PI / 2, 2.2, 0.7);
     // --- Nhà phía đông bắc
     a = P.houseC;
-    b = W.props.houseC = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.terrainH(a.x, a.z) + 0.15, door: true });
+    b = W.props.houseC = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.groundAt(a.x, a.z) + 0.15, door: true });
     fy = b.floorY + 0.06;
     p = b.F.pt(0, -a.d / 2 + 0.75); b.altar = Md.altarTable(ctx, p[0], fy, p[1], a.q);
     p = b.F.pt(3.5, 1.2); b.wardrobe = Md.wardrobe(ctx, p[0], fy, p[1], (a.q + 3) % 4);
@@ -192,10 +204,10 @@
     var k, rnd = H.rng(11);
     W.props.well = Md.well(ctx, P.well[0], P.well[1]);
     pave(P.well[0] - 4, P.well[1] - 4, P.well[0] + 4, P.well[1] + 4);
-    rune(['ĐỪNG QUAY'], P.well[0], W.terrainH(P.well[0], P.well[1]) + 0.5, P.well[1] + 1.54, 0, 1.5, 0.5, { size: 60, bold: true, drip: true });
+    rune(['ĐỪNG QUAY'], P.well[0], W.groundAt(P.well[0], P.well[1]) + 0.5, P.well[1] + 1.54, 0, 1.5, 0.5, { size: 60, bold: true, drip: true });
     Md.tree(ctx, P.banyan[0], P.banyan[1], { seed: 1874, scale: 1.55, levels: 3, banyan: true, leaves: true, leafN: 56, trunk: 5.2, rad: 0.95 });
     // miếu nhỏ dưới gốc đa
-    var sx = P.banyan[0] + 2.6, sz = P.banyan[1] + 1.2, sy = W.terrainH(sx, sz);
+    var sx = P.banyan[0] + 2.6, sz = P.banyan[1] + 1.2, sy = W.groundAt(sx, sz);
     ctx.add('stone', Geo.lathe([[0.5, -0.3], [0.5, 0.5], [0.42, 0.58], [0.3, 0.6], [0.3, 1.0], [0.4, 1.05], [0.0, 1.05]], 4, 0.6).xf(sx, sy, sz, 0, 0.78, 0));
     ctx.add('roof', Md.roofGeo(1.5, 1.2, 0.45, 0.3).xf(sx, sy + 1.05, sz));
     ctx.circle(sx, sz, 0.55, { low: true });
@@ -218,14 +230,14 @@
       var len = Math.hypot(x1 - x0, z1 - z0), m = Math.max(1, Math.round(len / 6)), ax = Math.abs(x1 - x0) > 0.1;
       for (var q = 0; q < m; q++) {
         var cx = M.lerp(x0, x1, (q + 0.5) / m), cz = M.lerp(z0, z1, (q + 0.5) / m);
-        ctx.add('stone', Geo.box(ax ? len / m : 0.5, 1.9, ax ? 0.5 : len / m).xf(cx, W.terrainH(cx, cz) + 0.15, cz, 0, 0, (rnd() - 0.5) * 0.04).boxUV(0.5).color(0.7, 0.72, 0.68, 0));
+        ctx.add('stone', Geo.box(ax ? len / m : 0.5, 1.9, ax ? 0.5 : len / m).xf(cx, W.groundAt(cx, cz) + 0.15, cz, 0, 0, (rnd() - 0.5) * 0.04).boxUV(0.5).color(0.7, 0.72, 0.68, 0));
       }
       ctx.box(Math.min(x0, x1) - 0.3, Math.min(z0, z1) - 0.3, Math.max(x0, x1) + 0.3, Math.max(z0, z1) + 0.3, { low: true });
     }
     fence(g.x0, g.z0, g.x1, g.z0); fence(g.x0, g.z1, g.x1, g.z1); fence(g.x0, g.z0, g.x0, g.z1);
     fence(g.x1, g.z0, g.x1, P.graveGate[1] - 1.6); fence(g.x1, P.graveGate[1] + 1.6, g.x1, g.z1);
     // cổng nghĩa địa
-    var gx = P.graveGate[0], gz = P.graveGate[1], gy = W.terrainH(gx, gz), pr = [[0.42, -0.4], [0.42, 0.2], [0.3, 0.3], [0.28, 2.6], [0.4, 2.7], [0.4, 2.9], [0.0, 3.1]];
+    var gx = P.graveGate[0], gz = P.graveGate[1], gy = W.groundAt(gx, gz), pr = [[0.42, -0.4], [0.42, 0.2], [0.3, 0.3], [0.28, 2.6], [0.4, 2.7], [0.4, 2.9], [0.0, 3.1]];
     ctx.add('stone', Geo.lathe(pr, 6, 0.6).xf(gx, gy, gz - 1.7)); ctx.add('stone', Geo.lathe(pr, 6, 0.6).xf(gx, gy, gz + 1.7));
     ctx.add('wood', Geo.box(0.22, 0.24, 4.2).xf(gx, gy + 2.75, gz).boxUV(0.5));
     ctx.circle(gx, gz - 1.7, 0.45); ctx.circle(gx, gz + 1.7, 0.45);
@@ -239,7 +251,7 @@
     }
     // ba ngôi mộ chôn lễ vật
     for (k = 0; k < of.length; k++) {
-      var ox = of[k][0], oz = of[k][1], oy = W.terrainH(ox, oz);
+      var ox = of[k][0], oz = of[k][1], oy = W.groundAt(ox, oz);
       Md.stele(ctx, ox, oz - 0.9, 0, 0.8, 1.5);
       ctx.add('stone', Geo.lathe([[0.0, 0], [0.34, 0], [0.4, 0.12], [0.36, 0.3], [0.24, 0.36], [0.26, 0.4], [0.0, 0.4]], 10, 1).xf(ox, oy - 0.05, oz));
     }
@@ -248,7 +260,7 @@
   }
   function buildTemple() {
     var a = P.temple, b, p, fy, k;
-    b = W.props.temple = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.terrainH(a.x, a.z) + 0.3, door: true, porch: true, innerCols: true, h: 4.5, roofH: 6.0, lift: 1.7, overhang: 2.0, finial: true, doorW: 2.3, pr: 0.24 });
+    b = W.props.temple = Md.building(ctx, { x: a.x, z: a.z, w: a.w, d: a.d, q: a.q, y: W.groundAt(a.x, a.z) + 0.3, door: true, porch: true, innerCols: true, h: 4.5, roofH: 6.0, lift: 1.7, overhang: 2.0, finial: true, doorW: 2.3, pr: 0.24 });
     fy = b.floorY + 0.06;
     b.ritual = Md.ritualAltar(ctx, a.x, fy, a.z - 1.0);
     p = b.F.pt(0, -a.d / 2 + 0.85); b.altar = Md.altarTable(ctx, p[0], fy, p[1], a.q, true);
@@ -264,7 +276,7 @@
     b.door.seals = seals;
     pave(-9, a.z + a.d / 2 + 2.6, 9, a.z + a.d / 2 + 13);
     // lư hương lớn giữa sân đình
-    var ux = 0, uz = a.z + a.d / 2 + 8, uy = W.terrainH(ux, uz);
+    var ux = 0, uz = a.z + a.d / 2 + 8, uy = W.groundAt(ux, uz);
     ctx.add('stone', Geo.lathe([[0.0, 0], [0.5, 0], [0.42, 0.25], [0.3, 0.35], [0.55, 0.75], [0.7, 1.0], [0.72, 1.12], [0.6, 1.12], [0.45, 0.85], [0.0, 0.8]], 14, 1).xf(ux, uy, uz).color(0.5, 0.5, 0.52, 0));
     ctx.circle(ux, uz, 0.75, { low: true });
     p = b.F.pt(-9.86, 0); rune(['GỌI ĐÚNG TÊN NÀNG'], p[0], fy + 2.2, p[1], Math.PI / 2, 3.6, 0.8, { size: 46, bold: true, drip: true });
@@ -273,7 +285,7 @@
     var rnd = H.rng(2024), groups = {}, k, w = P.wall, total = 2200, n = 0, guard = 0;
     function put(x, z) {
       var key = Math.floor((x + 200) / 32) + '|' + Math.floor((z + 200) / 32), g = groups[key] || (groups[key] = []);
-      g.push(x, W.terrainH(x, z) - 0.25, z, 0.65 + rnd() * 0.75, rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 2, 0.6 + rnd() * 0.7);
+      g.push(x, W.groundAt(x, z) - 0.25, z, 0.65 + rnd() * 0.75, rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 2, 0.6 + rnd() * 0.7);
     }
     while (n < total && guard++ < 60000) {
       var x, z;
@@ -308,7 +320,7 @@
         for (i = 0; i < W.circles.length && !bad; i++) { var ci = W.circles[i]; bad = Math.hypot(x - ci.x, z - ci.z) < ci.r + 0.15; }
         if (bad) continue;
         var key = Math.floor((x + 200) / 34) + '|' + Math.floor((z + 200) / 34), a = gs[key] || (gs[key] = []);
-        a.push(x, W.terrainH(x, z) - 0.03, z, sMin + rnd() * (sMax - sMin), rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 1.5, 0.7 + rnd() * 0.55); made++;
+        a.push(x, W.groundAt(x, z) - 0.03, z, sMin + rnd() * (sMax - sMin), rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 1.5, 0.7 + rnd() * 0.55); made++;
       }
       for (var key2 in gs) {
         var arr = gs[key2], cnt = arr.length / 8, cx = 0, cz = 0, cy = 0, rad = 0, j;

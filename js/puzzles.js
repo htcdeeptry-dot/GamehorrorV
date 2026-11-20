@@ -39,11 +39,11 @@
 
   Pz.init = function () {
     W = H.World; props = W.props; UI = H.UI; A = H.Audio; P = H.Player; AI = H.AI;
-    var T = W.terrainH, k, p, b, POS = CFG.POS, f = Pz.flags;
+    var T = W.groundAt, k, p, b, POS = CFG.POS, f = Pz.flags;
     Pz.list.length = 0;
     // ---------- KHU 1: Cổng làng & rừng tre
     diary(0, -12.6, T(-12.6, 404.2) + 0.06, 404.2);
-    item('camera', 'camera', POS.cameraItem[0], T(POS.cameraItem[0], POS.cameraItem[1]) + 0.66, POS.cameraItem[1], 'Máy Ảnh Tâm Linh', function () { give('camera'); say(L.gotCamera, 6); setObj('w2'); setTimeout(function () { say(L.followTracks, 5); }, 6500); Pz.checkpoint(); }, 1.5);
+    item('camera', 'camera', POS.cameraItem[0], T(POS.cameraItem[0], POS.cameraItem[1]) + 0.085, POS.cameraItem[1], 'Máy Ảnh Tâm Linh', function () { give('camera'); say(L.gotCamera, 6); UI.hint('camera', 0.5); UI.hint('run', 14); setObj('w2'); setTimeout(function () { say(L.followTracks, 5); }, 6500); Pz.checkpoint(); }, 1.5);
     add({ pos: [POS.monument[0] - 0.3, T(POS.monument[0], POS.monument[1]) + 1.3, POS.monument[1]], r: 3, wide: true, label: 'Xem bia đá', use: function () { UI.note('Bia Trấn Yểm', 'Dựng trước cổng làng Âm Linh', CFG.MONUMENT_TEXT); f.sawMonument = 1; } });
     var gate = props.gate;
     add({ pos: gate.pos, r: 2.8, wide: true, enabled: function () { return !f.gateOpen; }, label: 'Mở khoá số trên xích', use: function () {
@@ -73,7 +73,7 @@
         }
         if (!f.bucketUp) { Pz.cranking = 4.6; A.ratchet([well.x + 1.9, well.y + 1.6, well.z], 20); A.weep([well.x, well.y - 3, well.z], 5, 0.8); return; }
         give('mirror'); give('key'); f.gotMirror = 1; setObj('o5'); A.sting();
-        var dx = well.x - P.pos[0], dz = well.z - P.pos[2], dl = Math.hypot(dx, dz) || 1; Pz.ambushT = 1e9; H.Main.cutscene('well', function () { Pz.ambushT = 0.6; say(L.ambush, 8); }); Pz.ambushPos = [well.x + dx / dl * 2.6, well.z + dz / dl * 2.6];
+        var dx = well.x - P.pos[0], dz = well.z - P.pos[2], dl = Math.hypot(dx, dz) || 1; Pz.ambushT = 1e9; H.Main.cutscene('well', function () { Pz.ambushT = 0.6; say(L.ambush, 8); UI.hint('ambush', 0, true); }); Pz.ambushPos = [well.x + dx / dl * 2.6, well.z + dz / dl * 2.6];
         AI.enabled = true; AI.cooldown = 99;
       } });
     diary(4, -27.4, T(-27.4, 24.8) + 0.1, 24.8);
@@ -246,7 +246,7 @@
       var nd = 1e9, no = null; for (k = 0; k < Pz.offer.length; k++) { var of = Pz.offer[k]; if (of.gone || (of.hint && !of.hint())) continue; var dd = Math.hypot(of.pos[0] - P.pos[0], of.pos[2] - P.pos[2]); if (dd < nd) { nd = dd; no = of; } }
       if (no) { mi.ang = M.angDiff(P.yaw, Math.atan2(-(no.pos[0] - P.pos[0]), -(no.pos[2] - P.pos[2]))); mi.str = M.clamp(1.15 - nd / 70, 0.15, 1); mi.dist = nd; }
     }
-    if (W.inGrave && Pz.has('mirror') && !f.graveMsg) { f.graveMsg = 1; say(L.graveyard, 7); }
+    if (W.inGrave && Pz.has('mirror') && !f.graveMsg) { f.graveMsg = 1; say(L.graveyard, 7); UI.hint('mirror', 0.5); }
     if (Pz.ritualT >= 0) ritual(dt, time);
     if (H.Chapters) H.Chapters.update(dt, time);
   };

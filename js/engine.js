@@ -801,7 +801,8 @@
     x.clearRect(0, 0, c.width, c.height);
     if (o.bg) { x.fillStyle = o.bg; x.fillRect(0, 0, c.width, c.height); }
     x.textAlign = 'center'; x.textBaseline = 'middle';
-    var fs = o.size || 64; x.font = (o.bold ? 'bold ' : '') + fs + 'px "Times New Roman", "Noto Serif", serif';
+    var fs = o.size || 64, fam = 'px "Times New Roman", "Noto Serif", serif'; x.font = (o.bold ? 'bold ' : '') + fs + fam;
+    for (var it = 0; it < 12; it++) { var mw = 0; for (var q = 0; q < lines.length; q++) mw = Math.max(mw, x.measureText(lines[q]).width); if (mw <= c.width * 0.92) break; fs *= 0.9; x.font = (o.bold ? 'bold ' : '') + fs + fam; } // co chữ cho vừa (bản dịch dài hơn)
     var lh = fs * 1.2, y0 = c.height / 2 - (lines.length - 1) * lh / 2, rnd = H.rng(o.seed || 5);
     for (var p = 0; p < 2; p++) {
       x.shadowColor = o.glow || 'rgba(255,20,10,0.9)'; x.shadowBlur = p === 0 ? fs * 0.4 : 0;

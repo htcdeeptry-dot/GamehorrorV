@@ -55,7 +55,7 @@
     if (z < 90) return 0;
     var A = H.Assets, n = A.noise(x * 0.4, z * 0.4) * 0.8, best = 0, k;
     for (k = 0; k < SEG.length; k++) {
-      var s = SEG[k], d = segD(x, z, s) + n, v = s[5] === 'road' ? 1 - M.smooth(2.4, 4.4, d) : 1 - M.smooth(0.9, 2.3, d);
+      var s = SEG[k], d = segD(x, z, s) + n, v = s[5] === 'road' ? 1 - M.smooth(2.6, 4.6, d) : 1 - M.smooth(1.25, 2.75, d);
       if (v > best) best = v;
     }
     for (k = 0; k < CLEAR.length; k++) { var c = CLEAR[k], dc = Math.hypot(x - c[0], z - c[1]) + n * 2; best = Math.max(best, 0.45 * (1 - M.smooth(c[2] * 0.3, c[2] * 0.85, dc))); }
@@ -72,29 +72,103 @@
   function wheel(r, w) { return Geo.lathe([[0.02, -w / 2], [r * 0.92, -w / 2], [r, -w * 0.3], [r, w * 0.3], [r * 0.92, w / 2], [0.02, w / 2]], 14, 1); }
 
   /* ===================== ĐÈO SẠT: xe U-oát lật, vạt núi sạt ===================== */
+  /* UAZ-469 (dài 4.0m, rộng 1.8m, cao 2.0m) dựng chi tiết theo hệ toạ độ xe: x ngang, y lên, z mũi xe */
+  function side(prof, w, x0) { return Geo.extrude(prof, w).xf(0, 0, 0, 0, -Math.PI / 2, 0).xf(x0 === undefined ? w / 2 : x0, 0, 0); }
+  function arch(pts, zc, yc, r, n) { for (var i = 0; i <= n; i++) { var a = Math.PI - i / n * Math.PI; pts.push([zc + Math.cos(a) * r, yc + Math.sin(a) * r]); } }
+  function uaz() {
+    var body = new Geo(), dark = new Geo(), canv = new Geo(), glass = new Geo(), chrome = new Geo(), rub = new Geo(), red = new Geo(), k, sgn;
+    var OL = [0.13, 0.155, 0.085];
+    // thân dưới: biên dạng hông có hốc bánh xe
+    var pr = [[-1.98, 0.46], [-1.71, 0.46]]; arch(pr, -1.19, 0.44, 0.52, 8); pr.push([0.67, 0.46]); arch(pr, 1.19, 0.44, 0.52, 8);
+    pr.push([1.74, 0.46], [1.99, 0.6], [2.02, 0.98], [1.93, 1.13], [0.62, 1.23], [-1.98, 1.19]);
+    body.add(side(pr, 1.76).colorFn(function (x, y, z) { // bùn bắn lên nửa dưới thân
+      var m = M.clamp((0.85 - y) / 0.4 + H.Assets.noise(x * 3 + z * 2.3, y * 4) * 0.6, 0, 1); return [M.lerp(OL[0], 0.12, m), M.lerp(OL[1], 0.095, m), M.lerp(OL[2], 0.06, m), 0]; }));
+    // ca-pô nhô, gân giữa, viền chắn bùn loe
+    body.add(Geo.box(1.5, 0.05, 1.28).xf(0, 1.2, 1.28, -0.07, 0, 0).boxUV(0.5).color(OL[0] * 1.08, OL[1] * 1.08, OL[2] * 1.08, 0));
+    body.add(Geo.box(0.06, 0.03, 1.2).xf(0, 1.24, 1.28, -0.07, 0, 0).color(OL[0] * 0.9, OL[1] * 0.9, OL[2] * 0.9, 0));
+    for (sgn = -1; sgn <= 1; sgn += 2) for (k = -1; k <= 1; k += 2) {
+      var fp = []; for (var i = 0; i <= 10; i++) { var aa = Math.PI - i / 10 * Math.PI; fp.push([sgn * 0.9, 0.44 + Math.sin(aa) * 0.55, k * 1.19 + Math.cos(aa) * 0.55]); }
+      body.add(Geo.tube(fp, 0.045, 5).color(OL[0] * 0.8, OL[1] * 0.8, OL[2] * 0.8, 0));
+    }
+    // khung kính chắn gió nghiêng + kính vỡ
+    var wsT = -0.16;
+    [[-0.85, 0], [0.85, 0], [0, 1]].forEach(function (f) {
+      if (f[1]) { body.add(Geo.box(1.72, 0.06, 0.06).xf(0, 1.86, 0.64, wsT, 0, 0).color(OL[0], OL[1], OL[2], 0)); body.add(Geo.box(1.72, 0.06, 0.06).xf(0, 1.25, 0.64).color(OL[0], OL[1], OL[2], 0)); }
+      else body.add(Geo.box(0.06, 0.64, 0.06).xf(f[0], 1.56, 0.6, wsT, 0, 0).color(OL[0], OL[1], OL[2], 0));
+    });
+    glass.add(Geo.box(0.78, 0.56, 0.012).xf(-0.41, 1.56, 0.6, wsT, 0, 0)); // nửa trái còn nguyên
+    glass.add(Geo.extrude([[0, 0], [0.78, 0], [0.78, 0.22], [0.5, 0.4], [0.3, 0.18], [0.12, 0.5], [0, 0.56]], 0.012).xf(0.02, 1.28, 0.6, wsT, 0, 0)); // nửa phải vỡ lởm chởm
+    // mui bạt có sườn
+    var cp = [[-1.98, 1.19], [0.56, 1.19], [0.52, 1.9], [0.38, 1.98], [-1.86, 1.98], [-1.98, 1.88]];
+    canv.add(side(cp, 1.74).color(0.15, 0.15, 0.095, 0).colorFn(function (x, y, z) { var n = H.Assets.noise(x * 1.7 + z * 0.9, y * 2.1 + z * 1.3); return [0.15 + n * 0.03, 0.15 + n * 0.03, 0.095 + n * 0.015, 0]; }));
+    for (k = 0; k < 4; k++) { var rz = 0.3 - k * 0.72; canv.add(Geo.box(1.76, 0.03, 0.05).xf(0, 1.99, rz).color(0.22, 0.22, 0.14, 0)); }
+    for (sgn = -1; sgn <= 1; sgn += 2) { // cửa sổ mica hông, đường cửa, tay nắm, gương
+      glass.add(Geo.box(0.012, 0.42, 0.72).xf(sgn * 0.875, 1.6, 0.05)); glass.add(Geo.box(0.012, 0.4, 0.8).xf(sgn * 0.875, 1.6, -1.05));
+      [0.58, -0.38, -1.25].forEach(function (z) { dark.add(Geo.box(0.012, 0.72, 0.015).xf(sgn * 0.886, 0.84, z)); });
+      dark.add(Geo.box(0.012, 0.015, 1.83).xf(sgn * 0.886, 0.5, -0.33));
+      chrome.add(Geo.box(0.03, 0.03, 0.14).xf(sgn * 0.9, 1.05, 0.38)); chrome.add(Geo.box(0.03, 0.03, 0.14).xf(sgn * 0.9, 1.05, -0.6));
+      chrome.add(Geo.tube([[sgn * 0.88, 1.24, 0.66], [sgn * 1.02, 1.36, 0.7]], 0.012, 4)); chrome.add(Geo.box(0.05, 0.16, 0.12).xf(sgn * 1.04, 1.42, 0.7));
+      // đèn pha tròn, xi-nhan
+      var hx = sgn * 0.6; chrome.add(Geo.lathe([[0.0, 0], [0.11, 0], [0.12, 0.05], [0.1, 0.07]], 14).xf(hx, 0.93, 2.0, Math.PI / 2, 0, 0));
+      glass.add(Geo.lathe([[0.0, 0.07], [0.098, 0.068]], 14).xf(hx, 0.93, 2.0, Math.PI / 2, 0, 0));
+      red.add(Geo.box(0.07, 0.12, 0.03).xf(sgn * 0.78, 0.82, -1.99));
+    }
+    // lưới tản nhiệt khe đứng, cản trước/sau, móc kéo
+    dark.add(Geo.box(0.86, 0.36, 0.03).xf(0, 0.88, 2.015));
+    for (k = 0; k < 8; k++) body.add(Geo.box(0.045, 0.34, 0.04).xf(-0.33 + k * 0.094, 0.88, 2.03).color(OL[0] * 1.1, OL[1] * 1.1, OL[2] * 1.1, 0));
+    dark.add(Geo.box(1.86, 0.15, 0.14).xf(0, 0.5, 2.1)); dark.add(Geo.box(1.86, 0.15, 0.14).xf(0, 0.5, -2.06));
+    for (sgn = -1; sgn <= 1; sgn += 2) { dark.add(Geo.tube([[sgn * 0.5, 0.5, 2.17], [sgn * 0.5, 0.42, 2.26], [sgn * 0.5, 0.52, 2.3]], 0.025, 5)); }
+    // gầm xe (lộ ra vì xe lật nghiêng): khung, cầu, các-đăng, nhíp, bình xăng, ống xả
+    for (sgn = -1; sgn <= 1; sgn += 2) { dark.add(Geo.box(0.08, 0.14, 3.7).xf(sgn * 0.42, 0.4, 0)); dark.add(Geo.box(0.07, 0.06, 1.0).xf(sgn * 0.62, 0.33, 1.19)); dark.add(Geo.box(0.07, 0.06, 1.0).xf(sgn * 0.62, 0.33, -1.19)); }
+    for (k = -1; k <= 1; k += 2) { dark.add(Geo.tube([[-0.7, 0.38, k * 1.19], [0.7, 0.38, k * 1.19]], 0.055, 8, true)); dark.add(Geo.sphere(0.15, 10, 8).xf(0.12, 0.38, k * 1.19)); }
+    dark.add(Geo.tube([[0.1, 0.38, -1.05], [0.06, 0.42, 0], [0.1, 0.38, 1.05]], 0.035, 6, true));
+    dark.add(Geo.box(0.6, 0.24, 0.5).xf(-0.25, 0.45, -0.6)); dark.add(Geo.tube([[0.3, 0.35, 0.8], [0.32, 0.33, -1.0], [0.36, 0.33, -2.05]], 0.03, 6, true));
+    // bánh xe: lốp có gai + vành thép + bánh dự phòng sau
+    function wheelAt(cx, cy, cz, rx, ry, rz) {
+      var t = Geo.lathe([[0.2, -0.125], [0.33, -0.125], [0.375, -0.1], [0.385, 0], [0.375, 0.1], [0.33, 0.125], [0.2, 0.125]], 20, 1);
+      t.displace(function (px, py, pz) { var a = Math.atan2(pz, px); return Math.hypot(px, pz) > 0.36 ? (Math.sin(a * 22) > 0.2 ? 0.012 : -0.006) : 0; });
+      rub.add(t.xf(0, 0, 0, Math.PI / 2, 0, 0).xf(0, 0, 0, 0, Math.PI / 2, 0).xf(cx, cy, cz, rx || 0, ry || 0, rz || 0));
+      var rim = Geo.lathe([[0.0, 0.11], [0.12, 0.11], [0.2, 0.09], [0.21, 0.0]], 14);
+      chrome.add(rim.xf(0, 0, 0, Math.PI / 2, 0, 0).xf(0, 0, 0, 0, Math.PI / 2, 0).xf(cx, cy, cz, rx || 0, ry || 0, rz || 0));
+    }
+    wheelAt(0.74, 0.38, 1.19); wheelAt(-0.74, 0.38, 1.19); wheelAt(0.74, 0.38, -1.19); wheelAt(-0.72, 0.36, -1.19, 0, 0.12, 0.06);
+    wheelAt(0, 1.0, -2.12, 0, Math.PI / 2, 0);
+    // can xăng hông xe
+    body.add(Geo.box(0.12, 0.45, 0.32).xf(-0.95, 1.0, -1.6).boxUV(0.4).color(0.17, 0.2, 0.11, 0));
+    return { body: body, dark: dark.color(0.035, 0.035, 0.035, 0), canv: canv, glass: glass.color(0.07, 0.09, 0.1, 0), chrome: chrome.color(0.45, 0.46, 0.44, 0), rub: rub.color(0.03, 0.03, 0.03, 0), red: red.color(0.45, 0.05, 0.03, 0) };
+  }
   function buildCrash() {
     metalMats();
-    var P = WD.props, jx = -14.5, jz = 409, jy = T(jx, jz), g = new Geo(), dk = new Geo(), cv = new Geo(), k;
-    // thân xe UAZ-469: sàn, ca-pô, thùng sau, chắn bùn, cản
-    g.add(box(1.78, 0.62, 3.95, 0, 0.78, 0)); g.add(box(1.7, 0.36, 1.25, 0, 1.24, 1.28)); g.add(box(1.72, 0.5, 1.2, 0, 1.3, -1.35));
-    g.add(box(0.36, 0.12, 1.0, 0.92, 1.0, 1.35)); g.add(box(0.36, 0.12, 1.0, -0.92, 1.0, 1.35)); g.add(box(0.36, 0.12, 1.0, 0.92, 1.0, -1.25)); g.add(box(0.36, 0.12, 1.0, -0.92, 1.0, -1.25));
-    g.add(box(1.7, 0.95, 0.06, 0, 1.75, 0.6).xf(0, 0, 0, -0.18, 0, 0)); // khung kính chắn gió
-    g.color(0.19, 0.22, 0.12, 0);
-    dk.add(box(1.92, 0.18, 0.16, 0, 0.62, 2.02)); dk.add(box(1.92, 0.18, 0.16, 0, 0.62, -2.02)); dk.add(box(1.1, 0.42, 0.05, 0, 1.18, 1.94));
-    [[0.88, 1.28], [-0.88, 1.28], [0.88, -1.25], [-0.88, -1.25]].forEach(function (w) { dk.add(wheel(0.42, 0.26).xf(w[0], 0.42, w[1], 0, 0, Math.PI / 2)); });
-    dk.add(wheel(0.4, 0.24).xf(0, 1.0, -2.12, Math.PI / 2, 0, 0));
-    dk.color(0.05, 0.05, 0.05, 0);
-    cv.add(box(1.74, 0.85, 2.15, 0, 2.0, -0.62)); cv.color(0.24, 0.25, 0.15, 0.08); // mui bạt
-    var roll = 1.32, ry = 0.55, sy = jy + 0.86;
-    [[g, 'metal'], [dk, 'metal'], [cv, 'canvas']].forEach(function (e) { e[0].xf(0, -0.86, 0, 0, 0, roll).xf(jx, sy, jz, 0, ry, 0); ctx.add(e[1], e[0]); });
-    ctx.circle(jx, jz, 1.6); ctx.circle(jx + Math.sin(ry) * 1.4, jz + Math.cos(ry) * 1.4, 1.3); ctx.circle(jx - Math.sin(ry) * 1.4, jz - Math.cos(ry) * 1.4, 1.3);
-    // đèn pha còn chập chờn
-    var hp = [jx + Math.sin(ry) * 2.05 - Math.cos(ry) * 0.2, sy + 0.25, jz + Math.cos(ry) * 2.05 + Math.sin(ry) * 0.2];
-    var hl = new Node(R.mesh(Geo.sphere(0.12, 10, 8)), { tex: 'plain', unlit: 1, tint: [1, 0.92, 0.7, 1], emis: [2.5, 2.2, 1.6] }); hl.set(hp[0], hp[1], hp[2]); ctx.node(hl);
-    P.headLight = ctx.light([hp[0] + Math.sin(ry) * 1.2, hp[1] + 0.2, hp[2] + Math.cos(ry) * 1.2], [1.0, 0.86, 0.6], 13, 1.7); P.headNode = hl;
+    R.defineStaticMat('rubber', { tex: 'plain', rough: 0.88 }); R.defineStaticMat('paint', { tex: 'metal', rough: 0.62 }); R.defineStaticMat('glass', { tex: 'metal', rough: 0.12 });
+    var P = WD.props, jx = -14.5, jz = 409, jy = T(jx, jz), k, SC = 1.12;
+    var J = uaz(), roll = -1.42, ry = 0.55, parts = [[J.body, 'paint'], [J.dark, 'metal'], [J.canv, 'canvas'], [J.glass, 'glass'], [J.chrome, 'metal'], [J.rub, 'rubber'], [J.red, 'metal']];
+    // lật nghiêng sang phải, mui bạt tì xuống đất; tính độ cao để thân chạm mặt đường
+    var minY = 1e9;
+    parts.forEach(function (e) { e[0].xf(0, 0, 0, 0, 0, roll, SC, SC, SC); for (var q = 1; q < e[0].p.length; q += 3) minY = Math.min(minY, e[0].p[q]); });
+    var sy = jy - minY - 0.06;
+    parts.forEach(function (e) { e[0].xf(jx, sy, jz, 0, ry, 0); ctx.add(e[1], e[0]); });
+    function wp(lx, ly, lz) { var g = new Geo(); g.v(lx, ly, lz, 0, 1, 0, 0, 0); g.xf(0, 0, 0, 0, 0, roll, SC, SC, SC).xf(jx, sy, jz, 0, ry, 0); return [g.p[0], g.p[1], g.p[2]]; }
+    for (k = -1; k <= 1; k++) { var cc = wp(-0.2, 1.0, k * 1.5); ctx.circle(cc[0], cc[2], 1.45); }
+    // đèn pha trái còn chập chờn (sau khi lật nằm phía trên)
+    var hp = wp(-0.6, 0.93, 2.09);
+    var hl = new Node(R.mesh(Geo.sphere(0.1, 10, 8)), { tex: 'plain', unlit: 1, tint: [1, 0.92, 0.7, 1], emis: [2.5, 2.2, 1.6] }); hl.set(hp[0], hp[1], hp[2]); ctx.node(hl);
+    P.headLight = ctx.light([hp[0] + Math.sin(ry) * 1.4, hp[1] + 0.1, hp[2] + Math.cos(ry) * 1.4], [1.0, 0.86, 0.6], 13, 1.7); P.headNode = hl;
     P.jeep = { x: jx, z: jz, y: jy };
-    // mảnh kính, đồ đạc văng
-    for (k = 0; k < 7; k++) { var px = jx + 2 + rnd() * 5, pz = jz - 4 + rnd() * 7; ctx.add('metal', box(0.4 + rnd() * 0.5, 0.03, 0.3 + rnd() * 0.4, px, T(px, pz) + 0.02, pz).xf(0, 0, 0).color(0.15, 0.17, 0.1, 0)); }
+    // vệt trượt bánh xe từ mặt đường tới chỗ xe nằm
+    for (k = 0; k < 2; k++) {
+      var off = k ? 0.8 : -0.8, sk = new Geo();
+      for (var t = 0; t < 14; t++) { var u = t / 13, sx = M.lerp(14, jx + 2.4, u) + off * 0.5, sz = M.lerp(418, jz + 1.8, u) + off; sk.add(Geo.box(0.32, 0.02, 1.15).xf(sx, T(sx, sz) + 0.025, sz, 0, Math.atan2(jx - 14, jz - 418), 0).color(0.33, 0.3, 0.27, 0)); }
+      ctx.add('mud', sk);
+    }
+    // đồ đạc văng ra: ba lô, va li, giấy tờ ướt, mảnh kính
+    var bag = new Geo(); bag.add(Geo.box(0.36, 0.48, 0.22).boxUV(0.4)); bag.add(Geo.box(0.3, 0.2, 0.08).xf(0, -0.08, 0.14).boxUV(0.4)); bag.color(0.3, 0.27, 0.16, 0);
+    ctx.add('canvas', bag.xf(0, 0, 0, 1.45, 0, 0.3).xf(jx + 3.1, T(jx + 3.1, jz + 2.2) + 0.12, jz + 2.2, 0, 0.9, 0));
+    var sc2 = new Geo(); sc2.add(Geo.box(0.62, 0.42, 0.2).boxUV(0.4).color(0.28, 0.17, 0.09, 0)); sc2.add(Geo.box(0.16, 0.04, 0.04).xf(0, 0.23, 0).color(0.1, 0.07, 0.05, 0));
+    ctx.add('bark', sc2.xf(0, 0, 0, Math.PI / 2 - 0.05, 0, 0).xf(jx + 1.2, T(jx + 1.2, jz + 3.6) + 0.1, jz + 3.6, 0, -0.4, 0));
+    for (k = 0; k < 9; k++) { var px = jx + 1.5 + rnd() * 4, pz = jz - 1.5 + rnd() * 5; ctx.add('paper', Geo.box(0.21, 0.004, 0.29).boxUV(1).xf(px, T(px, pz) + 0.012, pz, (rnd() - 0.5) * 0.1, rnd() * 6.28, 0).color(0.75, 0.72, 0.62, 0)); }
+    for (k = 0; k < 26; k++) { var gx = jx + 0.5 + rnd() * 3.2, gz = jz + 1.6 + rnd() * 2.2, gs = 0.03 + rnd() * 0.06; ctx.add('glass', Geo.box(gs, 0.006, gs * 0.8).xf(gx, T(gx, gz) + 0.01, gz, 0, rnd() * 6.28, 0).color(0.35, 0.4, 0.42, 0)); }
+    // cành cây gãy đè lên xe
+    var by = sy + 1.9 * SC; ctx.add('bark', Geo.tube([[jx - 2.6, T(jx - 2.6, jz - 2.2) + 0.1, jz - 2.2], [jx - 0.6, by - 0.15, jz - 0.4], [jx + 1.6, by + 0.2, jz + 1.4]], function (t) { return 0.2 - t * 0.12; }, 7, true).scaleUV(2, 0.4));
     // gò sạt: đá tảng + cây gãy chắn đường đèo
     for (k = 0; k < 46; k++) {
       var a = rnd() * 6.28, rr = Math.sqrt(rnd()) * 15, rx = 66 + Math.cos(a) * rr, rz = 455 + Math.sin(a) * rr * 0.8;
@@ -323,22 +397,24 @@
       { seed: 37, trunk: 9.5, rad: 0.33, leafN: 38, scale: 1 }, { seed: 53, trunk: 6.5, rad: 0.38, leafN: 0, scale: 1, dead: 1 }
     ].map(function (v) {
       var near = Md.treeGeo(0, 0, { seed: v.seed, levels: 2, leaves: !v.dead, leafN: v.leafN, trunk: v.trunk, rad: v.rad, scale: 1 });
-      var far = Md.treeGeo(0, 0, { seed: v.seed, levels: 1, leaves: !v.dead, leafN: Math.round(v.leafN * 0.7), leafSize: 2.1, trunk: v.trunk, rad: v.rad, scale: 1 });
+      var far = Md.treeGeo(0, 0, { seed: v.seed, levels: 2, lowpoly: 1, leaves: !v.dead, leafN: v.leafN, leafSize: 1.38, trunk: v.trunk, rad: v.rad, scale: 1 }); // cùng dáng cây, ít đa giác hơn → không "nhảy hình" khi đổi LOD
       return { near: near, far: far, dead: v.dead, list: {} };
     });
     var bam = {}, CELL = 32;
     function cellKey(x, z) { return Math.floor(x / CELL) + '|' + Math.floor(z / CELL); }
     for (var gz = 96; gz < 480; gz += 4.4) for (var gx = -150; gx < 175; gx += 4.4) {
       var x = gx + (rnd() - 0.5) * 3.6, z = gz + (rnd() - 0.5) * 3.6, c = WD.corr(x, z);
-      if (c < 0.9) continue;
+      if (c < 2.4) continue; // chừa lề đường: gốc cây không lấn vào lối đi
       if (z < 104 && Math.abs(x) < 70) continue;
       var rd = WD.riverD(x, z); if (rd < RIVER.hw + 5.5) continue;
       var p = c < 10 ? 0.9 : (c < 30 ? 0.62 : (c < 70 ? 0.36 : 0.14)); if (rnd() > p) continue;
-      var y = W.terrainH(x, z);
+      var y = W.groundAt(x, z), slope = Math.max(Math.abs(W.groundAt(x + 1.2, z) - W.groundAt(x - 1.2, z)), Math.abs(W.groundAt(x, z + 1.2) - W.groundAt(x, z - 1.2))) / 2.4;
+      if (slope > 1.25) continue; // vách quá dốc: không mọc cây
+      y = Math.min(y, W.groundAt(x + 0.5, z), W.groundAt(x - 0.5, z), W.groundAt(x, z + 0.5), W.groundAt(x, z - 0.5)) - 0.1 - slope * 0.25; // cắm gốc theo điểm thấp nhất
       var bamboo = z < 205 && x > -45 && x < 100 && rnd() < 0.72;
-      if (bamboo) { for (i = 0; i < 4 + Math.floor(rnd() * 5); i++) { var bx = x + (rnd() - 0.5) * 2.4, bz = z + (rnd() - 0.5) * 2.4; if (WD.corr(bx, bz) < 0.5) continue; var a = bam[cellKey(bx, bz)] || (bam[cellKey(bx, bz)] = []); a.push(bx, W.terrainH(bx, bz) - 0.25, bz, 0.65 + rnd() * 0.8, rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 2, 0.6 + rnd() * 0.7); } continue; }
+      if (bamboo) { for (i = 0; i < 4 + Math.floor(rnd() * 5); i++) { var bx = x + (rnd() - 0.5) * 2.4, bz = z + (rnd() - 0.5) * 2.4; if (WD.corr(bx, bz) < 1.5) continue; var a = bam[cellKey(bx, bz)] || (bam[cellKey(bx, bz)] = []); a.push(bx, W.groundAt(bx, bz) - 0.25, bz, 0.65 + rnd() * 0.8, rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 2, 0.6 + rnd() * 0.7); } continue; }
       var vi = rnd() < 0.07 ? 3 : Math.floor(rnd() * 3), v = V[vi], key = cellKey(x, z), arr = v.list[key] || (v.list[key] = []);
-      arr.push(x, y - 0.15, z, (vi === 3 ? 1.0 : 1.05) + rnd() * 0.75 + (c > 25 ? 0.3 : 0), rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 0.12, 0.7 + rnd() * 0.45);
+      arr.push(x, y, z, (vi === 3 ? 1.0 : 1.05) + rnd() * 0.75 + (c > 25 ? 0.3 : 0), rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 0.12, 0.7 + rnd() * 0.45);
     }
     function emit(geo, arr, mat, lod, maxD, padY) {
       var cnt = arr.length / 8, cx = 0, cy = 0, cz = 0, rad = 0, order = [], q;
@@ -367,7 +443,7 @@
         for (i = 0; i < W.floors.length && !bad; i++) { var f = W.floors[i]; bad = x > f[0] - 0.3 && x < f[2] + 0.3 && z > f[1] - 0.3 && z < f[3] + 0.3; }
         for (i = 0; i < W.circles.length && !bad; i++) { var ci = W.circles[i]; if (Math.abs(ci.x - x) < 4 && Math.abs(ci.z - z) < 4) bad = Math.hypot(x - ci.x, z - ci.z) < ci.r + 0.1; }
         if (bad) continue;
-        var y = W.terrainH(x, z); if (y < RIVER.y + 0.25) continue;
+        var y = W.groundAt(x, z); if (y < RIVER.y + 0.25) continue;
         var key = Math.floor(x / 30) + '|' + Math.floor(z / 30), a = gs[key] || (gs[key] = []);
         a.push(x, y - 0.03, z, sMin + rnd() * (sMax - sMin), rnd() * 6.28, rnd() * 6.28, (rnd() - 0.5) * 1.5, 0.7 + rnd() * 0.55); made++;
       }
@@ -389,21 +465,89 @@
     // ---- đá và gỗ mục ven lối
     for (k = 0; k < 170; k++) { var q2 = onPath([1.05, 3.5]); Md.rock(ctx, q2[0], q2[1], 0.35 + Math.pow(rnd(), 2) * 1.6, k * 2.9); }
     for (k = 0; k < 34; k++) {
-      var q3 = onPath([1.2, 4]), a3 = rnd() * 6.28, L3 = 3 + rnd() * 5, y3 = W.terrainH(q3[0], q3[1]) + 0.15;
+      var q3 = onPath([1.2, 4]), a3 = rnd() * 6.28, L3 = 3 + rnd() * 5, y3 = W.groundAt(q3[0], q3[1]) + 0.15;
       var e0 = [q3[0] - Math.cos(a3) * L3 / 2, 0, q3[1] - Math.sin(a3) * L3 / 2], e1 = [q3[0] + Math.cos(a3) * L3 / 2, 0, q3[1] + Math.sin(a3) * L3 / 2];
       if (WD.corr(e0[0], e0[2]) < 0.2 || WD.corr(e1[0], e1[2]) < 0.2) continue;
-      e0[1] = W.terrainH(e0[0], e0[2]) + 0.2; e1[1] = W.terrainH(e1[0], e1[2]) + 0.2;
+      e0[1] = W.groundAt(e0[0], e0[2]) + 0.2; e1[1] = W.groundAt(e1[0], e1[2]) + 0.2;
       ctx.add('bark', Geo.tube([e0, [q3[0], y3 + 0.1, q3[1]], e1], function (t) { return 0.3 - t * 0.12; }, 7, true).scaleUV(2, 0.4).color(0.75, 0.75, 0.65, 0));
     }
   }
 
-  function wildInit() { ctx = W.ctx; T = W.terrainH; rnd = H.rng(9419); }
+  /* ===================== BIỂN CHỈ DẪN + CỌC TIÊU DỌC LỐI MÒN ===================== */
+  var signN = 0;
+  /* đẩy vị trí ra sát mép lối đi (không đứng chắn giữa đường) */
+  function toEdge(x, z) {
+    var best = 1e9, bs = null, bt = 0;
+    SEG.forEach(function (sg) { var dx = sg[2] - sg[0], dz = sg[3] - sg[1], t = M.clamp(((x - sg[0]) * dx + (z - sg[1]) * dz) / (dx * dx + dz * dz), 0, 1), d = Math.hypot(x - sg[0] - dx * t, z - sg[1] - dz * t); if (d < best) { best = d; bs = sg; bt = t; } });
+    var cx = M.lerp(bs[0], bs[2], bt), cz = M.lerp(bs[1], bs[3], bt), want = bs[4] - 0.35;
+    if (best >= want) return [x, z];
+    var ux = (x - cx) / (best || 1), uz = (z - cz) / (best || 1); return [cx + ux * want, cz + uz * want];
+  }
+  function signpost(x, z, boards, lean) {
+    var e = toEdge(x, z); x = e[0]; z = e[1];
+    var y = T(x, z), post = new Geo();
+    post.add(Geo.lathe([[0.075, -0.3], [0.07, 2.25], [0.0, 2.32]], 7).xf(0, 0, 0, lean || 0.03, 0, (lean || 0.03) * 0.6).color(0.42, 0.33, 0.24, 0));
+    ctx.add('wood', post.xf(x, y, z)); ctx.circle(x, z, 0.14);
+    boards.forEach(function (b, i) {
+      var tx = b[1][0] - x, tz = b[1][1] - z, ry = Math.atan2(-tz, tx), two = b[0].length > 1, bh = two ? 0.36 : 0.24, by = y + 2.0 - i * 0.42 - (two ? 0.06 : 0), L = 1.12;
+      var shape = [[-0.08, -bh / 2], [L - 0.22, -bh / 2], [L, 0], [L - 0.22, bh / 2], [-0.08, bh / 2]];
+      var bd = Geo.extrude(shape, 0.045).xf(0, 0, -0.0225).color(0.36, 0.27, 0.19, 0);
+      bd.xf(0, 0, 0, 0, 0, (i % 2 ? -1 : 1) * 0.035).xf(x, by, z, 0, ry, 0); ctx.add('wood', bd);
+      var nm = 'signT' + (signN++);
+      W.textMat(nm, b[0], { w: 512, h: two ? 160 : 112, size: two ? 46 : 58, bold: true, color: '#e4d6b8', glow: 'rgba(0,0,0,0.85)', bg: 'rgba(46,32,22,1)' });
+      var qw = L - 0.32, qh = bh - 0.05, cx0 = qw / 2 + 0.0;
+      [1, -1].forEach(function (sd) {
+        var q = new Node(R.mesh(Geo.quad([-qw / 2, -qh / 2, 0], [qw / 2, -qh / 2, 0], [qw / 2, qh / 2, 0], [-qw / 2, qh / 2, 0])), { tex: nm, rough: 0.85 });
+        // toạ độ tâm chữ trên tấm biển (trong hệ biển), xoay theo hướng biển
+        var lx = cx0, lz = sd * 0.0245, c = Math.cos(ry), sn = Math.sin(ry);
+        q.set(x + lx * c + lz * sn, by, z - lx * sn + lz * c); q.rot[1] = ry + (sd < 0 ? Math.PI : 0); q.rot[2] = (i % 2 ? -1 : 1) * 0.035 * sd; ctx.node(q);
+      });
+    });
+  }
+  function buildSigns() {
+    // bảng gỗ “CẤM VÀO RỪNG” kiểu kiểm lâm ở bìa rừng
+    signpost(-3.6, 398.6, [[['LÀNG ÂM LINH'], [-12, 388]], [['ĐÈO SẠT', 'ĐƯỜNG ĐÃ SẠT LỞ'], [40, 435]]]);
+    signpost(-15.2, 372.5, [[['MIẾU SƠN THẦN'], [-32, 356]], [['ĐÈO SẠT'], [-10, 390]]]);
+    signpost(-20.6, 334.2, [[['TRẠM ĐO ĐẠC'], [-4, 316]], [['MIẾU SƠN THẦN'], [-30, 352]]]);
+    signpost(25.6, 272.5, [[['CẦU TREO', 'SÔNG ÂM'], [12, 252]], [['TRẠM ĐO ĐẠC'], [20, 290]]]);
+    signpost(15.6, 251.8, [[['BẾN DƯỚI', 'ĐÒ NGANG'], [46, 245]], [['CẦU TREO'], [10, 248]]]);
+    signpost(63.5, 210.2, [[['LÀNG ÂM LINH'], [40, 194]], [['BẾN ĐÒ'], [80, 209]]]);
+    signpost(24.5, 165.5, [[['LÀNG ÂM LINH'], [8, 143]]]);
+    var rg = new Geo(); rg.add(Geo.box(1.25, 0.62, 0.05).boxUV(0.6).color(0.4, 0.31, 0.22, 0));
+    rg.add(Geo.box(0.07, 1.6, 0.07).xf(-0.5, -0.55, -0.05).color(0.38, 0.3, 0.22, 0)); rg.add(Geo.box(0.07, 1.6, 0.07).xf(0.5, -0.55, -0.05).color(0.38, 0.3, 0.22, 0));
+    var wx = -14.6, wz = 394.7, wy = T(wx, wz) + 1.5, wr = 0.89; rg.xf(0, 0, 0, 0.04, 0, -0.06).xf(wx, wy, wz, 0, wr, 0); ctx.add('wood', rg); ctx.circle(wx, wz, 0.6);
+    W.textMat('signForest', ['RỪNG CẤM', 'Cấm chặt cây · Cấm săn bắn'], { w: 512, h: 256, size: 64, bold: true, color: '#a8291c', glow: 'rgba(0,0,0,0.7)', bg: 'rgba(196,184,160,1)' });
+    var fq = new Node(R.mesh(Geo.quad([-0.56, -0.27, 0], [0.56, -0.27, 0], [0.56, 0.27, 0], [-0.56, 0.27, 0])), { tex: 'signForest', rough: 0.8 });
+    fq.set(wx + Math.sin(wr) * 0.03, wy, wz + Math.cos(wr) * 0.03); fq.rot[1] = wr; fq.rot[0] = 0.04; fq.rot[2] = -0.06; ctx.node(fq);
+    // cọc tiêu đo đạc (đầu sơn trắng, vạch đỏ) cách nhau ~12m, so le hai bên lối — bắt sáng đèn pin, dễ lần theo trong đêm
+    var side = 1, acc = 6;
+    PATHS.forEach(function (pth) {
+      if (pth.id === 'road') return;
+      for (var k = 0; k < pth.pts.length - 1; k++) {
+        var a = pth.pts[k], b = pth.pts[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), nx = -dz / L, nz = dx / L;
+        for (var d = acc; d < L; d += 12) {
+          var off = pth.hw * 0.62 + 0.25, px = a[0] + dx * d / L + nx * off * side, pz = a[1] + dz * d / L + nz * off * side; side = -side;
+          if (WD.riverD(px, pz) < RIVER.hw + 1.5) continue;
+          var py = T(px, pz), tilt = (rnd() - 0.5) * 0.14, g = new Geo();
+          g.add(Geo.box(0.07, 0.72, 0.07).xf(0, 0.36, 0).color(0.4, 0.31, 0.22, 0));
+          g.add(Geo.box(0.075, 0.2, 0.075).xf(0, 0.82, 0).color(0.92, 0.9, 0.84, 0)); g.add(Geo.box(0.078, 0.06, 0.078).xf(0, 0.68, 0).color(0.62, 0.08, 0.05, 0));
+          g.add(Geo.box(0.04, 0.04, 0.04).xf(0, 0.94, 0).color(0.85, 0.83, 0.78, 0));
+          ctx.add('paint2', g.xf(0, 0, 0, tilt, rnd() * 3, tilt * 0.7).xf(px, py - 0.05, pz));
+        }
+        acc = d - L;
+      }
+    });
+    R.defineStaticMat('paint2', { tex: 'plain', rough: 0.55 });
+  }
+
+  function wildInit() { ctx = W.ctx; T = W.groundAt; rnd = H.rng(9419); }
   /* chèn các bước dựng vào trước bước hoàn tất của world.js */
   var fin = W.steps.pop();
   W.steps.push(['Mở đường đèo, lật chiếc U-oát...', function () { wildInit(); buildCrash(); }]);
   W.steps.push(['Dựng Miếu Sơn Thần, trạm đo đạc 1934...', function () { buildShrine(); buildCamp(); }]);
   W.steps.push(['Khơi dòng sông Âm, dựng Bến Dưới...', function () { buildWater(); buildBridge(); buildWharf(); buildNorth(); }]);
   W.steps.push(['Trồng Rừng Cấm...', buildForest]);
+  W.steps.push(['Cắm biển chỉ đường, cọc tiêu...', buildSigns]);
   W.steps.push(fin);
 
   /* ---------- cập nhật động ---------- */

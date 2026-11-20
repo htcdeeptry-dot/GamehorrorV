@@ -287,7 +287,7 @@
     };
   };
   D.grave = function () {
-    var g = CFG.POS.graveGate, x = g[0] - 3.2, z = g[1], y = W.terrainH(x, z);
+    var g = CFG.POS.graveGate, x = g[0] - 3.2, z = g[1], y = W.groundAt(x, z);
     return {
       shots: [
         { d: 13, p0: [x - 3.4, y + 1.7, z + 3.0], p1: [x - 2.2, y + 1.55, z + 2.0], l0: [x, y + 1.4, z], l1: [x, y + 1.5, z], f0: 54, f1: 44 },
@@ -408,7 +408,7 @@
   /* ===================== BỐ TRÍ CỐT TRUYỆN MỞ RỘNG ===================== */
   /* gọi từ Puzzles.init: api = { item, diary, add, say, give, setObj } */
   CS.place = function (api) {
-    var T = W.terrainH, props = W.props, f = Pz.flags, p, c = CFG.POS.cameraItem;
+    var T = W.groundAt, props = W.props, f = Pz.flags, p, c = CFG.POS.cameraItem;
     var hB = props.houseB, hC = props.houseC, mn = props.manor, tp = props.temple, well = props.well;
     // 6 trang nhật ký mới đặt trong thế giới (2 trang còn lại nhận qua cắt cảnh)
     p = hB.F.pt(-1.0, 1.7); api.diary(8, p[0], hB.floorY + 0.1, p[1]);

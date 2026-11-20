@@ -15,7 +15,9 @@
   <div id="crosshair"></div>
   <div id="prompt"></div>
   <div id="subtitle"></div>
-  <div id="objective"><span class="lbl">Mục tiêu</span><span id="objText"></span></div>
+  <div id="objective"><span class="lbl">Mục tiêu</span><span id="objText"></span><span id="objKey">[Tab] xem chi tiết</span></div>
+  <div id="compass"><div id="cmpStrip"></div><div id="cmpMark"><i></i><b id="cmpDist"></b></div><div class="cmp-tick"></div></div>
+  <div id="hint"><span class="lbl">Gợi ý</span><span id="hintText"></span></div>
   <div id="toast"></div>
   <div id="saveIcon">◈ đã lưu</div>
   <div id="bars">
@@ -71,7 +73,7 @@
   <div class="menu-btns">
     <button id="btnContinue" class="hidden">Tiếp tục</button>
     <button id="btnNew">Bắt đầu</button>
-    <button data-open="settings">Thiết lập đồ hoạ</button>
+    <button data-open="settings">Thiết lập</button>
     <button data-open="controls">Điều khiển</button>
     <button id="btnFull">Toàn màn hình</button>
     <button id="btnLang">Ngôn ngữ: Tiếng Việt</button>
@@ -86,7 +88,7 @@
   <div class="menu-btns">
     <button id="btnResume">Tiếp tục</button>
     <button id="btnSave">Lưu tiến trình</button>
-    <button data-open="settings">Thiết lập đồ hoạ</button>
+    <button data-open="settings">Thiết lập</button>
     <button data-open="controls">Điều khiển</button>
     <button id="btnQuit">Về menu chính</button>
   </div>
@@ -121,7 +123,7 @@
       <tr><td>giữ <kbd>R</kbd></td><td>Soi Gương Đồng Âm Dương</td></tr>
       <tr><td><kbd>E</kbd></td><td>Tương tác / trốn / ra khỏi chỗ trốn</td></tr>
       <tr><td>giữ <kbd>Space</kbd></td><td>Nín thở khi đang trốn</td></tr>
-      <tr><td><kbd>Tab</kbd></td><td>Túi đồ &amp; nhật ký</td></tr>
+      <tr><td><kbd>Tab</kbd></td><td>Nhiệm vụ, gợi ý, túi đồ &amp; nhật ký</td></tr>
       <tr><td><kbd>Esc</kbd> / <kbd>P</kbd></td><td>Tạm dừng</td></tr>
     </table>
     <p class="hint">Lưu ý: trình duyệt dành <kbd>Ctrl</kbd>+<kbd>W</kbd> để đóng tab — khi đi khẽ về phía trước hãy dùng <kbd>X</kbd>, hoặc chơi ở chế độ toàn màn hình.</p>
@@ -142,8 +144,9 @@
 <!-- ============ Túi đồ ============ -->
 <div id="inventory" class="screen dim hidden">
   <div class="panel wide">
-    <h2 class="panel-title">TÚI ĐỒ</h2>
-    <div class="inv-cols">
+    <h2 class="panel-title">NHIỆM VỤ &amp; TÚI ĐỒ</h2>
+    <div class="inv-cols three">
+      <div><h4>Nhiệm vụ</h4><div id="invQuest"></div></div>
       <div><h4>Vật phẩm</h4><div id="invItems"></div></div>
       <div><h4>Nhật ký <span id="invCount"></span></h4><div id="invDiaries"></div></div>
     </div>

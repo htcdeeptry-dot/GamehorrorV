@@ -124,7 +124,7 @@
   var CLIPS = {};
   function clip(name, rig) {
     var mx = !!rig.d.mx, key = (mx ? 'mx:' : 'rb:') + name, c = CLIPS[key];
-    if (!c) { var s = mx ? (RB.mxAnims && RB.mxAnims.clips[name]) : (RB.anims && RB.anims[name]); if (!s) return null; c = CLIPS[key] = { nf: s.nf, dt: s.dt, q: bin(s.q, Int16Array), pt: bin(s.pt, Int16Array), names: s.names, nb: s.names.length, dur: s.nf * s.dt, maps: {}, corrs: {}, mx: mx, srcH: mx ? RB.mxAnims.srcHeight : 1.78, yaw: s.yaw || 0 }; }
+    if (!c) { var s = mx ? (RB.mxAnims && RB.mxAnims.clips[name]) : (RB.anims && RB.anims[name]); if (!s) return null; c = CLIPS[key] = { nf: s.nf, dt: s.dt, q: bin(s.q, Int16Array), pt: bin(s.pt, Int16Array), names: s.names, nb: s.names.length, dur: s.nf * s.dt, maps: {}, corrs: {}, mx: mx, srcH: mx ? RB.mxAnims.srcHeight : 1.78, yaw: s.yaw || 0, once: /^(Step_Back|Kneel_on_One_Knee_and_Stand|Strangled_and_Fall_Forward|Zombie_Scream|Dont_You_Dare)$/.test(name) }; } // once: phát một lần rồi giữ khung cuối, không lặp giật
     if (!c.maps[rig.id]) {
       var mp = new Int16Array(rig.NB).fill(-1); c.names.forEach(function (n, i) { if (rig.IDX[n] !== undefined) mp[rig.IDX[n]] = i; }); c.maps[rig.id] = mp;
       if (mx) { // chuyển clip giữa các khung xương Mixamo khác tư thế nghỉ: q' = restĐích * restNguồn^-1 * q
@@ -166,7 +166,7 @@
   /* đổi clip (null = tư thế thủ tục); chuyển tiếp mượt bằng cách trộn từ tư thế hiện tại */
   X.play = function (inst, name, noFade) {
     var key = name || ''; if (inst.key === key) return; inst.key = key;
-    inst.clip = name ? clip(name, inst.rig) : null; inst.clipT = inst.clip ? Math.random() * 0.3 * inst.clip.dur : 0;
+    inst.clip = name ? clip(name, inst.rig) : null; inst.clipT = inst.clip && !inst.clip.once ? Math.random() * 0.3 * inst.clip.dur : 0;
     inst.fromYaw = inst.yawNow || 0; inst.from.set(inst.cur); inst.fromOff = inst.off.slice(); inst.fade = noFade ? 1 : 0;
   };
 
@@ -176,7 +176,7 @@
     if (inst.stamp === R.frameId) return; inst.stamp = R.frameId;
     var rig = inst.rig, NB = rig.NB, ord = rig.order, par = rig.par, c = inst.c, J = c.J, A = rig.A, Bq = rig.B, S = rig.S, cur = inst.cur, wq = inst.wq, wp = inst.wp, P = rig.P, r = rig.r, tl = rig.tl, n, b, p, o, k;
     var cl = inst.clip, f0 = 0, f1 = 0, fu = 0, mp = null, fd = inst.fade < 1 ? inst.fade * inst.fade * (3 - 2 * inst.fade) : 1, sc = rig.height / (cl ? cl.srcH : 1.78), cor = cl && cl.mx ? cl.corrs[rig.id] : null;
-    if (cl) { var t = inst.clipT % cl.dur, ff = t / cl.dt; f0 = Math.floor(ff) % cl.nf; f1 = (f0 + 1) % cl.nf; fu = ff - Math.floor(ff); mp = cl.maps[rig.id]; }
+    if (cl) { var t = cl.once ? Math.min(inst.clipT, cl.dur - cl.dt * 1.01) : inst.clipT % cl.dur, ff = t / cl.dt; f0 = Math.floor(ff) % cl.nf; f1 = cl.once ? Math.min(f0 + 1, cl.nf - 1) : (f0 + 1) % cl.nf; fu = ff - Math.floor(ff); mp = cl.maps[rig.id]; }
     // độ lệch hông
     var ox = 0, oy = (J.hips.pos[1] - c.hipY), oz = 0;
     if (cl) { ox = (cl.pt[f0 * 3] + (cl.pt[f1 * 3] - cl.pt[f0 * 3]) * fu) / 8192 * sc; oy = (cl.pt[f0 * 3 + 1] + (cl.pt[f1 * 3 + 1] - cl.pt[f0 * 3 + 1]) * fu) / 8192 * sc; oz = (cl.pt[f0 * 3 + 2] + (cl.pt[f1 * 3 + 2] - cl.pt[f0 * 3 + 2]) * fu) / 8192 * sc; if (inst.lockXZ) { ox = oz = 0; } }

@@ -20,7 +20,7 @@
   CFG.DEFAULT_SETTINGS = {
     preset: 'medium', sharpen: true, ssao: false, scale: 0.85, tex: 512, lights: 5, bloom: true, normal: true, chroma: true, mistNoise: true,
     rain: 3000, bamboo: 0.5, view: 95, aniso: 2, dpr: 1,
-    dynRes: true, targetFps: 50, fov: 72, sens: 1.0, volume: 0.8, showFps: false, grain: true
+    dynRes: true, targetFps: 50, fov: 72, sens: 1.0, volume: 0.8, rainVol: 0.55, musVol: 0.9, voiceVol: 1, compass: true, showFps: false, grain: true
   };
 
   /* ---------- Người chơi ---------- */
@@ -105,20 +105,20 @@
 
   /* ---------- Lời thoại / phụ đề ---------- */
   CFG.LINES = {
-    start: 'Minh: Đầu đau như búa bổ... Đèn pin vẫn còn. [F] để bật. Máy ảnh của ông — nó văng đâu đó quanh xe.',
-    gotCamera: 'Minh: Máy ảnh của ông nội. Vẫn còn phim. [C] để nâng máy, chuột trái để chụp.',
+    start: 'Minh: Đầu đau như búa bổ... Đèn pin vẫn còn. Máy ảnh của ông — nó văng đâu đó quanh xe.',
+    gotCamera: 'Minh: Máy ảnh của ông nội. Vẫn còn phim.',
     gateLocked: 'Minh: Khoá số bốn vòng. Phải có manh mối quanh đây... tấm bia đá kia?',
     gateOpen: 'Minh: Xích tự tuột ra. Như thể nó chỉ chờ mình nói đúng năm.',
     needCrank: 'Minh: Tời giếng mất tay quay. Tuấn có nhắc... ai đó đã giấu nó trong nhà.',
     crankPlaced: 'Minh: Vừa khít. Nào... kéo lên.',
-    ambush: 'Minh: Cái gì đang trèo lên theo sợi dây—— CHẠY! Nâng máy ảnh [C] chụp thẳng mặt nó, hoặc trốn vào tủ [E]!',
+    ambush: 'Minh: Cái gì đang trèo lên theo sợi dây—— CHẠY!',
     stunned: 'Minh: Đèn flash làm nó tan đi... nhưng nó sẽ trở lại.',
     manorLocked: 'Minh: Khoá đồng. Cần chìa khoá của nhà Lý trưởng.',
     manorOpen: 'Minh: Trong này lạnh hơn ngoài mưa. Thử nhìn qua ống ngắm xem...',
     safeHint: 'Minh: Két ba số. Biên bản ghi: TRÓI — THIÊU — DÌM. Ảnh sẽ cho mình thứ tự.',
     photo: ['Ảnh 1/3 — TRÓI: trên vách hiện số 3.', 'Ảnh 2/3 — THIÊU: tro xếp thành số 7.', 'Ảnh 3/3 — DÌM: nước nhỏ giọt thành số 5.'],
     gotScroll: 'Minh: Huyết Thư. Lão ta đã tự thú... rồi khoá nó lại suốt một trăm hai mươi năm.',
-    graveyard: 'Minh: Nghĩa địa. Giữ [R] soi gương đồng — vệt sáng trên vành gương chỉ hướng lễ vật.',
+    graveyard: 'Minh: Nghĩa địa. Soi gương đồng... vệt sáng sẽ chỉ hướng lễ vật.',
     offering: 'Minh: Còn {n} lễ vật nữa.',
     allOfferings: 'Minh: Đủ ba lễ vật. Lên Đình thôi.',
     templeLocked: 'Minh: Cửa Đình dán kín bùa. Linh nói cần lời thú tội của kẻ chủ mưu...',
@@ -138,7 +138,7 @@
     o5: 'Sống sót! Chụp ảnh trấn áp Lệ Nương hoặc trốn đi',
     o6: 'Vào nhà Lý trưởng phía đông, chụp 3 hiện trường tâm linh',
     o7: 'Mở két của Lý trưởng (thứ tự: Trói — Thiêu — Dìm)',
-    o8: 'Tới Nghĩa Địa Hoang phía tây bắc, soi gương [R] tìm 3 lễ vật',
+    o8: 'Tới Nghĩa Địa Hoang phía tây bắc, soi gương tìm 3 lễ vật',
     o9: 'Mang lễ vật và Huyết Thư lên Đình Làng phía bắc',
     o10: 'Đặt lễ vật lên Đàn Ngũ Hành và đốt Huyết Thư'
   };

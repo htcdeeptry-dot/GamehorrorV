@@ -90,7 +90,7 @@
       L.positionX.value = cam[0]; L.positionY.value = cam[1]; L.positionZ.value = cam[2];
       L.forwardX.value = fwd[0]; L.forwardY.value = fwd[1]; L.forwardZ.value = fwd[2]; L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
     } else { L.setPosition(cam[0], cam[1], cam[2]); L.setOrientation(fwd[0], fwd[1], fwd[2], 0, 1, 0); }
-    var k = 0.08, ind = Au.indoor, rainAmt = Au.rainAmt === undefined ? 1 : Au.rainAmt;
+    var k = 0.08, ind = Au.indoor, rv = Au.rainVol === undefined ? 0.55 : Au.rainVol, mv = Au.musVol === undefined ? 0.9 : Au.musVol, rainAmt = (Au.rainAmt === undefined ? 1 : Au.rainAmt) * rv * 1.2;
     nodes.rain.gain.setTargetAtTime(0.16 * rainAmt * (1 - ind * 0.72), t, k);
     nodes.rainLP.frequency.setTargetAtTime(7500 - ind * 6100, t, k);
     nodes.rainLow.gain.setTargetAtTime(0.22 * rainAmt, t, k);
@@ -103,9 +103,9 @@
     nodes.wind2.gain.setTargetAtTime(Math.max(0, gust - 0.55) * 0.09 * rainAmt, t, 0.4);
     nodes.windBP2.frequency.setTargetAtTime(700 + gust * 700 + Math.sin(Au.windT * 1.7) * 120, t, 0.3);
     var ten = Au.tension, hunt = Au.hunt;
-    nodes.drone.gain.setTargetAtTime(0.05 + ten * 0.16 + hunt * 0.1, t, 0.6);
+    nodes.drone.gain.setTargetAtTime((0.05 + ten * 0.16 + hunt * 0.1) * mv, t, 0.6);
     nodes.droneLP.frequency.setTargetAtTime(160 + ten * 260 + hunt * 500, t, 0.6);
-    nodes.strings.gain.setTargetAtTime(Math.max(0, ten - 0.25) * 0.085 + hunt * 0.05, t, 0.8);
+    nodes.strings.gain.setTargetAtTime((Math.max(0, ten - 0.25) * 0.085 + hunt * 0.05) * mv, t, 0.8);
     // nhịp tim
     var st = Au.stress;
     nodes.heart.gain.setTargetAtTime(Math.min(1, 0.05 + st * 1.1), t, 0.2);

@@ -45,7 +45,11 @@
     ['targetFps', 'FPS mục tiêu', 'range', 30, 120, 5, function (v) { return v; }],
     ['fov', 'Góc nhìn (FOV)', 'range', 60, 95, 1, function (v) { return v + '°'; }],
     ['sens', 'Độ nhạy chuột', 'range', 0.3, 2.5, 0.05, function (v) { return v.toFixed(2); }],
-    ['volume', 'Âm lượng', 'range', 0, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['volume', 'Âm lượng tổng', 'range', 0, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['rainVol', 'Tiếng mưa & gió', 'range', 0, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['musVol', 'Nhạc nền & không khí', 'range', 0, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['voiceVol', 'Lồng tiếng', 'range', 0, 1, 0.05, function (v) { return Math.round(v * 100) + '%'; }],
+    ['compass', 'La bàn chỉ hướng nhiệm vụ', 'check'],
     ['showFps', 'Hiện FPS & thống kê', 'check']
   ];
   function buildSettingsUI() {
@@ -70,20 +74,30 @@
     [].forEach.call($('presets').children, function (b) { b.className = b.dataset.preset === S.preset ? 'on' : ''; });
     $('btnReload').className = S.tex !== bootTex ? '' : 'hidden';
   }
+  function applyAudio() { A.setVolume(S.volume); A.rainVol = S.rainVol; A.musVol = S.musVol; if (H.Voice) H.Voice.gain = 1.15 * S.voiceVol; }
   function changed(key) {
     if (key !== 'fov' && key !== 'sens' && key !== 'volume' && key !== 'showFps' && key !== 'targetFps' && key !== 'dynRes') { S.preset = 'custom'; [].forEach.call($('presets').children, function (b) { b.className = ''; }); }
-    if (key === 'volume') A.setVolume(S.volume);
+    if (key === 'volume' || key === 'rainVol' || key === 'musVol' || key === 'voiceVol') applyAudio();
     if (key === 'scale') R.dynScale = 1;
     $('btnReload').className = S.tex !== bootTex ? '' : 'hidden';
     saveSettings();
   }
 
   /* ===================== GIAO DIỆN ===================== */
-  var subT = 0, toastT = 0, saveT = 0, uiOpen = null, kp = null;
+  var subT = 0, toastT = 0, saveT = 0, uiOpen = null, kp = null, hintT = 0, hintQ = [];
+  function kbd(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML.replace(/\[([^\]]+)\]/g, '<kbd>$1</kbd>'); }
+  function nextHint() { var t = hintQ.shift(); if (!t) { $('hint').className = ''; return; } $('hintText').innerHTML = kbd(tr(t)); $('hint').className = 'show'; hintT = 7.5; }
   var tr = H.tr;
   var UI = H.UI = {
     subtitle: function (t, d) { var e = $('subtitle'); e.textContent = tr(t); e.className = 'show'; var vd = H.Voice ? H.Voice.say(t) : 0; subT = Math.max(d || 4, vd + 0.6); },
     toast: function (t) { t = tr(t); var e = $('toast'); e.textContent = t; e.className = 'show'; toastT = 3; },
+    /* gợi ý điều khiển: không lồng tiếng, ghi lại vào sổ nhiệm vụ */
+    hint: function (key, delay, now) {
+      var t = CFG.HINTS[key]; if (!t) return; Pz.flags['tip_' + key] = 1;
+      if (delay) { setTimeout(function () { UI.hint(key); }, delay * 1000); return; }
+      if (now) { hintQ.unshift(t); hintT = 0; nextHint(); return; }
+      hintQ.push(t); if (hintT <= 0) nextHint();
+    },
     objective: function (t) { t = tr(t); var e = $('objText'); if (e.textContent === t) return; e.textContent = t; var o = $('objective'); o.className = ''; void o.offsetWidth; o.className = 'flash'; },
     prompt: function (t) { var e = $('prompt'); if (t) { t = tr(t); if (e.textContent !== t) e.textContent = t; e.className = 'show'; } else e.className = ''; },
     note: function (title, sub, text) { $('noteTitle').textContent = tr(title); $('noteSub').textContent = tr(sub); $('noteBody').textContent = tr(text); openUI('note'); A.click(0.2); },
@@ -123,7 +137,52 @@
     if (Main.state === 'ui') { Main.state = 'play'; lock(); }
     else if (Main.back) { show(Main.back, true); Main.back = null; }
   }
+  function questHTML() {
+    var cur = Pz.objective, ord = CFG.OBJ_ORDER, h = '', i = ord.indexOf(cur), k;
+    h += '<div class="q-cur"><b>' + kbd(tr(CFG.OBJECTIVES[cur] || '')) + '</b><p>' + kbd(tr(CFG.OBJ_HINT[cur] || '')) + '</p></div>';
+    var tips = Object.keys(CFG.HINTS).filter(function (k2) { return Pz.flags['tip_' + k2]; });
+    if (tips.length) { h += '<div class="q-sec">' + tr('Điều khiển đã học') + '</div>'; tips.forEach(function (k2) { h += '<div class="q-tip">' + kbd(tr(CFG.HINTS[k2])) + '</div>'; }); }
+    if (i > 0) { h += '<div class="q-sec">' + tr('Đã hoàn thành') + '</div>'; for (k = i - 1; k >= 0; k--) h += '<div class="q-done">' + kbd(tr(CFG.OBJECTIVES[ord[k]])) + '</div>'; }
+    return h;
+  }
+  /* la bàn: hướng Bắc + điểm đến của nhiệm vụ hiện tại */
+  var cmpBuilt = false, cmpEl = {};
+  function objTarget(id) {
+    var WP = W.props, WD = H.Wild && H.Wild.props, P0 = CFG.POS, g = WP.gate && WP.gate.pos;
+    switch (id) {
+      case 'o1': return P0.cameraItem;
+      case 'w2': return [-33, 357];
+      case 'w3': case 'w4': return [20, 290];
+      case 'w5': return [10, 251];
+      case 'w6': return [82, 231];
+      case 'w7': case 'o2': return g ? [g[0], g[2]] : [0, 52];
+      case 'o3': return WP.houseA ? [WP.houseA.F.x, WP.houseA.F.z] : null;
+      case 'o4': return WP.well ? [WP.well.x, WP.well.z] : null;
+      case 'o6': case 'o7': return WP.manor ? [WP.manor.F.x, WP.manor.F.z] : null;
+      case 'o8': return P0.graveGate;
+      case 'o9': case 'o10': return WP.temple ? [WP.temple.F.x, WP.temple.F.z] : null;
+    }
+    return null;
+  }
+  function updateCompass() {
+    var c = $('compass'), on = S.compass && Main.state === 'play' && !Main.cinematic;
+    c.className = on ? '' : 'off'; if (!on) return;
+    var W2 = 380, PX = 150; // px trên mỗi radian
+    if (!cmpBuilt) {
+      cmpBuilt = true; var st = $('cmpStrip');
+      [['N', 0], ['NW', Math.PI / 4], ['W', Math.PI / 2], ['SW', 3 * Math.PI / 4], ['S', Math.PI], ['SE', -3 * Math.PI / 4], ['E', -Math.PI / 2], ['NE', -Math.PI / 4]].forEach(function (d) {
+        var e = document.createElement('span'); e.textContent = d[0]; if (d[0] === 'N') e.className = 'n'; st.appendChild(e); cmpEl[d[0]] = [e, d[1]];
+      });
+    }
+    for (var k in cmpEl) { var r = M.angDiff(P.yaw, cmpEl[k][1]), x = W2 / 2 - r * PX; cmpEl[k][0].style.left = x + 'px'; cmpEl[k][0].style.display = Math.abs(r) < 1.5 ? '' : 'none'; }
+    var t = objTarget(Pz.objective), mk = $('cmpMark');
+    if (!t) { mk.style.display = 'none'; return; }
+    var dx = t[0] - P.pos[0], dz = t[1] - P.pos[2], dist = Math.hypot(dx, dz), ty = Math.atan2(-dx, -dz), rr = M.angDiff(P.yaw, ty);
+    mk.style.display = dist < 4 ? 'none' : 'block'; mk.style.left = M.clamp(W2 / 2 - rr * PX, 74, W2 - 74) + 'px'; mk.style.opacity = Math.abs(rr) * PX > W2 / 2 - 74 ? 0.55 : 1;
+    var ds = Math.round(dist) + ' m'; if ($('cmpDist').textContent !== ds) $('cmpDist').textContent = ds;
+  }
   function openInventory() {
+    $('invQuest').innerHTML = questHTML();
     var it = $('invItems'), di = $('invDiaries'); it.innerHTML = ''; di.innerHTML = '';
     var list = Pz.inventoryList();
     if (!list.length) it.innerHTML = tr('<div class="inv-empty">Chưa có gì ngoài chiếc đèn pin.</div>');
@@ -184,13 +243,13 @@
   };
   function loadSave() { try { var d = JSON.parse(localStorage.getItem(CFG.SAVE_KEY)); if (d && d.v === 1) return d; } catch (e) { } return Main.lastSave; }
   function startGame(data) {
-    A.init(); A.setVolume(S.volume); A.suspend(false);
+    A.init(); applyAudio(); A.suspend(false);
     ['menu', 'death', 'ending', 'pause'].forEach(function (id) { show(id, false); });
     resetEnv(); FX.list.length = 0;
     if (AI.rig && AI.wasCalm) { location.reload(); return; }
     Pz.load(data || {}); Main.lastSave = data ? JSON.parse(JSON.stringify(data)) : null;
     show('hud', true); R.post.fade = 0;
-    if (!data) { Main.state = 'play'; R.post.fade = 1; lock(); Main.cutscene('intro', function () { Main.fadeIn = 2; UI.subtitle(CFG.LINES.start, 7); UI.objective(CFG.OBJECTIVES.o1); }); } else { Main.state = 'play'; Main.fadeIn = 1.5; lock(); UI.objective(CFG.OBJECTIVES[Pz.objective]); }
+    if (!data) { Main.state = 'play'; R.post.fade = 1; lock(); Main.cutscene('intro', function () { Main.fadeIn = 2; UI.subtitle(CFG.LINES.start, 7); UI.objective(CFG.OBJECTIVES.o1); UI.hint('flash', 1.2); UI.hint('look', 2); UI.hint('tab', 2.5); }); } else { Main.state = 'play'; Main.fadeIn = 1.5; lock(); UI.objective(CFG.OBJECTIVES[Pz.objective]); }
   }
   function die() {
     Main.state = 'dead'; unlock(); P.dead = false; show('death', true); UI.prompt(null); Input.keys = {};
@@ -270,6 +329,8 @@
   function timers(dt) {
     if (subT > 0) { subT -= dt; if (subT <= 0) $('subtitle').className = ''; }
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').className = ''; }
+    if (hintT > 0) { hintT -= dt; if (hintT <= 0) { $('hint').className = ''; if (hintQ.length) setTimeout(nextHint, 450); } }
+    updateCompass();
     if (saveT > 0) { saveT -= dt; if (saveT <= 0) $('saveIcon').className = ''; }
   }
 

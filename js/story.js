@@ -77,6 +77,37 @@
   CFG.OBJECTIVES.w5 = 'Tới cầu treo bắc qua sông Âm';
   CFG.OBJECTIVES.w6 = 'Xuôi bờ sông tới Bến Dưới, mở khoá đò ngang';
   CFG.OBJECTIVES.w7 = 'Theo lối mòn rừng tre về ngôi làng';
+  /* gợi ý điều khiển: hiện trên màn hình (không lồng tiếng) và lưu lại trong sổ nhiệm vụ [Tab] */
+  CFG.HINTS = {
+    flash: '[F] Bật / tắt đèn pin',
+    look: '[E] Nhặt đồ, tương tác — vật phẩm có ánh sáng mờ',
+    tab: '[Tab] Xem nhiệm vụ, gợi ý, túi đồ và nhật ký',
+    camera: '[C] Nâng / hạ Máy Ảnh Tâm Linh · [Chuột trái] Chụp ảnh',
+    flashSpirit: 'Chụp ảnh ở nơi có ký ức tâm linh để thấy những gì đã xảy ra',
+    run: '[Shift] Chạy · [Ctrl]/[X] Cúi người đi khẽ',
+    ambush: '[C] rồi [Chuột trái]: chụp thẳng mặt nó để trấn áp · [E] trốn vào tủ, giường',
+    hide: 'Giữ [Space] để nín thở · [E] ra ngoài',
+    mirror: 'Giữ [R] soi Gương Đồng — vệt sáng trên vành gương chỉ hướng lễ vật'
+  };
+  /* hướng dẫn chi tiết cho từng nhiệm vụ (sổ nhiệm vụ) */
+  CFG.OBJ_HINT = {
+    o1: 'Chiếc máy ảnh văng ra gần chiếc U-oát lật. Bật đèn pin, soi mặt đất quanh xe — vật phẩm có ánh sáng mờ. Lại gần rồi nhấn [E] để nhặt.',
+    w2: 'Từ chỗ xe lật, đi theo con đường đất có cọc tiêu sơn trắng về phía bắc. Biển gỗ “LÀNG ÂM LINH” ở bìa rừng chỉ lối vào Rừng Cấm. Cứ bám theo cọc tiêu sẽ tới Miếu Sơn Thần.',
+    w3: 'Qua Miếu Sơn Thần, tiếp tục theo cọc tiêu và biển “TRẠM ĐO ĐẠC” xuống phía đông bắc. Trạm là một khoảng trống có lều bạt, bàn gỗ và đống lửa tàn. Đọc cuốn sổ trên bàn, rồi vào chiếc lều tối và chụp ảnh.',
+    w4: 'Hòm sắt của trung uý Morel khoá bằng 4 chữ số: ngày và tháng đoàn đo đạc tới nơi. Tấm kính ảnh vừa hiện ra ghi ngày tháng đó — xem lại trong mục Nhật ký [Tab].',
+    w5: 'Từ trạm đo đạc, theo biển “CẦU TREO” đi tiếp về phía bắc tới bờ sông Âm.',
+    w6: 'Cầu đã đứt. Theo biển “BẾN DƯỚI” xuôi bờ sông về phía đông. Dùng Chìa khoá đò lấy trong hòm sắt để mở khoá chiếc đò cáp, rồi kéo dây sang bờ bắc.',
+    w7: 'Từ bến bờ bắc, theo lối mòn rừng tre đi lên núi về phía ánh đèn lồng đỏ — đó là cổng Làng Âm Linh.',
+    o2: 'Xích cổng làng khoá bằng mã số. Xem kỹ bia đá và chữ viết quanh cổng để tìm năm xảy ra thảm kịch.',
+    o3: 'Tay Quay Sắt nằm trong ngôi nhà cổ phía đông làng — tìm trên bàn thờ.',
+    o4: 'Mang Tay Quay tới Giếng Cổ phía tây làng. Lắp vào tời [E] rồi quay kéo gàu lên.',
+    o5: 'Lệ Nương đang săn bạn. Nâng máy ảnh và chụp thẳng mặt nàng để trấn áp, hoặc trốn vào tủ, gầm giường và nín thở.',
+    o6: 'Vào nhà Lý trưởng phía đông. Chụp ảnh ở 3 nơi có ký ức tâm linh (những chỗ lạnh, có tiếng thì thầm).',
+    o7: 'Két sắt của Lý trưởng khoá 3 chữ số. Thứ tự các hiện trường: Trói — Thiêu — Dìm. Để ý con số trong từng bức ảnh.',
+    o8: 'Tới Nghĩa Địa Hoang phía tây bắc làng. Giữ [R] soi Gương Đồng: vệt sáng trên vành gương chỉ hướng 3 lễ vật bị chôn giấu.',
+    o9: 'Mang 3 lễ vật và Huyết Thư lên Đình Làng ở cuối làng phía bắc.',
+    o10: 'Đặt lễ vật lên Đàn Ngũ Hành [E], rồi đốt Huyết Thư để hoàn tất nghi lễ.'
+  };
   CFG.OBJ_ORDER = ['o1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8', 'o9', 'o10'];
 
   /* lựa chọn thứ tư ở nghi lễ: quay lưng bỏ chạy */

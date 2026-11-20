@@ -13,7 +13,7 @@
 
   C.place = function (a) {
     api = a; Pz = H.Puzzles; f = Pz.flags; WD = H.Wild; P = H.Player; UI = H.UI; A = H.Audio; AI = H.AI; Wd = H.World;
-    var T = Wd.terrainH, Pp = WD.props, p;
+    var T = Wd.groundAt, Pp = WD.props, p;
     // ---------- Đèo Sạt
     api.supply('wb1', 'battery', -9.0, T(-9.0, 408.2) + 0.08, 408.2);
     // ---------- Miếu Sơn Thần: đồ cúng có cuộn phim ai bỏ lại
@@ -22,7 +22,7 @@
     api.diary(di('d11'), Pp.table[0] - 0.2, Pp.table[1], Pp.table[2]);
     api.supply('wb2', 'battery', Pp.table[0] + 0.45, Pp.table[1] + 0.02, Pp.table[2] + 0.1);
     var dr = Pp.darkroom;
-    api.add({ pos: [dr.door[0], dr.y + 1.0, dr.door[1]], r: 2.8, wide: true, enabled: function () { return !f.plate; }, label: 'Vén cửa lều tối', use: function () { api.say(L.campDark, 5); f.darkHint = 1; } });
+    api.add({ pos: [dr.door[0], dr.y + 1.0, dr.door[1]], r: 2.8, wide: true, enabled: function () { return !f.plate; }, label: 'Vén cửa lều tối', use: function () { api.say(L.campDark, 5); H.UI.hint('flashSpirit', 0.5); f.darkHint = 1; } });
     var ch = Pp.chest;
     api.add({ pos: ch.pos, r: 2.4, wide: true, enabled: function () { return !f.chestOpen; }, label: 'Mở hòm sắt', use: function () {
       if (!f.plate) api.say(L.chestLocked, 5);

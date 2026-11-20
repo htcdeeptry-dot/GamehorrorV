@@ -9,7 +9,7 @@ Nên đeo tai nghe (âm thanh HRTF 3D) và chơi toàn màn hình.
   Ctrl hoặc X .... cúi, đi khẽ        F .......... đèn pin
   C .............. nâng/hạ máy ảnh    Chuột trái . chụp (đèn Xenon)
   giữ R .......... soi gương đồng     E .......... tương tác / trốn
-  giữ Space ...... nín thở khi trốn   Tab ........ túi đồ, nhật ký
+  giữ Space ...... nín thở khi trốn   Tab ........ nhiệm vụ, gợi ý, túi đồ, nhật ký
   Esc / P ........ tạm dừng
   (Trình duyệt dành Ctrl+W để đóng tab: khi đi khẽ về phía trước hãy dùng X.)
 

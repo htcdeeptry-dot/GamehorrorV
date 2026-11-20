@@ -9,7 +9,7 @@
 
   P.reset = function () {
     P.pos = [CFG.POS.spawn[0], 0, CFG.POS.spawn[1]]; P.yaw = CFG.POS.spawnYaw; P.pitch = 0;
-    P.vel = [0, 0]; P.gy = H.World.terrainH(P.pos[0], P.pos[2]); P.eye = C.eye;
+    P.vel = [0, 0]; P.gy = H.World.heightAt(P.pos[0], P.pos[2]); P.eye = C.eye;
     P.stamina = C.staminaMax; P.exhausted = false; P.battery = 100; P.film = C.filmStart; P.sanity = 100; P.bpm = 65; P.stress = 0;
     P.flashlight = false; P.camUp = false; P.camAnim = 0; P.mirrorUp = false; P.flashCD = 0; P.flashT = 0;
     P.hidden = null; P.breath = C.breathMax; P.holding = false; P.noise = 0; P.noisePos = [0, 0]; P.stepAcc = 0; P.bob = 0;
@@ -26,7 +26,7 @@
     var hx = spot.front[0] - spot.pos[0], hz = spot.front[1] - spot.pos[2], hl = Math.hypot(hx, hz) || 1;
     P.hidden = spot; P.pos[0] = spot.pos[0] + hx / hl * 0.5; P.pos[2] = spot.pos[2] + hz / hl * 0.5;
     P.yaw = spot.yaw; P.pitch = 0; P.vel[0] = P.vel[1] = 0; P.flashlight = false; P.camUp = false; P.mirrorUp = false; P.breath = C.breathMax;
-    H.Audio.creak(null, 0.3, 0.7); H.UI.subtitle(CFG.LINES.hide, 5);
+    H.Audio.creak(null, 0.3, 0.7); H.UI.hint('hide', 0, true);
     H.AI.onPlayerHide(spot);
   };
   P.unhide = function () {

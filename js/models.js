@@ -231,7 +231,7 @@
         var cx = p[0] + (rnd() - 0.5) * 2.2 * rad, cy = p[1] + (rnd() - 0.5) * rad * 1.3, cz = p[2] + (rnd() - 0.5) * 2.2 * rad;
         var s = (0.38 + rnd() * 0.34) * (o.leafSize || 1), a = rnd() * 6.28, t = (rnd() - 0.5) * 1.6, rx = Math.cos(a) * s, rz = Math.sin(a) * s, uy = Math.cos(t) * s, ux = -Math.sin(a) * Math.sin(t) * s, uz = Math.cos(a) * Math.sin(t) * s;
         var q = Geo.quad([cx - rx - ux, cy - uy, cz - rz - uz], [cx + rx - ux, cy - uy, cz + rz - uz], [cx + rx + ux, cy + uy, cz + rz + uz], [cx - rx + ux, cy + uy, cz - rz + uz]);
-        var g = 0.75 + rnd() * 0.5; q.color(g, g, g * 0.9, 0.3 + rnd() * 0.3); leaf.add(q);
+        var g = 0.75 + rnd() * 0.5; q.color(g, g, g * 0.9, 0.3 + rnd() * 0.3); if (!o.lowpoly || (k & 1) === 0) leaf.add(q);
       }
     }
     function branch(p, dir, len, rad, lvl) {
@@ -240,7 +240,7 @@
         d[0] += (rnd() - 0.5) * wig; d[1] += (rnd() - 0.5) * wig * 0.6 + (lvl > 0 ? 0.04 : 0); d[2] += (rnd() - 0.5) * wig; norm(d);
         cur = [cur[0] + d[0] * len / n, cur[1] + d[1] * len / n, cur[2] + d[2] * len / n]; pts.push(cur);
       }
-      var tb = Geo.tube(pts, function (t) { return rad * (1 - 0.5 * t) * (lvl === 0 ? 1 + 1.3 * Math.pow(1 - t, 6) : 1); }, lvl === 0 ? 12 : (lvl === 1 ? 7 : 5), lvl >= levels);
+      var tb = Geo.tube(pts, function (t) { return rad * (1 - 0.5 * t) * (lvl === 0 ? 1 + 1.3 * Math.pow(1 - t, 6) : 1); }, o.lowpoly ? (lvl === 0 ? 6 : (lvl === 1 ? 4 : 3)) : (lvl === 0 ? 12 : (lvl === 1 ? 7 : 5)), lvl >= levels);
       if (lvl === 0) tb.displace(function (px, py, pz) { return A.fbm(px * 0.9 + pz * 0.7, py * 0.5 + pz * 0.4, 3) * rad * 0.5; }, true);
       tb.scaleUV(lvl === 0 ? 3 : 1, 0.4);
       wood.add(tb);
