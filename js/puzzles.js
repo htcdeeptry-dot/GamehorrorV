@@ -43,7 +43,7 @@
     Pz.list.length = 0;
     // ---------- KHU 1: Cổng làng & rừng tre
     diary(0, -12.6, T(-12.6, 404.2) + 0.06, 404.2);
-    item('camera', 'camera', POS.cameraItem[0], T(POS.cameraItem[0], POS.cameraItem[1]) + 0.085, POS.cameraItem[1], 'Máy Ảnh Tâm Linh', function () { give('camera'); say(L.gotCamera, 6); UI.hint('camera', 0.5); UI.hint('run', 14); setObj('w2'); setTimeout(function () { say(L.followTracks, 5); }, 6500); Pz.checkpoint(); }, 1.5);
+    item('camera', 'camera', POS.cameraItem[0], T(POS.cameraItem[0], POS.cameraItem[1]) + 0.034, POS.cameraItem[1], 'Máy Ảnh Tâm Linh', function () { give('camera'); say(L.gotCamera, 6); UI.hint('camera', 0.5); UI.hint('run', 14); setObj('w2'); setTimeout(function () { say(L.followTracks, 5); }, 6500); Pz.checkpoint(); }, 1.5);
     add({ pos: [POS.monument[0] - 0.3, T(POS.monument[0], POS.monument[1]) + 1.3, POS.monument[1]], r: 3, wide: true, label: 'Xem bia đá', use: function () { UI.note('Bia Trấn Yểm', 'Dựng trước cổng làng Âm Linh', CFG.MONUMENT_TEXT); f.sawMonument = 1; } });
     var gate = props.gate;
     add({ pos: gate.pos, r: 2.8, wide: true, enabled: function () { return !f.gateOpen; }, label: 'Mở khoá số trên xích', use: function () {

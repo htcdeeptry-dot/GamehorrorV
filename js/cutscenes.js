@@ -40,26 +40,39 @@
   var D = {};
   D.intro = function () {
     var J = H.Wild.props.jeep, c = CFG.POS.cameraItem, cy = Y(c[0], c[1]) + 0.1, mx = -8.6, mz = 404.4, my = Y(mx, mz);
+    var a0 = [34, 431], a1 = [26, 424], G = { x: a0[0], z: a0[1] }, fx = (a1[0] - a0[0]) / 10.63, fz = (a1[1] - a0[1]) / 10.63; // tâm nhóm + hướng đi
+    var tx = -12, tz = 390, dx = tx - mx, dz = tz - mz, dl = Math.hypot(dx, dz); dx /= dl; dz /= dl; // Minh nhìn xuống bìa rừng
+    function gy(x, z) { return Y(x, z); }
     return {
       shots: [
-        { d: 9, p0: [17.5, Y(17.5, 414) + 1.3, 414], p1: [18.6, Y(18.6, 415.6) + 1.45, 415.6], l0: [29, Y(29, 427) + 1.4, 427], l1: [26.5, Y(26.5, 424.5) + 1.45, 424.5], f0: 50, f1: 44 },
-        { d: 7, p0: [8, Y(8, 396) + 15, 396], p1: [2, Y(2, 399) + 8.5, 399], l0: [J.x, J.y + 1, J.z], l1: [J.x + 1, J.y + 0.5, J.z - 1], f0: 60, f1: 52 },
-        { d: 7, p0: [mx + 2.6, my + 0.9, mz - 2.2], p1: [mx + 1.8, my + 1.25, mz - 1.5], l0: [mx, my + 0.5, mz], l1: [mx, my + 1.2, mz], f0: 52, f1: 46 },
-        { d: 6.5, p0: [J.x + 5, J.y + 1.7, J.z - 3.4], p1: [J.x + 3.4, J.y + 1.4, J.z - 2.4], l0: [J.x, J.y + 0.7, J.z], l1: [J.x - 1, J.y + 0.8, J.z + 1], f0: 56, f1: 48 },
-        { d: 6, p0: [c[0] + 1.7, cy + 0.8, c[1] - 2.0], p1: [c[0] + 1.0, cy + 0.45, c[1] - 1.2], l0: [c[0], cy, c[1]], l1: [c[0], cy, c[1]], f0: 50, f1: 42 }
+        // 1. ống kính dài đón đầu: bốn người đội mưa đi về phía máy quay, mưa nén lại thành màn trắng
+        { d: 4.2, hand: 0.6, key: [0, 1.5, -3, 0.0], cam: function (u) { var px = 19.2 + u * 0.5 - fz * 2.2, pz = 416.2 + u * 0.4 + fx * 2.2; return { p: [px, gy(px, pz) + 1.25, pz], l: [G.x, gy(G.x, G.z) + 1.35, G.z] }; }, f0: 30, f1: 25 },
+        // 2. máy quay bám ngang nhóm người, chậm dần — rồi sét đánh
+        { d: 4.5, hand: 1.6, key: [0, 1.0, 0, 0.35], cam: function (u) { var px = G.x - fz * 3.3 + fx * 1.4, pz = G.z + fx * 3.3 + fz * 1.4; return { p: [px, gy(px, pz) + 1.45, pz], l: [G.x + fx * 1.2, gy(G.x, G.z) + 1.3, G.z + fz * 1.2] }; }, f0: 46, f1: 42 },
+        // 3. sau tia sét: cần cẩu hạ dần từ trên lối đường đèo xuống xác xe, đèn pha còn chập chờn
+        { d: 7.5, hand: 0.4, dof: 0.5, key: [0, 2, 0, 0.0], p0: [-4.2, my + 8, 415.5], p1: [J.x + 4.4, J.y + 1.5, J.z + 3.6], l0: [J.x + 0.6, J.y, J.z + 0.5], l1: [J.x - 0.2, J.y + 0.75, J.z], f0: 40, f1: 44 },
+        // 4. góc thấp sát mặt đất: Minh gượng dậy trong bùn
+        { d: 7.2, hand: 1.1, roll: -0.03, key: [1.2, 0.8, 0.6, 0.55], p0: [mx + 2.9, my + 0.4, mz - 1.9], p1: [mx + 2.2, my + 0.55, mz - 1.4], l0: [mx, my + 0.95, mz], l1: [mx, my + 1.45, mz], f0: 42, f1: 36 },
+        // 5. qua vai Minh: bìa rừng tối, biển gỗ chỉ lối — lấy nét xa
+        { d: 6.8, hand: 1.0, key: [-0.6, 0.6, 0.3, 0.42], p0: [mx - dx * 1.25 + dz * 0.5, my + 1.72, mz - dz * 1.25 - dx * 0.5], p1: [mx - dx * 0.95 + dz * 0.42, my + 1.68, mz - dz * 0.95 - dx * 0.42], l0: [mx + dx * 12, my + 1.2, mz + dz * 12], l1: [mx + dx * 14, my + 1.0, mz + dz * 14], focus: 13, dof: 1.2, f0: 44, f1: 38 },
+        // 6. trượt sát mặt đất tới chiếc máy ảnh nằm trong bùn
+        { d: 6, hand: 0.5, key: [0.5, 0.7, 0.4, 0.5], dof: 1.4, p0: [c[0] + 1.9, cy + 0.32, c[1] - 1.8], p1: [c[0] + 0.85, cy + 0.22, c[1] - 0.75], l0: [c[0], cy + 0.03, c[1]], l1: [c[0], cy + 0.02, c[1]], f0: 36, f1: 30 }
       ],
       subs: [[0.7, '', 'Ba giờ trước khi vạt núi sạt xuống.', 2.8], [3.6, 'Hà', 'Chị Linh ơi, bản đồ có vẽ lối này đâu?', 2.6], [6.3, 'Linh', 'Cứ đi đi. Sắp tới rồi.', 2.4],
         [9.8, '', 'Mùa thu năm 1994. Bão số 6 cuốn mất con đường sau lưng chúng tôi.', 5],
         [16.6, 'Minh', 'Linh... Tuấn... Hà... mọi người đâu cả rồi?', 4.4],
         [23.6, 'Minh', 'Dấu chân ba người, đi xuống rừng. Sao lại bỏ mình lại?', 5],
         [30.2, 'Minh', 'Máy ảnh của ông nội... nó văng đâu quanh xe.', 4.5]],
-      ev: [[8.7, function () { CS.white = 1; W.strike(true); Ch.hideAll(); P.shake = 0.08; }], [23, function () { W.strike(false); }], [0.2, function () { A.tension = 0.25; }]],
+      ev: [[0.2, function () { A.tension = 0.25; }], [8.7, function () { CS.white = 1; W.strike(true); Ch.hideAll(); memLight.intensity = 0; P.shake = 0.08; }],
+        [12.4, function () { W.strike(false); }], [23, function () { W.strike(false); }]],
       tick: function (t, dt) {
-        if (t < 8.7) { // bốn người trên đường đèo
-          var u = M.clamp(t / 8.7, 0.001, 0.999), a0 = [34, 431], a1 = [26, 424], lk = [M.lerp(a0[0], a1[0], u) - 6, 1.5, M.lerp(a0[1], a1[1], u) - 5];
+        if (t < 8.7) { // bốn người trên đường đèo, đèn pin của Linh soi lối
+          var u = M.clamp(t / 8.7, 0.001, 0.999), lk = [M.lerp(a0[0], a1[0], u) - 6, 1.5, M.lerp(a0[1], a1[1], u) - 5];
+          G.x = M.lerp(a0[0], a1[0], u); G.z = M.lerp(a0[1], a1[1], u);
           function wl(n, ox, oz, look) { Ch.walkLine(n, [a0[0] + ox, a0[1] + oz], [a1[0] + ox, a1[1] + oz], u, dt, look); }
           wl('linh', -1.6, -1.8); wl('minh', -0.4, -0.2, lk); wl('tuan', 0.6, 0.9); wl('ha', 1.5, 2.2, lk);
-        } else if (t > 16 && t < 23) put('minh', mx, mz, face(mx, mz, -12, 390), t < 19.5 ? 'cower' : 'idle', [-12, my + 1.2, 390]);
+          light(G.x + fx * 2.6, gy(G.x, G.z) + 1.9, G.z + fz * 2.6, 1.5 + Math.sin(t * 13) * 0.05, 8);
+        } else if (t > 16 && t < 30.2) { put('minh', mx, mz, face(mx, mz, tx, tz), t < 19.6 ? 'cower' : 'idle', [tx, my + 1.0, tz]); memLight.intensity = 0; }
         else Ch.hide('minh');
       },
       card: ['MỞ ĐẦU', 'Đèo Sạt']
@@ -92,11 +105,11 @@
       shots: [
         { d: 8.2, p0: [cx - 3.4, cy + 1.5, cz + 4.2], p1: [cx - 2.4, cy + 1.4, cz + 3.1], l0: [cx, cy + 1.3, cz], l1: [cx + 0.5, cy + 1.3, cz - 0.3], f0: 52, f1: 44 },
         { d: 9.6, p0: [cx - 1.6, cy + 1.25, cz + 2.4], p1: [cx - 1.1, cy + 1.3, cz + 1.6], l0: [ex, ey + 1, ez], l1: [ex - 1, ey + 0.9, ez + 0.5], f0: 48, f1: 40 },
-        { d: 5.8, p0: [dr.x - 3.0, dr.y + 1.6, dr.z + 2.6], p1: [dr.x - 2.2, dr.y + 1.5, dr.z + 1.8], l0: [dr.x, dr.y + 0.9, dr.z], l1: [dr.x, dr.y + 0.9, dr.z], f0: 50, f1: 42, present: true }
+        { d: 5.8, p0: [dr.x - 3.0, dr.y + 1.6, dr.z + 2.6], p1: [dr.x - 2.2, dr.y + 1.5, dr.z + 1.8], l0: [dr.x, dr.y + 0.9, dr.z], l1: [dr.x, dr.y + 0.9, dr.z], f0: 50, f1: 42, present: true, key: [0.8, 1.2, 0.6, 1.3] }
       ],
       subs: [[0.6, '', 'Trạm đo đạc bên sông Âm, đêm 23 tháng 9 năm 1934.', 3.8], [4.8, 'Morel', 'Nó tới rồi! Lộc, đứng sau lưng tôi!', 3.2], [8.4, 'Lộc', 'Courez! Chạy đi, ông ơi, chạy đi!', 3.4],
         [12.2, '', 'Người lính Pháp quay lưng bỏ chạy. Thứ áo đỏ lướt qua cậu bé như không hề thấy cậu.', 5.4], [18.4, 'Minh', 'Ông nội... ông đã bảo ông ấy chạy.', 3.6]],
-      ev: [[0, function () { light(cx, cy + 2.4, cz, 2.2, 10); A.bell(null, 110); }], [11.4, function () { CS.white = 0.8; A.click(0.9); AI.puppet(ex + 1.5, ez - 1.5, 'hunt', [cx, cz], 0.95); }], [17.6, function () { hideActors(); AI.puppetEnd(12); CS.white = 0.4; A.sting(); }]],
+      ev: [[0, function () { light(cx, cy + 2.4, cz, 1.5, 10); A.bell(null, 110); }], [11.4, function () { CS.white = 0.8; A.click(0.9); AI.puppet(ex + 1.5, ez - 1.5, 'hunt', [cx, cz], 0.95); }], [17.6, function () { hideActors(); AI.puppetEnd(12); CS.white = 0.4; A.sting(); }]],
       tick: function (t, dt) {
         if (t >= 17.6) return;
         Ch.put('loc', cx, cy, cz, face(cx, cz, cx - 3, cz + 4), 'point', [cx - 3, cy + 1.4, cz + 4]);
@@ -117,7 +130,7 @@
         { d: 5.6, p0: [12.4, y + 1.7, B.z + 2.2], p1: [13.6, y + 1.7, B.z + 2.8], l0: [40, y, B.z - 8], l1: [72, y, B.z - 14], f0: 55, f1: 60 }
       ],
       subs: [[0.5, 'Minh', 'Cầu treo đứt rồi. Cả hai đầu.', 3], [6.6, 'Minh', 'Bên kia sông... có người đứng.', 3], [10.2, 'Minh', 'Áo đỏ. Tóc dài chấm đất. Đúng như Hà tả.', 3.8], [14.6, 'Minh', 'Phải xuôi bờ sông. Có bến đò thì phải có thuyền.', 4]],
-      ev: [[6, function () { AI.puppet(rx, rz, 'stalk', [10, B.z], 0.95); A.weep([rx, ry + 1.5, rz], 5, 0.6); }], [13.8, function () { W.strike(true); CS.white = 0.35; AI.puppetEnd(10); }]],
+      ev: [[6, function () { AI.puppet(rx, rz, 'stalk', [10, B.z], 0.95); A.weep([rx, ry + 1.5, rz], 5, 0.6); light(rx + 0.8, ry + 2.6, rz - 1.6, 1.6, 7); }], [13.8, function () { W.strike(true); CS.white = 0.35; AI.puppetEnd(10); memLight.intensity = 0; }]],
       tick: function (t) { if (t < 14) put('minh', 10.2, B.z + 1.1, Math.PI, 'idle', [rx, ry + 1.5, rz]); else Ch.hide('minh'); },
       tension: 0.6, card: ['CHƯƠNG II', 'Sông Âm']
     };
@@ -170,8 +183,8 @@
       },
       cam: function (sh, u) {
         var p = rp();
-        if (sh.rel === 'back') return { p: [p[0] - fx * 2.4 + fz * 0.7, fy + 1.75, p[1] - fz * 2.4 - fx * 0.7], l: [p[0] + fx * 7, fy + 0.9, p[1] + fz * 7] };
-        if (sh.rel === 'front') return { p: [p[0] + fx * 2.3, fy + 1.55, p[1] + fz * 2.3], l: [p[0] - fx * 0.6, fy + 1.45, p[1] - fz * 0.6] };
+        if (sh.rel === 'back') return { p: [p[0] - fx * 2.2 + fz * 1.5, fy + 1.7, p[1] - fz * 2.2 - fx * 1.5], l: [p[0] + fx * 7, fy + 0.9, p[1] + fz * 7] };
+        if (sh.rel === 'front') return { p: [p[0] + fx * 2.1 - fz * 1.1, fy + 1.55, p[1] + fz * 2.1 + fx * 1.1], l: [p[0] - fx * 0.6, fy + 1.45, p[1] - fz * 0.6] };
         return null;
       },
       end: function () { H.Wild.ferryBusy = false; H.Wild.setFerry(1); },
@@ -272,8 +285,8 @@
     var wd = CS.haSpot, dx = wd.front[0] - wd.pos[0], dz = wd.front[1] - wd.pos[2], l = Math.hypot(dx, dz) || 1, y = wd.pos[1] - 1.2; dx /= l; dz /= l;
     return {
       shots: [
-        { d: 12.5, p0: [wd.pos[0] + dx * 3.2 - dz * 0.8, y + 1.05, wd.pos[2] + dz * 3.2 + dx * 0.8], p1: [wd.pos[0] + dx * 1.7 - dz * 0.2, y + 0.95, wd.pos[2] + dz * 1.7 + dx * 0.2], l0: [wd.pos[0], y + 0.62, wd.pos[2]], l1: [wd.pos[0], y + 0.66, wd.pos[2]], f0: 54, f1: 40 },
-        { d: 15, p0: [wd.pos[0] + dx * 1.3 + dz * 0.9, y + 0.62, wd.pos[2] + dz * 1.3 - dx * 0.9], p1: [wd.pos[0] + dx * 1.1 + dz * 0.5, y + 0.72, wd.pos[2] + dz * 1.1 - dx * 0.5], l0: [wd.pos[0], y + 0.7, wd.pos[2]], l1: [wd.pos[0], y + 0.68, wd.pos[2]], f0: 44, f1: 38 }
+        { d: 12.5, p0: [wd.pos[0] + dx * 3.4 - dz * 0.8, y + 1.4, wd.pos[2] + dz * 3.4 + dx * 0.8], p1: [wd.pos[0] + dx * 2.2 - dz * 0.3, y + 1.35, wd.pos[2] + dz * 2.2 + dx * 0.3], l0: [wd.pos[0], y + 1.1, wd.pos[2]], l1: [wd.pos[0], y + 1.3, wd.pos[2]], f0: 50, f1: 40, key: [0.7, 0.6, 0.4, 0.75] },
+        { d: 15, p0: [wd.pos[0] + dx * 1.7 + dz * 0.9, y + 1.2, wd.pos[2] + dz * 1.7 - dx * 0.9], p1: [wd.pos[0] + dx * 1.45 + dz * 0.55, y + 1.3, wd.pos[2] + dz * 1.45 - dx * 0.55], l0: [wd.pos[0], y + 1.45, wd.pos[2]], l1: [wd.pos[0], y + 1.5, wd.pos[2]], f0: 40, f1: 32, key: [0.6, 0.5, 0.3, 0.8] }
       ],
       subs: [[0.6, 'Hà', 'Đừng lại gần! ...Minh? Là anh thật à?', 3.6], [4.8, 'Hà', 'Chị ấy không hại em. Chị ấy đứng ngoài cửa suốt, mỗi lần mấy cái bóng cầm đuốc đi qua.', 6],
         [11.4, 'Hà', 'Chị ấy chỉ đuổi anh, anh Tuấn... và chị Linh. Sao lại đúng ba người?', 5],
@@ -349,7 +362,7 @@
     hideActors(); keyLight.intensity = 0; if (s.end) s.end();
     if (AI.ritual && s.id !== 'well') AI.puppetEnd(8);
     $('cine').className = ''; $('cineSub').className = '';
-    var p = R.post; p.sepia = 0; p.desat = 0; p.fade = 0; p.white = 0; p.exposure = 1.15;
+    var p = R.post; p.sepia = 0; p.desat = 0; p.fade = 0; p.white = 0; p.exposure = 1.15; p.dof = 0; p.grade = 0;
     if (s.card) CS.card(s.card[0], s.card[1]);
     if (s.done) s.done();
   }
@@ -366,24 +379,29 @@
     while (s.sub < s.subs.length && s.subs[s.sub][0] <= t) { var q = s.subs[s.sub++]; sub(q[1], q[2], q[3]); }
     if (CS.subT > 0) { CS.subT -= dt; if (CS.subT <= 0) $('cineSub').className = ''; }
     if (s.tick) s.tick(t, dt);
-    // máy quay: nội suy vị trí + điểm nhìn, rung tay nhẹ
-    var e = ease(u), c = R.cam, rc = s.cam ? s.cam(sh, u) : null, px, py, pz, lx, ly, lz;
+    // máy quay: nội suy vị trí + điểm nhìn (hoặc hàm máy quay riêng của từng cảnh), rung tay
+    var e = sh.ease === 'lin' ? u : (sh.ease === 'out' ? 1 - (1 - u) * (1 - u) : M.lerp(u, ease(u), 0.45)), c = R.cam, rc = sh.cam ? sh.cam(u, t, dt) : (s.cam ? s.cam(sh, u) : null), px, py, pz, lx, ly, lz;
     if (rc) { px = rc.p[0]; py = rc.p[1]; pz = rc.p[2]; lx = rc.l[0] - px; ly = rc.l[1] - py; lz = rc.l[2] - pz; }
     else {
       px = M.lerp(sh.p0[0], sh.p1[0], e); py = M.lerp(sh.p0[1], sh.p1[1], e); pz = M.lerp(sh.p0[2], sh.p1[2], e);
       lx = M.lerp(sh.l0[0], sh.l1[0], e) - px; ly = M.lerp(sh.l0[1], sh.l1[1], e) - py; lz = M.lerp(sh.l0[2], sh.l1[2], e) - pz;
     }
+    var hd = sh.hand === undefined ? 1 : sh.hand;
     c.pos[0] = px; c.pos[1] = py; c.pos[2] = pz;
-    c.yaw = Math.atan2(-lx, -lz) + Math.sin(time * 0.9) * 0.004 + Math.sin(time * 2.3) * 0.002;
-    c.pitch = Math.atan2(ly, Math.hypot(lx, lz)) + Math.cos(time * 1.1) * 0.003; c.roll = Math.sin(time * 0.6) * 0.004;
+    c.yaw = Math.atan2(-lx, -lz) + (Math.sin(time * 0.9) * 0.004 + Math.sin(time * 2.3) * 0.002 + Math.sin(time * 5.1) * 0.0006) * hd;
+    c.pitch = Math.atan2(ly, Math.hypot(lx, lz)) + (Math.cos(time * 1.1) * 0.003 + Math.sin(time * 3.7) * 0.0008) * hd; c.roll = Math.sin(time * 0.6) * 0.004 * hd + (sh.roll || 0);
     c.fov = M.lerp(sh.f0, sh.f1, e);
-    keyLight.pos[0] = px; keyLight.pos[1] = py + 0.6; keyLight.pos[2] = pz; keyLight.intensity = 1.0;
+    // đèn chính đặt lệch máy quay (trên-phải) cho khối hình có sáng tối, thay vì rọi thẳng làm phẳng hình
+    var kd = sh.key || [0.9, 1.1, 0.2, 0.62], cy2 = Math.cos(c.yaw), sy2 = Math.sin(c.yaw);
+    keyLight.pos[0] = px + cy2 * kd[0] - sy2 * kd[2]; keyLight.pos[1] = py + kd[1]; keyLight.pos[2] = pz - sy2 * kd[0] - cy2 * kd[2]; keyLight.intensity = kd[3];
+    // lấy nét: mặc định vào điểm nhìn
+    R.post.focus = sh.focus || Math.hypot(lx, ly, lz); R.post.dof = sh.dof === undefined ? 0.9 : sh.dof; R.post.grade = 1;
     // hậu kỳ điện ảnh; hồi ức quá khứ ngả sepia, hạt phim dày
     var past = s.past && !sh.present, p = R.post, cut = Math.min(u * sh.d, (1 - u) * sh.d);
     p.sepia += ((past ? 0.85 : 0) - p.sepia) * Math.min(1, dt * 6); p.desat = 0; p.view = 0; p.scan = 0; p.veins = 0; p.pulse = 0;
-    p.vignette = past ? 0.95 : 0.78; p.aberr = past ? 0.009 : 0.004; p.barrel = past ? 0.12 : 0.05; p.grain = past ? 0.16 : 0.07; p.exposure = past ? 1.7 : 1.3;
+    p.vignette = past ? 0.95 : 0.78; p.aberr = past ? 0.009 : 0.004; p.barrel = past ? 0.12 : 0.05; p.grain = past ? 0.16 : 0.07; p.exposure = past ? 1.5 : 1.3;
     CS.white = Math.max(0, CS.white - dt * 1.6); p.white = CS.white;
-    p.fade = Math.max(1 - M.smooth(0, 0.5, t), M.smooth(s.total - 0.6, s.total, t), s.shots.length > 1 ? 1 - M.smooth(0, 0.22, cut) : 0);
+    p.fade = Math.max(1 - M.smooth(0, 0.7, t), M.smooth(s.total - 0.6, s.total, t), sh.dip ? 1 - M.smooth(0, 0.3, cut) : 0); // mặc định cắt cảnh dứt khoát; dip = mờ qua đen
   };
 
   /* máy quay cho các kết thúc */
@@ -402,7 +420,7 @@
     }
     c.pos[0] = px; c.pos[1] = py; c.pos[2] = pz; lx -= px; ly -= py; lz -= pz;
     c.yaw = Math.atan2(-lx, -lz) + Math.sin(time * 0.8) * 0.004; c.pitch = Math.atan2(ly, Math.hypot(lx, lz)); c.roll = 0;
-    var e = R.env; e.flCol[0] = e.flCol[1] = e.flCol[2] = 0; e.flHaze = 0; R.post.vignette = 0.8;
+    var e = R.env; e.flCol[0] = e.flCol[1] = e.flCol[2] = 0; e.flHaze = 0; R.post.vignette = 0.8; R.post.grade = 1; R.post.dof = 0;
   };
 
   /* ===================== BỐ TRÍ CỐT TRUYỆN MỞ RỘNG ===================== */

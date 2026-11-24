@@ -5,8 +5,8 @@
 (function () {
   'use strict';
   var H = window.HuyetLeThon = window.HuyetLeThon || {}, L = H.L = H.L || {}, KEY = 'HuyetLeThon_lang';
-  var lang = 'vi'; try { lang = localStorage.getItem(KEY) || (/^vi\b/i.test(navigator.language || 'vi') ? 'vi' : 'en'); } catch (e) { }
-  L.lang = lang === 'en' ? 'en' : 'vi';
+  var lang = 'en'; try { lang = localStorage.getItem(KEY) || 'en'; } catch (e) { } // mặc định tiếng Anh; người chơi đổi sang tiếng Việt ở menu
+  L.lang = lang === 'vi' ? 'vi' : 'en'; try { document.documentElement.lang = L.lang; } catch (e) { }
   var PAT = [
     [/^Nhặt (.+)$/, function (m) { return 'Pick up ' + tr(m[1]); }],
     [/^“(.+)”$/, function (m) { return '“' + tr(m[1]) + '”'; }],

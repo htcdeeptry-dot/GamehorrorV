@@ -356,7 +356,7 @@
       xenon: [0, 0, 0], wind: [0.8, 0.6, 0.35, 0], lightning: 0,
       fogCol: [0.028, 0.02, 0.026], fogDen: 0.016, mistBase: 0, mistFall: 0.55, mistDen: 0.05, rain: 1
     },
-    post: { aberr: 0, barrel: 0, grain: 0.05, vignette: 0.55, veins: 0, pulse: 0, view: 0, exposure: 1.15, fade: 0, white: 0, desat: 0, scan: 0, sepia: 0 },
+    post: { aberr: 0, barrel: 0, grain: 0.05, vignette: 0.55, veins: 0, pulse: 0, view: 0, exposure: 1.15, fade: 0, white: 0, desat: 0, scan: 0, sepia: 0, grade: 0, focus: 0, dof: 0 },
     stats: { draws: 0, tris: 0 },
     particles: null
   };
@@ -787,7 +787,7 @@
     gl.uniform4f(U(pf, 'uFx2'), po.veins, po.pulse, po.view, po.exposure);
     gl.uniform4f(U(pf, 'uFx3'), e.flHaze, e.flScreen[0], e.flScreen[1], e.xenon[0]);
     gl.uniform4f(U(pf, 'uFx4'), po.fade, po.desat, po.white, po.scan);
-    gl.uniform4f(U(pf, 'uFx5'), po.sepia || 0, 0, 0, 0);
+    gl.uniform4f(U(pf, 'uFx5'), po.sepia || 0, po.grade || 0, po.focus || 0, po.dof || 0);
     gl.uniform4f(U(pf, 'uPx'), 1 / rt.w, 1 / rt.h, 0.07, far);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);

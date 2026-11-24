@@ -279,6 +279,11 @@
     '  col=max(col+(col-nb*0.25)*0.6,vec3(0.0));',
     '#endif',
     '  float z=texture(uDepth,uv).r;',
+    // độ sâu trường ảnh (chỉ trong cắt cảnh): nhoè theo khoảng cách tới tiêu cự
+    '  if(uFx5.w>0.0){ if(any(isnan(col))||any(isinf(col))) col=vec3(0.0); col=min(col,vec3(12.0)); float lz0=uPx.z*uPx.w/(uPx.w-z*(uPx.w-uPx.z)); float coc=clamp(abs(lz0-uFx5.z)/max(lz0,0.5),0.0,1.0)*uFx5.w;',
+    '    if(coc>0.02){ vec3 acc=col; float wsum=1.0; for(int i=0;i<12;i++){ float a=float(i)*2.39996; float rr=sqrt((float(i)+0.5)/12.0); vec2 o2=vec2(cos(a),sin(a))*rr*coc*0.012*vec2(1.0/asp,1.0);',
+    '      float zs=texture(uDepth,uv+o2).r; float ls=uPx.z*uPx.w/(uPx.w-zs*(uPx.w-uPx.z)); float wgt=ls<lz0-0.5?clamp(abs(ls-uFx5.z)/max(ls,0.5)*uFx5.w*3.0,0.0,1.0):1.0;',
+    '      vec3 sv=texture(uScene,uv+o2).rgb; if(any(isnan(sv))||any(isinf(sv))) sv=vec3(0.0); acc+=min(sv,vec3(12.0))*wgt; wsum+=wgt; } col=acc/wsum; } }',
     '#ifdef SSAO',
     '  float lz=uPx.z*uPx.w/(uPx.w-z*(uPx.w-uPx.z));',
     '  if(lz<26.0){ float ao=0.0; float rad=0.3/lz; float rn=hash(vUV*uRes)*6.283;',
@@ -312,7 +317,10 @@
     '  if(uFx2.z>0.0){ col=mix(col,(vec3(lum)*vec3(0.82,1.0,0.86)+col*0.3)*2.3+vec3(0.004,0.007,0.005),uFx2.z); }',
     '  col=mix(col,vec3(lum),uFx4.y);',
     '  col=mix(col,vec3(lum)*vec3(1.22,1.0,0.74),uFx5.x);',
-    '  col=aces(col); col=pow(col,vec3(1.0/2.2));',
+    '  col=aces(col);',
+    // chỉnh màu điện ảnh: bóng tối xanh lạnh, vùng sáng ấm, tăng tương phản nhẹ
+    '  if(uFx5.y>0.0){ float l2=dot(col,vec3(0.3,0.59,0.11)); vec3 gr=col+mix(vec3(-0.012,0.006,0.03),vec3(0.035,0.012,-0.03),smoothstep(0.05,0.55,l2)); gr=mix(vec3(l2),gr,1.12); gr=gr*gr*(3.0-2.0*gr)*0.35+gr*0.65; col=mix(col,max(gr,vec3(0.0)),uFx5.y); }',
+    '  col=pow(col,vec3(1.0/2.2));',
     // hạt phim 35mm / VHS
     '  float g=hash(vUV*uRes+fract(uTime)*417.0)-0.5; float gs=uFx.z*(1.0+uFx2.z*2.5);',
     '  col+=g*gs*(0.35+0.65*(1.0-lum));',

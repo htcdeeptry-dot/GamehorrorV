@@ -477,7 +477,7 @@
     }
     // sấm chớp
     ltg.next -= dt;
-    if (ltg.next <= 0 && e.rain > 0.3) { ltg.next = 9 + Math.random() * 22; W.strike(Math.random() < 0.25); }
+    if (ltg.next <= 0 && e.rain > 0.3 && !(H.Cutscenes && H.Cutscenes.active)) { ltg.next = 9 + Math.random() * 22; W.strike(Math.random() < 0.25); }
     var target = 0;
     if (ltg.on) {
       ltg.t += dt; var sq = ltg.seq; target = 0;

@@ -234,7 +234,7 @@
   /* ===================== TRẠNG THÁI TRÒ CHƠI ===================== */
   function pause() { if (Main.state !== 'play') return; Main.state = 'paused'; unlock(); show('pause', true); A.suspend(true); }
   function resume() { show('pause', false); Main.state = 'play'; A.suspend(false); lock(); }
-  function resetEnv() { var e = R.env; for (var k in ENV0) e[k] = Array.isArray(ENV0[k]) ? ENV0[k].slice() : ENV0[k]; var p = R.post; p.fade = 0; p.white = 0; p.veins = 0; p.desat = 0; p.view = 0; p.scan = 0; p.exposure = 1.15; A.rainAmt = 1; W.mistMul = 1; W.lanterns.forEach(function (L) { L.blueT = 0; L.off = false; }); AI.calm = false; }
+  function resetEnv() { var e = R.env; for (var k in ENV0) e[k] = Array.isArray(ENV0[k]) ? ENV0[k].slice() : ENV0[k]; var p = R.post; p.fade = 0; p.white = 0; p.veins = 0; p.desat = 0; p.view = 0; p.scan = 0; p.exposure = 1.15; p.grade = 0; p.dof = 0; A.rainAmt = 1; W.mistMul = 1; W.lanterns.forEach(function (L) { L.blueT = 0; L.off = false; }); AI.calm = false; }
   function hasSave() { try { return !!localStorage.getItem(CFG.SAVE_KEY); } catch (e) { return !!Main.lastSave; } }
   Main.save = function (auto) {
     var d = Pz.serialize(); Main.lastSave = JSON.parse(JSON.stringify(d));
@@ -366,6 +366,9 @@
       Main.time += dt; e.time = Main.time;
       CS.update(dt, Main.time); W.update(dt, Main.time, R.cam.pos); if (AI.ritual) AI.update(dt, Main.time); FX.update(dt, e.wind);
       fw[0] = -Math.sin(R.cam.yaw); fw[1] = 0; fw[2] = -Math.cos(R.cam.yaw); A.update(dt, R.cam.pos, fw); timers(dt);
+    } else if (st === 'photo') { // chế độ chụp ảnh: máy quay tự do, thế giới vẫn chạy (mưa, gió, đèn chập chờn)
+      Main.time += dt; e.time = Main.time; W.update(dt, Main.time, R.cam.pos); if (AI.ritual) AI.update(dt, Main.time); FX.update(dt, e.wind);
+      if (Main.photoTick) Main.photoTick(dt, Main.time);
     } else if (st === 'menu' || st === 'dead') {
       Main.time += dt; e.time = Main.time;
       if (st !== 'dead') { // camera lượn chậm trước cổng làng

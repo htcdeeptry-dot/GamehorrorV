@@ -77,7 +77,7 @@
   function arch(pts, zc, yc, r, n) { for (var i = 0; i <= n; i++) { var a = Math.PI - i / n * Math.PI; pts.push([zc + Math.cos(a) * r, yc + Math.sin(a) * r]); } }
   function uaz() {
     var body = new Geo(), dark = new Geo(), canv = new Geo(), glass = new Geo(), chrome = new Geo(), rub = new Geo(), red = new Geo(), k, sgn;
-    var OL = [0.13, 0.155, 0.085];
+    var OL = [0.095, 0.108, 0.07];
     // thân dưới: biên dạng hông có hốc bánh xe
     var pr = [[-1.98, 0.46], [-1.71, 0.46]]; arch(pr, -1.19, 0.44, 0.52, 8); pr.push([0.67, 0.46]); arch(pr, 1.19, 0.44, 0.52, 8);
     pr.push([1.74, 0.46], [1.99, 0.6], [2.02, 0.98], [1.93, 1.13], [0.62, 1.23], [-1.98, 1.19]);
@@ -115,7 +115,7 @@
     }
     // lưới tản nhiệt khe đứng, cản trước/sau, móc kéo
     dark.add(Geo.box(0.86, 0.36, 0.03).xf(0, 0.88, 2.015));
-    for (k = 0; k < 8; k++) body.add(Geo.box(0.045, 0.34, 0.04).xf(-0.33 + k * 0.094, 0.88, 2.03).color(OL[0] * 1.1, OL[1] * 1.1, OL[2] * 1.1, 0));
+    for (k = 0; k < 8; k++) body.add(Geo.box(0.045, 0.34, 0.04).xf(-0.33 + k * 0.094, 0.88, 2.03).color(OL[0] * 0.8, OL[1] * 0.8, OL[2] * 0.8, 0));
     dark.add(Geo.box(1.86, 0.15, 0.14).xf(0, 0.5, 2.1)); dark.add(Geo.box(1.86, 0.15, 0.14).xf(0, 0.5, -2.06));
     for (sgn = -1; sgn <= 1; sgn += 2) { dark.add(Geo.tube([[sgn * 0.5, 0.5, 2.17], [sgn * 0.5, 0.42, 2.26], [sgn * 0.5, 0.52, 2.3]], 0.025, 5)); }
     // gầm xe (lộ ra vì xe lật nghiêng): khung, cầu, các-đăng, nhíp, bình xăng, ống xả
@@ -152,7 +152,7 @@
     // đèn pha trái còn chập chờn (sau khi lật nằm phía trên)
     var hp = wp(-0.6, 0.93, 2.09);
     var hl = new Node(R.mesh(Geo.sphere(0.1, 10, 8)), { tex: 'plain', unlit: 1, tint: [1, 0.92, 0.7, 1], emis: [2.5, 2.2, 1.6] }); hl.set(hp[0], hp[1], hp[2]); ctx.node(hl);
-    P.headLight = ctx.light([hp[0] + Math.sin(ry) * 1.4, hp[1] + 0.1, hp[2] + Math.cos(ry) * 1.4], [1.0, 0.86, 0.6], 13, 1.7); P.headNode = hl;
+    P.headLight = ctx.light([hp[0] + Math.sin(ry) * 3.2, hp[1] - 0.2, hp[2] + Math.cos(ry) * 3.2], [1.0, 0.86, 0.6], 11, 1.5); P.headNode = hl;
     P.jeep = { x: jx, z: jz, y: jy };
     // vệt trượt bánh xe từ mặt đường tới chỗ xe nằm
     for (k = 0; k < 2; k++) {
