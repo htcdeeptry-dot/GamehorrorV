@@ -128,7 +128,7 @@
       AI.alphaT = 0;
       if (glimpse > 0) { glimpse -= dt; AI.alphaT = glimpse > 0 ? 0.85 : 0; AI.alpha = AI.alphaT; }
       else if (AI.enabled) {
-        AI.cooldown -= dt * (1 + (100 - P.sanity) * 0.008);
+        AI.cooldown -= dt * (1 + Math.max(0, 70 - P.sanity) * 0.009);
         if (P.noise > 12 && stage() >= 2 && AI.cooldown < 14 && !P.hidden) { startInvestigate(P.noisePos[0], P.noisePos[1]); }
         else if (AI.cooldown <= 0) {
           var r = Math.random(), sg = stage();
@@ -138,7 +138,7 @@
     } else if (st === 'STALKING') {
       face(P.pos[0], P.pos[2], dt, 1.5);
       var lit = P.flashlight && d < 30 && fdot(P) > 0.972 && seePlayer();
-      if (lit || d < 6.5) { vanish(14 + Math.random() * 16 - stage() * 2, true); P.sanity = Math.max(0, P.sanity - (d < 6.5 ? 6 : 2)); }
+      if (lit || d < 6.5) { vanish(14 + Math.random() * 16 - stage() * 2, true); P.sanity = Math.max(0, P.sanity - (d < 6.5 ? 4 : 1.5)); }
       else if (AI.timer > linger) {
         var rr = Math.random();
         if (rr < 0.35) { AI.alphaT = 0; AI.cooldown = 3; set('DORMANT'); }
@@ -222,6 +222,7 @@
     else if (mode === 'scare') t = { arm: -1.25, elbow: -0.9, lean: 0.12, tilt: 0.12, mouth: 3.0, spread: 0.45 };
     else if (mode === 'calm') t = { arm: -0.02, elbow: -0.05, lean: 0, tilt: 0.05, mouth: 0.35, spread: 0.05 };
     for (var n in ps) ps[n] += (t[n] - ps[n]) * k;
+    ps.mode = mode;
     var tw = mode === 'hunt' || mode === 'scare' ? (Math.random() < 0.08 ? (Math.random() - 0.5) * 0.9 : 0) : 0;
     rig.body.pos[1] = 0.26 + Math.sin(time * 1.3) * 0.06; rig.body.rot[0] = ps.lean;
     rig.neck.rot[2] = ps.tilt + Math.sin(time * 0.7) * 0.05 + tw; rig.neck.rot[0] = Math.sin(time * 0.5) * 0.06 + (mode === 'scare' ? -0.1 : 0.12); rig.neck.rot[1] = tw * 0.6;

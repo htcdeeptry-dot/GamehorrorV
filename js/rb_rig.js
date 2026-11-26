@@ -115,7 +115,7 @@
     g.i = idx;
   }
   function tex(id, kind, uri, nuri) {
-    var key = 'rb:' + id + ':' + kind, size = Math.max(512, (R.q && R.q.tex) || 1024), m = R.materials[key] = { alb: R.textures.white, nrm: R.textures.flat, uv: 1 };
+    var key = 'rb:' + id + ':' + kind, size = Math.max(512, (R.q && R.q.tex) || 1024) * (id === 'ghost' ? 2 : 1), m = R.materials[key] = { alb: R.textures.white, nrm: R.textures.flat, uv: 1 };
     R.texFromURI(uri, size, m, 'alb'); if (nuri && R.q && R.q.normal) R.texFromURI(nuri, size, m, 'nrm');
     return key;
   }

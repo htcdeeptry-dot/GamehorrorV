@@ -210,7 +210,35 @@
   Ch.ghostSync = function (rig, ps, alpha, vis, calm) {
     var c = Ch.byName.ghost; if (!c) return false;
     c.visible = c.root.visible = vis; if (!vis) return true;
-    var J = c.J, rp = rig.root.pos, t = c.sp.tint, k;
+    var J = c.J, rp = rig.root.pos, t = c.sp.tint, k, X = H.RBRig, now = performance.now() / 1000, g = c.gs || (c.gs = { x: rp[0], z: rp[2], t: now, v: 0, idleT: 0, idle: 'Long_Breathe_and_Look_Around' });
+    // tốc độ di chuyển thực của hồn ma (để chọn clip đi / lao / đứng)
+    var gdt = Math.min(0.2, Math.max(1e-3, now - g.t)), gv = Math.hypot(rp[0] - g.x, rp[2] - g.z) / gdt; if (gv > 12) gv = 0; // dịch chuyển tức thời không tính
+    g.v += (gv - g.v) * Math.min(1, gdt * 5); g.x = rp[0]; g.z = rp[2]; g.t = now;
+    var mode = ps.mode || 'stalk', clipN = null;
+    if (c.rb && c.rb.rig.d.mx && X && X.hasClip('Long_Breathe_and_Look_Around', true)) {
+      if (mode === 'scare') clipN = 'Zombie_Scream';
+      else if (mode === 'exo') clipN = 'Head_Hold_in_Pain';
+      else if (mode === 'hunt') clipN = g.v > 2.2 ? 'Female_Head_Down_Charge' : (g.v > 0.35 ? 'Unsteady_Walk' : 'Zombie_Scream');
+      else if (g.v > 0.35) clipN = calm ? 'Walking_Woman' : (g.v > 1.6 ? 'Unsteady_Walk' : 'Walking_Woman');
+      else { // đứng: luân phiên thở dài nhìn quanh / chải tóc soi gương / quay ngoắt nhìn lại
+        g.idleT -= gdt; if (g.idleT <= 0) { var ch = calm ? ['Long_Breathe_and_Look_Around'] : ['Long_Breathe_and_Look_Around', 'Mirror_Viewing', 'Long_Breathe_and_Look_Around', 'Walking_Scan_with_Sudden_Look_Back']; g.idle = ch[(Math.random() * ch.length) | 0]; g.idleT = 7 + Math.random() * 5; }
+        clipN = g.idle;
+      }
+      if (!X.hasClip(clipN, true)) clipN = 'Long_Breathe_and_Look_Around';
+      c.rb.lockXZ = true; X.play(c.rb, clipN);
+      // nhịp clip theo tốc độ trượt để chân không lướt
+      var rbI = c.rb, clI = rbI.clip, pt0g = clI ? rbI.clipT % clI.dur : 0;
+      c.rb.clipT += gdt * (clipN === 'Female_Head_Down_Charge' ? M.clamp(g.v / 4.2, 0.6, 1.6) : /Walk/.test(clipN) && g.v > 0.35 ? M.clamp(g.v / 1.3, 0.55, 1.7) : 1);
+      if (clI && !clI.once && rbI.clipT % clI.dur < pt0g && rbI.fade >= 1) { rbI.from.set(rbI.cur); rbI.fromOff = rbI.off.slice(); rbI.fromYaw = rbI.yawNow || 0; rbI.fade = 0.4; } // nối vòng lặp mềm
+      rbI.fade = Math.min(1, rbI.fade + gdt / (mode === 'scare' ? 0.18 : 0.45));
+      var hover = /Walk|Charge/.test(clipN) ? 0.02 : 0.05 + Math.sin(now * 1.3) * 0.03; // lơ lửng nhẹ khi đứng
+      c.root.set(rp[0], rp[1] + hover, rp[2]); c.root.rot[1] = rig.root.rot[1];
+      c.lookYaw = rig.neck.rot[1] * 0.5; c.lookPit = 0;
+      var open = M.clamp((ps.mouth - 0.45) / 2.3, 0, 1); c.morph[0] = open; c.morph[1] = open * 0.25; c.morph[2] = 0; c.morph[3] = 0; c.morph[4] = calm ? 0.3 : -1; c.morph[5] = calm ? 0.2 : -0.8;
+      for (k = 0; k < c.rb.mats.length; k++) { var mt0 = c.rb.mats[k]; mt0.fade = alpha >= 0.999 ? 0 : Math.max(0.02, alpha); mt0.tint[0] = calm ? 0.8 : t[0]; mt0.tint[1] = calm ? 0.85 : t[1]; mt0.tint[2] = calm ? 1 : t[2]; mt0.emis = calm ? [0.03, 0.04, 0.07] : c.sp.emis; }
+      return true;
+    }
+    if (c.rb) X.play(c.rb, null);
     c.root.set(rp[0], rp[1] + rig.body.pos[1] - 0.14, rp[2]); c.root.rot[1] = rig.root.rot[1];
     J.chest.rot[0] = ps.lean; J.hips.rot[0] = ps.lean * 0.3; J.neck.rot[0] = rig.neck.rot[0]; J.neck.rot[1] = rig.neck.rot[1]; J.neck.rot[2] = rig.neck.rot[2] * 0.6; J.head.rot[2] = rig.neck.rot[2] * 0.5;
     J.shL.rot[0] = rig.armL.sh.rot[0]; J.shR.rot[0] = rig.armR.sh.rot[0]; J.shL.rot[2] = -ps.spread - 0.08; J.shR.rot[2] = ps.spread + 0.08; J.elL.rot[0] = rig.armL.el.rot[0]; J.elR.rot[0] = rig.armR.el.rot[0];
@@ -420,9 +448,11 @@
       if (c.look) {                                                                // đầu + mắt dõi theo
         var px = c.root.pos[0], pz = c.root.pos[2], py = c.root.pos[1] + (c.hipY + c.dy + 0.57) * c.root.scl[1];
         var dx = c.look[0] - px, dz = c.look[2] - pz, yaw = M.clamp(M.angDiff(c.root.rot[1], Math.atan2(dx, dz)), -1.1, 1.1), pit = M.clamp(-Math.atan2(c.look[1] - py, Math.hypot(dx, dz)), -0.6, 0.6);
+        if (c.lkY === undefined) { c.lkY = yaw; c.lkP = pit; } // ánh mắt chuyển điểm nhìn mềm như người thật (mắt đi trước, đầu theo sau)
+        var eY = yaw, eP = pit; c.lkY += (yaw - c.lkY) * Math.min(1, dt * 3.2); c.lkP += (pit - c.lkP) * Math.min(1, dt * 3.2); yaw = c.lkY; pit = c.lkP;
         T.neck[1] += yaw * 0.4; T.head[1] += yaw * 0.45; T.neck[0] += pit * 0.4; T.head[0] += pit * 0.45; T.chest[1] += yaw * 0.12;
-        c.eyes[0].rot[1] = c.eyes[1].rot[1] = yaw * 0.25; c.eyes[0].rot[0] = c.eyes[1].rot[0] = pit * 0.3; c.lookYaw = yaw; c.lookPit = pit;
-      } else { c.lookYaw = c.lookPit = 0; c.sacT = (c.sacT || 0) - dt; if (c.sacT <= 0) { c.sacT = 0.5 + Math.random() * 1.8; c.sacX = (Math.random() - 0.5) * 0.3; c.sacY = (Math.random() - 0.5) * 0.12; } c.eyes[0].rot[1] = c.eyes[1].rot[1] = c.sacX; c.eyes[0].rot[0] = c.eyes[1].rot[0] = c.sacY; }
+        c.eyes[0].rot[1] = c.eyes[1].rot[1] = M.clamp(eY * 0.35, -0.4, 0.4); c.eyes[0].rot[0] = c.eyes[1].rot[0] = eP * 0.3; c.lookYaw = yaw; c.lookPit = pit;
+      } else { c.lkY = (c.lkY || 0) * Math.max(0, 1 - dt * 2.5); c.lkP = (c.lkP || 0) * Math.max(0, 1 - dt * 2.5); c.lookYaw = c.lkY; c.lookPit = c.lkP; c.sacT = (c.sacT || 0) - dt; if (c.sacT <= 0) { c.sacT = 0.5 + Math.random() * 1.8; c.sacX = (Math.random() - 0.5) * 0.3; c.sacY = (Math.random() - 0.5) * 0.12; } c.eyes[0].rot[1] = c.eyes[1].rot[1] = c.sacX; c.eyes[0].rot[0] = c.eyes[1].rot[0] = c.sacY; }
       c.blink -= dt; var bl = c.blink < 0.13 ? 1 : 0; if (c.blink < 0) c.blink = 1.8 + Math.random() * 3.5;
       // biểu cảm + khẩu hình -> trọng số biến hình [há, bè, chúm, nhắm mắt, mày, cười]
       var ex = EXPR[c.expr || AEX[c.anim] || 'neutral'], mo = [ex[0], ex[1], ex[2], bl, ex[3], ex[4]], sp2 = c.speech;
@@ -444,6 +474,7 @@
         for (a3 = 0; a3 < 3; a3++) { vv[a3] += (kS * (tr[a3] - jr[a3]) - dS * vv[a3]) * h; jr[a3] += vv[a3] * h; }
       }
       J.hips.pos[1] += (c.hipY + c.dy - J.hips.pos[1]) * Math.min(1, dt * 6);
+      if (c.tYaw !== undefined) { var dyw = M.angDiff(c.root.rot[1], c.tYaw), ks = c.anim === 'walk' ? 30 : 18; c.yawV = (c.yawV || 0) + (ks * dyw - 2 * Math.sqrt(ks) * (c.yawV || 0)) * h; c.root.rot[1] += c.yawV * h; } // xoay người có đà
       if (c.rb) {
         var rb = c.rb; H.RBRig.play(rb, clipFor(c));
         var cl = rb.clip, rate = 1, rp = c.root.pos;
@@ -466,14 +497,16 @@
   Ch.put = function (name, x, y, z, ry, anim, look) {
     var c = Ch.byName[name]; if (!c) return null;
     if (!c.visible) { c.visible = c.root.visible = true; for (var k in c.T) { c.J[k].rot[0] = c.J[k].rot[1] = c.J[k].rot[2] = 0; } c.snap = true; }
-    c.root.set(x, y, z); c.baseY = y; c.root.rot[1] = ry; c.anim = anim || 'idle'; c.look = look || null;
+    var rp0 = c.root.pos, jump = c.snap || Math.hypot(rp0[0] - x, rp0[2] - z) > 1.2; // dịch chuyển xa (đổi cảnh) thì đặt thẳng, còn lại xoay người dần
+    c.root.set(x, y, z); c.baseY = y; c.tYaw = ry; if (jump) { c.root.rot[1] = ry; c.yawV = 0; c.lkY = c.lkP = undefined; } c.anim = anim || 'idle'; c.look = look || null;
     if (c.snap && c.rb) { H.RBRig.play(c.rb, clipFor(c), true); c.rb.fade = 1; }
     if (c.snap) { c.snap = false; c.V = {}; c.dy = 0; c.lastP = null; c.walkV = undefined; var T = c.T; for (k in T) T[k][0] = T[k][1] = T[k][2] = 0; (ANIM[c.anim] || ANIM.idle)(c, T, 0); for (k in T) { c.J[k].rot[0] = T[k][0]; c.J[k].rot[1] = T[k][1]; c.J[k].rot[2] = T[k][2]; } c.J.hips.pos[1] = c.hipY + c.dy; }
     return c;
   };
   /* đi bộ theo đoạn thẳng trong khoảng thời gian u = 0..1 */
   Ch.walkLine = function (name, a, b, u, dt, look) {
-    var x = M.lerp(a[0], b[0], u), z = M.lerp(a[1], b[1], u), moving = u > 0 && u < 1;
+    var r = 0.1, ue = u < r ? u * u / (2 * r * (1 - r)) : u > 1 - r ? 1 - (1 - u) * (1 - u) / (2 * r * (1 - r)) : (u - r / 2) / (1 - r); // tăng tốc / giảm tốc ở đầu và cuối đoạn đi
+    var x = M.lerp(a[0], b[0], ue), z = M.lerp(a[1], b[1], ue), moving = u > 0 && u < 1;
     var c = Ch.put(name, x, H.World.heightAt(x, z), z, Math.atan2(b[0] - a[0], b[1] - a[1]), moving ? 'walk' : 'idle', look);
     if (c && moving) c.walk += dt * 6.2; return c;
   };

@@ -301,7 +301,6 @@
 "Ảnh hiện trường (": "Scene photos (",
 "Vén cửa lều tối": "Lift the darkroom tent flap",
 "Mở hòm sắt": "Open the iron chest",
-"HÒM SẮT ĐOÀN ĐO ĐẠC — NGÀY ĐOÀN TỚI": "SURVEY PARTY IRON CHEST — THE DAY WE ARRIVED",
 "cửa lều": "tent door",
 "Tháo xích, kéo đò sang sông": "Unchain the ferry and haul it across",
 "Xem dây đò": "Examine the ferry rope",
@@ -485,6 +484,12 @@
 "ÂM LINH": "ÂM LINH",
 "GIÁP TUẤT": "GIÁP TUẤT",
 "...Linh? Hà?": "...Linh? Hà?",
+"HÒM SẮT — NGÀY + THÁNG ĐOÀN TỚI (NN TT)": "IRON CHEST — DAY + MONTH THE PARTY ARRIVED (DD MM)",
+"Minh: Không đúng. Bốn số là ngày và tháng đoàn tới đây... cuốn nhật trình trên bàn có ghi ngày dựng trạm.": "Minh: Wrong. Four digits — the day and month the party arrived... the logbook on the table has the date they set up camp.",
+"Minh: Nhật trình viết \"Ngày 21 tháng 9\". Còn tấm kính trong lều tối ghi \"21.IX\" — IX là số La Mã của tháng 9.": "Minh: The logbook says \"21st of September\". And the glass plate in the dark tent reads \"21.IX\" — IX is Roman for September.",
+"Minh: Ngày 21, tháng 09... vậy là 2 - 1 - 0 - 9.": "Minh: Day 21, month 09... so it's 2 - 1 - 0 - 9.",
+"Thanh TÂM TRÍ tụt dần trong bóng tối và khi nhìn thấy Lệ Nương. Đứng dưới ánh đèn lồng hoặc bật đèn pin để hồi lại.": "Your SANITY drains slowly in the dark and whenever you see Lệ Nương. Stand under a lantern or switch on your flashlight to recover.",
+"Tâm Trí đang thấp: bạn sẽ thấy ảo giác và Lệ Nương săn bạn thường xuyên hơn. Hãy tìm chỗ có ánh sáng!": "Sanity is low: you'll start hallucinating and Lệ Nương will hunt you more often. Find some light!",
 "NHIỆM VỤ & TÚI ĐỒ": "OBJECTIVES & INVENTORY",
 "Nhiệm vụ, gợi ý, túi đồ & nhật ký": "Objectives, hints, inventory & journal"
 };})();

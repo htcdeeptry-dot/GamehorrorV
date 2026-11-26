@@ -146,12 +146,17 @@
     }
     P.white = Math.max(0, P.white - dt * 5);
     // ----- Tâm Trí & nhịp tim
-    var lit = P.flashlight || P.camAnim > 0.6;
-    if (!lit) { var Ls = W.lanterns; for (k = 0; k < Ls.length; k++) { var L = Ls[k]; if (L.light && !L.off && Math.hypot(L.base[0] - P.pos[0], L.base[2] - P.pos[2]) < 9) { lit = true; break; } } }
+    var lit = P.flashlight || P.camAnim > 0.6, lant = false;
+    var Ls = W.lanterns; for (k = 0; k < Ls.length; k++) { var L = Ls[k]; if (L.light && !L.off && Math.hypot(L.base[0] - P.pos[0], L.base[2] - P.pos[2]) < 9) { lant = lit = true; break; } }
     P.inLight = lit;
-    var ds = lit ? 0.7 : -1.5;
-    if (AI.seen) ds -= 5.5; if (AI.state === 'HUNTING') ds -= 2.2; if (W.inGrave) ds -= 0.5; if (P.hidden && AI.prox > 0.3) ds -= 1.5;
+    /* Tâm Trí: tụt chậm trong bóng tối (~6 phút từ đầy về cạn), hồi nhanh dưới ánh sáng; tụt mạnh khi nhìn thấy Lệ Nương.
+       Tâm Trí càng thấp: màn hình nhoè & mất màu, tim đập nhanh, nàng săn bạn thường xuyên hơn; dưới 30 bắt đầu thấy ảo giác. */
+    var ds = lant ? 1.8 : lit ? 0.35 : (P.pos[2] > 160 && !W.inGrave ? -0.12 : -0.28); // rừng ngoài làng tụt rất chậm
+    if (AI.seen) ds -= 3.2; if (AI.state === 'HUNTING') ds -= 0.9; if (W.inGrave) ds -= 0.25; if (P.hidden && AI.prox > 0.3) ds -= 0.8;
     if (ds > 0 && (AI.state === 'HUNTING' || AI.seen)) ds = 0;
+    if (!P.sanHint && P.sanity < 75) { P.sanHint = 1; H.UI.hint('sanity'); }
+    if (P.sanHint === 1 && P.sanity < 35) { P.sanHint = 2; H.UI.hint('sanityLow', 0, true); }
+    if (P.sanity > 60 && P.sanHint === 2) P.sanHint = 1;
     P.sanity = M.clamp(P.sanity + ds * dt, 0, 100);
     var bt = 65 + (100 - P.sanity) * 0.5 + AI.threat * 62 + (P.sprinting ? 16 : 0) + (P.exhausted ? 14 : 0) + (P.holding ? (C.breathMax - P.breath) * 4 : 0);
     bt = M.clamp(bt, 65, 180);

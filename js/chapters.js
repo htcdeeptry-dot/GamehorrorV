@@ -26,8 +26,12 @@
     var ch = Pp.chest;
     api.add({ pos: ch.pos, r: 2.4, wide: true, enabled: function () { return !f.chestOpen; }, label: 'Mở hòm sắt', use: function () {
       if (!f.plate) api.say(L.chestLocked, 5);
-      UI.keypad(4, 'HÒM SẮT ĐOÀN ĐO ĐẠC — NGÀY ĐOÀN TỚI', function (code) {
-        if (code !== '2109') return false;
+      UI.keypad(4, 'HÒM SẮT — NGÀY + THÁNG ĐOÀN TỚI (NN TT)', function (code) {
+        if (code !== '2109') { // gợi ý tăng dần sau mỗi lần sai
+          f.chestTry = (f.chestTry || 0) + 1;
+          setTimeout(function () { api.say(f.chestTry >= 3 ? L.chestHint3 : f.chestTry === 2 ? L.chestHint2 : L.chestHint1, 6); }, 600);
+          return false;
+        }
         f.chestOpen = 1; A.click(0.8); A.creak(ch.pos, 0.6, 1.3); api.give('ferryKey'); api.say(L.chestOpen, 5);
         setTimeout(function () { Pz.addDiary('d18', true); }, 900);
         api.setObj('w5'); Pz.checkpoint(); C.scare = { t: 0, x: 37, z: 279.5, on: false, from: 'camp' };
@@ -60,7 +64,7 @@
   /* đèn flash: lộ tấm kính ảnh trong lều tối, hồi ức xác thuyền, xua bóng áo đỏ */
   C.onFlash = function () {
     var c = H.R.cam.pos, dr = WD.props.darkroom, wr = WD.props.wreck;
-    if (!f.plate && Math.hypot(dr.x - c[0], dr.z - c[2]) < 7.5 && P.lookDot(dr.x, dr.y + 0.9, dr.z) > 0.55) {
+    if (!f.plate && Math.hypot(dr.x - c[0], dr.z - c[2]) < 9 && P.lookDot(dr.x, dr.y + 0.9, dr.z) > 0.4) {
       f.plate = 1; A.bell(null, 220);
       setTimeout(function () { play('camp1934', function () { Pz.addDiary('d19', true); api.setObj('w4'); Pz.checkpoint(); }); }, 700);
     }
@@ -94,7 +98,7 @@
         var sp = look > 0.6 ? 0.35 : (P.sprinting ? 5.2 : 1.8);
         AI.pos[0] += dx / d * sp * dt; AI.pos[2] += dz / d * sp * dt; AI.pos[1] = Wd.heightAt(AI.pos[0], AI.pos[2]); AI.faceT = [P.pos[0], P.pos[2]];
         A.stress = Math.max(A.stress || 0, M.clamp(1 - d / 25, 0, 1));
-        if (d < 1.8) { P.sanity = Math.max(5, P.sanity - 35); P.shake = 0.12; A.scream(AI.pos, false); AI.puppetEnd(30); C.scare = null; }
+        if (d < 1.8) { P.sanity = Math.max(25, P.sanity - 20); P.shake = 0.12; A.scream(AI.pos, false); AI.puppetEnd(30); C.scare = null; }
         else if (s.t > 30) { AI.puppetEnd(20); C.scare = null; }
       }
     }

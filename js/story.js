@@ -63,6 +63,9 @@
   L.shrineAfter = 'Minh: Cô ấy chỉ về phía đông bắc... nơi có ánh lửa tàn.';
   L.campDark = 'Minh: Lều tối đen kịt, mùi hoá chất rửa ảnh. Thử chụp đèn flash vào trong xem.';
   L.chestLocked = 'Minh: Hòm sắt khoá bốn số. Morel phải ghi mã ở đâu đó trong trạm.';
+  L.chestHint1 = 'Minh: Không đúng. Bốn số là ngày và tháng đoàn tới đây... cuốn nhật trình trên bàn có ghi ngày dựng trạm.';
+  L.chestHint2 = 'Minh: Nhật trình viết "Ngày 21 tháng 9". Còn tấm kính trong lều tối ghi "21.IX" — IX là số La Mã của tháng 9.';
+  L.chestHint3 = 'Minh: Ngày 21, tháng 09... vậy là 2 - 1 - 0 - 9.';
   L.chestOpen = 'Minh: Chìa khoá đò... và trang cuối nhật trình của Morel.';
   L.redCamp = 'Minh: Đứng yên. Nhìn thẳng vào nó. Đừng quay lưng...';
   L.redGone = 'Minh: Nó lùi lại rồi. Ông nội nói đúng.';
@@ -87,7 +90,9 @@
     run: '[Shift] Chạy · [Ctrl]/[X] Cúi người đi khẽ',
     ambush: '[C] rồi [Chuột trái]: chụp thẳng mặt nó để trấn áp · [E] trốn vào tủ, giường',
     hide: 'Giữ [Space] để nín thở · [E] ra ngoài',
-    mirror: 'Giữ [R] soi Gương Đồng — vệt sáng trên vành gương chỉ hướng lễ vật'
+    mirror: 'Giữ [R] soi Gương Đồng — vệt sáng trên vành gương chỉ hướng lễ vật',
+    sanity: 'Thanh TÂM TRÍ tụt dần trong bóng tối và khi nhìn thấy Lệ Nương. Đứng dưới ánh đèn lồng hoặc bật đèn pin để hồi lại.',
+    sanityLow: 'Tâm Trí đang thấp: bạn sẽ thấy ảo giác và Lệ Nương săn bạn thường xuyên hơn. Hãy tìm chỗ có ánh sáng!'
   };
   /* hướng dẫn chi tiết cho từng nhiệm vụ (sổ nhiệm vụ) */
   CFG.OBJ_HINT = {
