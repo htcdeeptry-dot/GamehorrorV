@@ -24,12 +24,14 @@
     var dr = Pp.darkroom;
     api.add({ pos: [dr.door[0], dr.y + 1.0, dr.door[1]], r: 2.8, wide: true, enabled: function () { return !f.plate; }, label: 'Vén cửa lều tối', use: function () { api.say(L.campDark, 5); H.UI.hint('flashSpirit', 0.5); f.darkHint = 1; } });
     var ch = Pp.chest;
-    api.add({ pos: ch.pos, r: 2.4, wide: true, enabled: function () { return !f.chestOpen; }, label: 'Mở hòm sắt', use: function () {
+    api.add({ pos: ch.pos, r: 3.0, wide: true, enabled: function () { return !f.chestOpen; }, label: 'Mở hòm sắt', use: function () {
       if (!f.plate) api.say(L.chestLocked, 5);
       UI.keypad(4, 'HÒM SẮT — NGÀY + THÁNG ĐOÀN TỚI (NN TT)', function (code) {
         if (code !== '2109') { // gợi ý tăng dần sau mỗi lần sai
           f.chestTry = (f.chestTry || 0) + 1;
-          setTimeout(function () { api.say(f.chestTry >= 3 ? L.chestHint3 : f.chestTry === 2 ? L.chestHint2 : L.chestHint1, 6); }, 600);
+          // gợi ý chậm rãi: mỗi 2 lần sai mới lộ thêm một bước, lần thứ 8 mới nói thẳng mã
+          var tn = f.chestTry, hk = tn >= 8 ? 'chestHint4' : tn >= 6 ? 'chestHint3' : tn >= 4 ? 'chestHint2' : tn >= 2 ? 'chestHint1' : 'chestHint0';
+          setTimeout(function () { api.say(L[hk], 6); }, 600);
           return false;
         }
         f.chestOpen = 1; A.click(0.8); A.creak(ch.pos, 0.6, 1.3); api.give('ferryKey'); api.say(L.chestOpen, 5);
@@ -87,6 +89,7 @@
     if (!f.bridgeSeen && near(10, 247.5, 5.5)) {
       f.bridgeSeen = 1; play('bridge', function () { api.say(L.bridgeHint, 5); api.setObj('w6'); Pz.checkpoint(); });
     }
+    if (!f.chestSeen && !f.chestOpen && near(Pp.chest.x, Pp.chest.z, 11)) { f.chestSeen = 1; api.say(L.chestSee, 6); }
     if (!f.wharfHint && near(86, 241, 9)) { f.wharfHint = 1; api.say(L.wreckHint, 5); }
     // bóng áo đỏ: đứng yên nhìn thẳng thì nó chậm lại, quay lưng chạy thì nó lao tới
     var s = C.scare;

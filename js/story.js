@@ -63,9 +63,12 @@
   L.shrineAfter = 'Minh: Cô ấy chỉ về phía đông bắc... nơi có ánh lửa tàn.';
   L.campDark = 'Minh: Lều tối đen kịt, mùi hoá chất rửa ảnh. Thử chụp đèn flash vào trong xem.';
   L.chestLocked = 'Minh: Hòm sắt khoá bốn số. Morel phải ghi mã ở đâu đó trong trạm.';
-  L.chestHint1 = 'Minh: Không đúng. Bốn số là ngày và tháng đoàn tới đây... cuốn nhật trình trên bàn có ghi ngày dựng trạm.';
-  L.chestHint2 = 'Minh: Nhật trình viết "Ngày 21 tháng 9". Còn tấm kính trong lều tối ghi "21.IX" — IX là số La Mã của tháng 9.';
-  L.chestHint3 = 'Minh: Ngày 21, tháng 09... vậy là 2 - 1 - 0 - 9.';
+  L.chestSee = 'Minh: Cái hòm sắt sơn xanh dưới ngọn đèn bão kia... khoá số bốn chữ. Đồ của đoàn đo đạc.';
+  L.chestHint0 = 'Minh: Không mở... Bốn con số. Hòm của đoàn đo đạc — mã chắc gắn với chính chuyến đi của họ.';
+  L.chestHint1 = 'Minh: Ngày và tháng đoàn tới đây... Đoàn đo đạc nào cũng ghi chép cẩn thận. Phải có giấy tờ gì quanh trạm.';
+  L.chestHint2 = 'Minh: Cuốn nhật trình trên bàn gỗ... trang đầu hẳn ghi ngày họ dựng trạm. Còn cái lều tối kia nữa — ông nội từng nói máy ảnh thấy được những gì đã xảy ra.';
+  L.chestHint3 = 'Minh: Nhật trình viết "ngày 21 tháng 9". Tấm kính trong lều tối ghi "21.IX" — IX là số La Mã của tháng chín.';
+  L.chestHint4 = 'Minh: Ngày 21, tháng 09... vậy là 2 - 1 - 0 - 9.';
   L.chestOpen = 'Minh: Chìa khoá đò... và trang cuối nhật trình của Morel.';
   L.redCamp = 'Minh: Đứng yên. Nhìn thẳng vào nó. Đừng quay lưng...';
   L.redGone = 'Minh: Nó lùi lại rồi. Ông nội nói đúng.';

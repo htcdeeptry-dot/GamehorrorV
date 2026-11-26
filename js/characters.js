@@ -197,7 +197,7 @@
       var old = /^(khai|cha|bayHon)$/.test(c.name), rough = /^(khai|bay|tran)$/.test(c.name);
       if (a === 'walk') { c.rb.lockXZ = true; return old ? 'Elderly_Shaky_Walk' : (sp.spirit || c.name === 'bayHon' ? 'Unsteady_Walk' : (fem ? 'Walking_Woman' : 'Walking')); }
       if (a === 'idle') return talk ? (rough && c.expr !== 'fear' ? 'Stand_Talking_Angry' : 'Talk_with_Hands_Open') : (sp.mxIdle || 'Idle');
-      if (a === 'cower') return 'Head_Hold_in_Pain';
+      if (a === 'cower') return c.name === 'minh' ? 'Head_Hold_in_Pain' : null; // Minh ôm đầu (choáng); người khác co ro ngồi thu mình trong góc (tư thế thủ tục)
       if (a === 'recoil') { c.rb.lockXZ = true; return 'Step_Back'; }
       return null;
     }
@@ -215,25 +215,32 @@
     var gdt = Math.min(0.2, Math.max(1e-3, now - g.t)), gv = Math.hypot(rp[0] - g.x, rp[2] - g.z) / gdt; if (gv > 12) gv = 0; // dịch chuyển tức thời không tính
     g.v += (gv - g.v) * Math.min(1, gdt * 5); g.x = rp[0]; g.z = rp[2]; g.t = now;
     var mode = ps.mode || 'stalk', clipN = null;
-    if (c.rb && c.rb.rig.d.mx && X && X.hasClip('Long_Breathe_and_Look_Around', true)) {
+    if (c.rb && c.rb.rig.d.mx && X && X.hasClip('Idle', true)) {
+      // trạng thái di chuyển có vùng đệm + giữ tối thiểu, tránh đổi clip giật liên tục
+      g.hold = (g.hold || 0) - gdt;
+      var movingNow = g.mv ? g.v > 0.22 : g.v > 0.55; if (movingNow !== !!g.mv && g.hold <= 0) { g.mv = movingNow; g.hold = 0.7; }
       if (mode === 'scare') clipN = 'Zombie_Scream';
       else if (mode === 'exo') clipN = 'Head_Hold_in_Pain';
-      else if (mode === 'hunt') clipN = g.v > 2.2 ? 'Female_Head_Down_Charge' : (g.v > 0.35 ? 'Unsteady_Walk' : 'Zombie_Scream');
-      else if (g.v > 0.35) clipN = calm ? 'Walking_Woman' : (g.v > 1.6 ? 'Unsteady_Walk' : 'Walking_Woman');
-      else { // đứng: luân phiên thở dài nhìn quanh / chải tóc soi gương / quay ngoắt nhìn lại
-        g.idleT -= gdt; if (g.idleT <= 0) { var ch = calm ? ['Long_Breathe_and_Look_Around'] : ['Long_Breathe_and_Look_Around', 'Mirror_Viewing', 'Long_Breathe_and_Look_Around', 'Walking_Scan_with_Sudden_Look_Back']; g.idle = ch[(Math.random() * ch.length) | 0]; g.idleT = 7 + Math.random() * 5; }
+      else if (g.mv) clipN = mode === 'hunt' || g.v > 2.0 ? 'Unsteady_Walk' : 'Walking_Woman'; // khi săn: bước xiêu vẹo, phần còn lại là trôi lướt như hồn ma
+      else { // đứng: phần lớn đứng lặng nhìn chằm chằm; thỉnh thoảng thở dài / chải tóc khi còn ở xa
+        g.idleT -= gdt;
+        if (g.idleT <= 0) { var dP = H.Player ? Math.hypot(H.Player.pos[0] - rp[0], H.Player.pos[2] - rp[2]) : 99, r0 = Math.random();
+          g.idle = calm || mode === 'hunt' ? 'Idle' : (dP > 14 && r0 < 0.3 ? 'Mirror_Viewing' : (r0 < 0.55 ? 'Long_Breathe_and_Look_Around' : 'Idle')); g.idleT = 8 + Math.random() * 6; }
         clipN = g.idle;
       }
-      if (!X.hasClip(clipN, true)) clipN = 'Long_Breathe_and_Look_Around';
+      if (!X.hasClip(clipN, true)) clipN = 'Idle';
       c.rb.lockXZ = true; X.play(c.rb, clipN);
       // nhịp clip theo tốc độ trượt để chân không lướt
       var rbI = c.rb, clI = rbI.clip, pt0g = clI ? rbI.clipT % clI.dur : 0;
-      c.rb.clipT += gdt * (clipN === 'Female_Head_Down_Charge' ? M.clamp(g.v / 4.2, 0.6, 1.6) : /Walk/.test(clipN) && g.v > 0.35 ? M.clamp(g.v / 1.3, 0.55, 1.7) : 1);
+      c.rb.clipT += gdt * (/Walk/.test(clipN) ? M.clamp(g.v / (clipN === 'Unsteady_Walk' ? 1.6 : 1.25), 0.6, 1.5) : 1);
       if (clI && !clI.once && rbI.clipT % clI.dur < pt0g && rbI.fade >= 1) { rbI.from.set(rbI.cur); rbI.fromOff = rbI.off.slice(); rbI.fromYaw = rbI.yawNow || 0; rbI.fade = 0.4; } // nối vòng lặp mềm
       rbI.fade = Math.min(1, rbI.fade + gdt / (mode === 'scare' ? 0.18 : 0.45));
-      var hover = /Walk|Charge/.test(clipN) ? 0.02 : 0.05 + Math.sin(now * 1.3) * 0.03; // lơ lửng nhẹ khi đứng
-      c.root.set(rp[0], rp[1] + hover, rp[2]); c.root.rot[1] = rig.root.rot[1];
-      c.lookYaw = rig.neck.rot[1] * 0.5; c.lookPit = 0;
+      var hT = /Walk/.test(clipN) ? 0.02 : (mode === 'scare' ? rig.body.pos[1] - 0.14 : 0.06 + Math.sin(now * 1.1) * 0.025); // lơ lửng nhẹ khi đứng
+      g.hov = g.hov === undefined ? hT : g.hov + (hT - g.hov) * Math.min(1, gdt * 4);
+      c.root.set(rp[0], rp[1] + g.hov, rp[2]); c.root.rot[1] = rig.root.rot[1];
+      var Pl = H.Player, wantY = 0, wantP = 0;
+      if (Pl && mode !== 'scare' && mode !== 'exo') { var lx = Pl.pos[0] - rp[0], lz = Pl.pos[2] - rp[2], ld = Math.hypot(lx, lz) || 1; wantY = M.clamp(M.angDiff(c.root.rot[1], Math.atan2(lx, lz)), -1.0, 1.0); wantP = M.clamp(-Math.atan2((Pl.gy || 0) + 1.6 - rp[1] - 1.5, ld), -0.5, 0.5); }
+      c.lookYaw = (c.lookYaw || 0) + (wantY - (c.lookYaw || 0)) * Math.min(1, gdt * 2.5); c.lookPit = (c.lookPit || 0) + (wantP - (c.lookPit || 0)) * Math.min(1, gdt * 2.5);
       var open = M.clamp((ps.mouth - 0.45) / 2.3, 0, 1); c.morph[0] = open; c.morph[1] = open * 0.25; c.morph[2] = 0; c.morph[3] = 0; c.morph[4] = calm ? 0.3 : -1; c.morph[5] = calm ? 0.2 : -0.8;
       for (k = 0; k < c.rb.mats.length; k++) { var mt0 = c.rb.mats[k]; mt0.fade = alpha >= 0.999 ? 0 : Math.max(0.02, alpha); mt0.tint[0] = calm ? 0.8 : t[0]; mt0.tint[1] = calm ? 0.85 : t[1]; mt0.tint[2] = calm ? 1 : t[2]; mt0.emis = calm ? [0.03, 0.04, 0.07] : c.sp.emis; }
       return true;

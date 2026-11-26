@@ -241,10 +241,21 @@
     th.xf(vx, vy, vz, 0, 1.2, 0); ctx.add('metal', th);
     // hòm sắt của đoàn
     var cx = 28.5, cz = 290.5, cy = T(cx, cz), ch = new Geo();
-    ch.add(box(1.0, 0.5, 0.62, 0, 0.25, 0)); ch.add(box(1.04, 0.06, 0.66, 0, 0.08, 0)); ch.add(box(1.04, 0.06, 0.66, 0, 0.44, 0)); ch.color(0.16, 0.17, 0.16, 0);
-    ch.xf(cx, cy, cz, 0, -0.3, 0); ctx.add('metal', ch); ctx.circle(cx, cz, 0.6, { low: true });
-    var lid = new Node(R.mesh(box(1.02, 0.1, 0.64, 0, 0.05, 0.32).color(0.17, 0.18, 0.17, 0)), { tex: 'metal', rough: 0.4 });
-    lid.set(cx - Math.sin(-0.3) * 0.31, cy + 0.5, cz - Math.cos(-0.3) * 0.31); lid.rot[1] = -0.3; ctx.node(lid);
+    // hòm sơn xanh lính, đai đồng, vạch sơn trắng — đặt dưới cây đèn bão cho dễ thấy
+    ch.add(box(1.1, 0.52, 0.66, 0, 0.26, 0).color(0.2, 0.25, 0.13, 0));
+    ch.add(box(1.14, 0.06, 0.7, 0, 0.08, 0).color(0.62, 0.45, 0.18, 0)); ch.add(box(1.14, 0.06, 0.7, 0, 0.46, 0).color(0.62, 0.45, 0.18, 0));
+    [-0.4, 0.4].forEach(function (x) { ch.add(box(0.07, 0.54, 0.7, x, 0.27, 0).color(0.62, 0.45, 0.18, 0)); });
+    ch.add(box(0.5, 0.09, 0.01, 0, 0.3, 0.335).color(0.85, 0.83, 0.75, 0)); // vạch sơn trắng mặt trước
+    ch.add(box(0.12, 0.14, 0.04, 0, 0.4, 0.35).color(0.75, 0.6, 0.25, 0));    // ổ khoá số bằng đồng
+    ch.xf(cx, cy, cz, 0, -0.3, 0); ctx.add('metal', ch); ctx.circle(cx, cz, 0.65, { low: true });
+    // cột treo đèn bão bên cạnh hòm
+    var lpx = cx + 0.95, lpz = cz + 0.35, lpy = T(lpx, lpz), pole = new Geo();
+    pole.add(box(0.07, 1.9, 0.07, 0, 0.95, 0)); pole.add(box(0.5, 0.05, 0.05, -0.22, 1.86, 0)); pole.color(0.4, 0.3, 0.2, 0); pole.xf(lpx, lpy, lpz); ctx.add('wood', pole); ctx.circle(lpx, lpz, 0.12, { low: true });
+    var lg = new Geo(); lg.add(box(0.16, 0.03, 0.16, 0, 0.12, 0)); lg.add(box(0.16, 0.03, 0.16, 0, -0.12, 0)); lg.add(Geo.tube([[0, 0.14, 0], [0, 0.24, 0]], 0.012, 5)); lg.color(0.25, 0.22, 0.18, 0); lg.xf(lpx - 0.42, lpy + 1.62, lpz); ctx.add('metal', lg);
+    var lb = new Node(R.mesh(Geo.sphere(0.065, 10, 8)), { tex: 'plain', unlit: 1, tint: [1, 0.85, 0.55, 1], emis: [3, 2.1, 0.9] }); lb.set(lpx - 0.42, lpy + 1.62, lpz); ctx.node(lb);
+    P.chestLight = ctx.light([lpx - 0.42, lpy + 1.5, lpz], [1.0, 0.72, 0.38], 7, 1.25); P.chestBulb = lb;
+    var lid = new Node(R.mesh(box(1.12, 0.1, 0.68, 0, 0.05, 0.34).color(0.21, 0.26, 0.14, 0)), { tex: 'metal', rough: 0.4 });
+    lid.set(cx - Math.sin(-0.3) * 0.33, cy + 0.52, cz - Math.cos(-0.3) * 0.33); lid.rot[1] = -0.3; ctx.node(lid);
     P.chest = { pos: [cx, cy + 0.6, cz], lid: lid, x: cx, z: cz, y: cy };
     // thùng gỗ, bếp lửa nguội, mộ chữ thập
     for (k = 0; k < 5; k++) { var bx2 = 15 + rnd() * 3 + (k > 2 ? 9 : 0), bz2 = 298 - rnd() * 3 - (k > 2 ? 2 : 0), s = 0.45 + rnd() * 0.25; ctx.add('wood', box(s, s, s * 1.3, bx2, T(bx2, bz2) + s / 2, bz2).xf(0, 0, 0).color(0.7, 0.62, 0.5, 0)); ctx.circle(bx2, bz2, s * 0.7, { low: true }); }
@@ -555,6 +566,7 @@
     var P = WD.props, k;
     if (P.headLight) { var fl = Math.sin(time * 23) * Math.sin(time * 7.1) > 0.82 ? 0.1 : (0.85 + 0.15 * Math.sin(time * 31)); P.headLight.intensity = 1.7 * fl; P.headNode.mat.emis[0] = 2.5 * fl; P.headNode.mat.emis[1] = 2.2 * fl; P.headNode.mat.emis[2] = 1.6 * fl; }
     if (P.shrineLight) P.shrineLight.intensity = 0.9 * (0.8 + 0.2 * Math.sin(time * 9) * Math.sin(time * 5.3));
+    if (P.chestLight) { var cf = 0.88 + 0.12 * Math.sin(time * 6.3) * Math.sin(time * 2.9); P.chestLight.intensity = 1.25 * cf; P.chestBulb.mat.emis[0] = 3 * cf; }
     if (P.campLight) P.campLight.intensity = 0.5 * (0.7 + 0.3 * Math.sin(time * 1.7));
     if (P.ferry && !WD.ferryBusy) { var f = P.ferry; f.node.pos[1] = f.a[1] + Math.sin(time * 1.3) * 0.04; f.node.rot[2] = Math.sin(time * 0.9) * 0.02; }
   };

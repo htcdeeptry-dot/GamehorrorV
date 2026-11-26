@@ -124,13 +124,29 @@
   var CLIPS = {};
   function clip(name, rig) {
     var mx = !!rig.d.mx, key = (mx ? 'mx:' : 'rb:') + name, c = CLIPS[key];
-    if (!c) { var s = mx ? (RB.mxAnims && RB.mxAnims.clips[name]) : (RB.anims && RB.anims[name]); if (!s) return null; c = CLIPS[key] = { nf: s.nf, dt: s.dt, q: bin(s.q, Int16Array), pt: bin(s.pt, Int16Array), names: s.names, nb: s.names.length, dur: s.nf * s.dt, maps: {}, corrs: {}, mx: mx, srcH: mx ? RB.mxAnims.srcHeight : 1.78, yaw: s.yaw || 0, once: /^(Step_Back|Kneel_on_One_Knee_and_Stand|Strangled_and_Fall_Forward|Zombie_Scream|Dont_You_Dare)$/.test(name) }; } // once: phát một lần rồi giữ khung cuối, không lặp giật
+    if (!c) { var s = mx ? (RB.mxAnims && RB.mxAnims.clips[name]) : (RB.anims && RB.anims[name]); if (!s) return null; c = CLIPS[key] = { nf: s.nf, dt: s.dt, q: bin(s.q, Int16Array), pt: bin(s.pt, Int16Array), names: s.names, nb: s.names.length, dur: s.nf * s.dt, maps: {}, corrs: {}, mx: mx, srcH: mx ? RB.mxAnims.srcHeight : 1.78, yaw: s.yaw || 0, rest: s.rest || null, once: /^(Step_Back|Kneel_on_One_Knee_and_Stand|Strangled_and_Fall_Forward|Zombie_Scream|Dont_You_Dare)$/.test(name) }; } // once: phát một lần rồi giữ khung cuối, không lặp giật
     if (!c.maps[rig.id]) {
       var mp = new Int16Array(rig.NB).fill(-1); c.names.forEach(function (n, i) { if (rig.IDX[n] !== undefined) mp[rig.IDX[n]] = i; }); c.maps[rig.id] = mp;
-      if (mx) { // chuyển clip giữa các khung xương Mixamo khác tư thế nghỉ: q' = restĐích * restNguồn^-1 * q
-        var cr = new Float32Array(rig.NB * 4), RS = RB.mxAnims.rest;
-        for (var b = 0; b < rig.NB; b++) { var rs = RS[rig.names[b]] || [0, 0, 0, 1], o = [0, 0, 0, 1]; qmul(o, 0, rig.restL, b * 4, qc(rs), 0); cr.set(o, b * 4); }
-        c.corrs[rig.id] = cr;
+      if (mx) { // chuyển clip giữa các khung xương Mixamo khác tư thế nghỉ, giữ nguyên tư thế trong không gian thế giới:
+        // O = WnghỉNguồn^-1 * WnghỉĐích ;  q' = O_cha^-1 * q * (nghỉNguồn^-1 * O_cha * nghỉĐích)
+        var NB = rig.NB, RS = c.rest || RB.mxAnims.rest, Ws = new Array(NB), Wd = new Array(NB), O = new Array(NB), pre = new Float32Array(NB * 4), post = new Float32Array(NB * 4), ID4 = [0, 0, 0, 1];
+        rig.order.forEach(function (b) {
+          var p = rig.par[b], rl = [rig.restL[b * 4], rig.restL[b * 4 + 1], rig.restL[b * 4 + 2], rig.restL[b * 4 + 3]], rs = RS[rig.names[b]] || rl, pw = p >= 0 ? Wd[p] : rig.d.rootQ, ps = p >= 0 ? Ws[p] : rig.d.rootQ;
+          Wd[b] = qm(pw, rl); Ws[b] = qm(ps, rs); O[b] = qm(qc(Ws[b]), Wd[b]);
+          var Op = p >= 0 ? O[p] : ID4; pre.set(qc(Op), b * 4); post.set(qm(qm(qc(rs), Op), rl), b * 4);
+        });
+        // hướng hông trung bình của clip trên khung xương này so với tư thế nghỉ -> góc bù để nhân vật luôn quay mặt đúng hướng
+        var yaw = 0, iL = rig.IDX['L Thigh'], iR = rig.IDX['R Thigh'], iP = rig.IDX.Pelvis, ci = c.maps[rig.id][iP];
+        if (iL !== undefined && iR !== undefined && ci >= 0) {
+          var vx = rig.P[iL * 3] - rig.P[iR * 3], vz = rig.P[iL * 3 + 2] - rig.P[iR * 3 + 2], a0 = Math.atan2(vz, vx), sx = 0, sz = 0, WdI = qc(Wd[iP]), qf = [0, 0, 0, 1], tq = [0, 0, 0, 1], v3 = [0, 0, 0];
+          for (var f = 0; f < c.nf; f += Math.max(1, (c.nf / 24) | 0)) {
+            var qo = (f * c.nb + ci) * 4; qf = [c.q[qo] / 32767, c.q[qo + 1] / 32767, c.q[qo + 2] / 32767, c.q[qo + 3] / 32767];
+            qmul(tq, 0, pre, iP * 4, qf, 0); qmul(qf, 0, tq, 0, post, iP * 4); var D = qm(qm(rig.d.rootQ, qf), WdI);
+            qrot(D, 0, vx, 0, vz, v3); var da = Math.atan2(v3[2], v3[0]) - a0; sx += Math.cos(da); sz += Math.sin(da);
+          }
+          yaw = Math.atan2(sz, sx);
+        }
+        c.corrs[rig.id] = { pre: pre, post: post, yaw: yaw };
       }
     }
     return c;
@@ -182,7 +198,7 @@
     if (cl) { ox = (cl.pt[f0 * 3] + (cl.pt[f1 * 3] - cl.pt[f0 * 3]) * fu) / 8192 * sc; oy = (cl.pt[f0 * 3 + 1] + (cl.pt[f1 * 3 + 1] - cl.pt[f0 * 3 + 1]) * fu) / 8192 * sc; oz = (cl.pt[f0 * 3 + 2] + (cl.pt[f1 * 3 + 2] - cl.pt[f0 * 3 + 2]) * fu) / 8192 * sc; if (inst.lockXZ) { ox = oz = 0; } }
     if (fd < 1) { ox = inst.fromOff[0] + (ox - inst.fromOff[0]) * fd; oy = inst.fromOff[1] + (oy - inst.fromOff[1]) * fd; oz = inst.fromOff[2] + (oz - inst.fromOff[2]) * fd; }
     // bù góc xoay hông của clip (clip đứng xéo vẫn quay mặt về hướng nhân vật)
-    var yT = cl ? cl.yaw : 0, yN = fd < 1 ? (inst.fromYaw || 0) + (yT - (inst.fromYaw || 0)) * fd : yT; inst.yawNow = yN;
+    var yT = cor ? cor.yaw : 0, /* góc bù đo theo từng khung xương (xem clip()) */ yN = fd < 1 ? (inst.fromYaw || 0) + (yT - (inst.fromYaw || 0)) * fd : yT; inst.yawNow = yN;
     var ycs = Math.cos(yN), ysn = Math.sin(yN), YQ = [0, Math.sin(yN / 2), 0, Math.cos(yN / 2)];
     if (yN) { var tx = ox * ycs + oz * ysn; oz = -ox * ysn + oz * ycs; ox = tx; }
     inst.off[0] = ox; inst.off[1] = oy; inst.off[2] = oz;
@@ -192,7 +208,7 @@
       if (useClip) { // clip: nội suy 2 khung
         var q0 = (f0 * cl.nb + ci) * 4, q1 = (f1 * cl.nb + ci) * 4, Q = cl.q, dt = Q[q0] * Q[q1] + Q[q0 + 1] * Q[q1 + 1] + Q[q0 + 2] * Q[q1 + 2] + Q[q0 + 3] * Q[q1 + 3], sg = dt < 0 ? -fu : fu;
         for (k = 0; k < 4; k++) QL[k] = Q[q0 + k] * (1 - fu) + Q[q1 + k] * sg;
-        if (cor) { QC.set(QL); qmul(QL, 0, cor, o, QC, 0); }
+        if (cor) { qmul(QC, 0, cor.pre, o, QL, 0); qmul(QL, 0, QC, 0, cor.post, o); }
         if ((kd === 4 || kd === 5) && (c.lookYaw || c.lookPit)) { // đầu vẫn dõi theo điểm nhìn khi đang phát clip
           qeuler(QE, (c.lookPit || 0) * 0.45, (c.lookYaw || 0) * 0.45, 0); qmul(QC, 0, A, o, QE, 0); QT[0] = -A[o]; QT[1] = -A[o + 1]; QT[2] = -A[o + 2]; QT[3] = A[o + 3]; qmul(QE, 0, QC, 0, QT, 0); QC.set(QL); qmul(QL, 0, QE, 0, QC, 0);
         }
